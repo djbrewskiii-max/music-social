@@ -10,6 +10,9 @@ export default function RootLayout() {
         },
       }}
     >
+      <Stack.Screen name="signup" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="now" />
       <Stack.Screen name="index" />
       <Stack.Screen name="listeners" />
       <Stack.Screen name="profile" />

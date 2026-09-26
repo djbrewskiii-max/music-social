@@ -1,166 +1,61 @@
-import { router } from 'expo-router';
+import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  Pressable,
+  ActivityIndicator,
   SafeAreaView,
   StyleSheet,
-  Text,
-  View,
 } from 'react-native';
 
+import { supabase } from '../supabase';
+
 export default function HomeScreen() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>NOW</Text>
-        <View style={styles.liveDot} />
-      </View>
+  const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
 
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>YOU'RE LISTENING TO</Text>
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        <View style={styles.album}>
-          <Text style={styles.albumLetter}>HOB</Text>
-        </View>
+      setSignedIn(!!session);
+      setLoading(false);
+    };
 
-        <Text style={styles.song}>The Morning</Text>
-        <Text style={styles.artist}>The Weeknd</Text>
-        <Text style={styles.albumName}>House of Balloons</Text>
+    checkSession();
 
-        <View style={styles.divider} />
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session);
+      setLoading(false);
+    });
 
-        <Text style={styles.liveText}>
-          ● 18 people are listening to The Weeknd
-        </Text>
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
-        <Pressable
-          onPress={() => router.push('/listeners')}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.buttonText}>See who's listening</Text>
-        </Pressable>
-      </View>
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingScreen}>
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      </SafeAreaView>
+    );
+  }
 
-      <Text style={styles.bottomText}>
-        discover who else is listening.
-      </Text>
-    </SafeAreaView>
-  );
+  if (signedIn) {
+    return <Redirect href="/now" />;
+  }
+
+  return <Redirect href="/signup" />;
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingScreen: {
     flex: 1,
     backgroundColor: '#090909',
-    paddingHorizontal: 24,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-
-  logo: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 4,
-  },
-
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#39E75F',
-    marginLeft: 8,
-  },
-
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-
-  eyebrow: {
-    color: '#777777',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 2,
-    marginBottom: 20,
-  },
-
-  album: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#181818',
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 28,
-  },
-
-  albumLetter: {
-    color: '#333333',
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: 5,
-  },
-
-  song: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '700',
-  },
-
-  artist: {
-    color: '#CCCCCC',
-    fontSize: 19,
-    marginTop: 5,
-  },
-
-  albumName: {
-    color: '#666666',
-    fontSize: 14,
-    marginTop: 4,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: '#222222',
-    marginVertical: 24,
-  },
-
-  liveText: {
-    color: '#BEBEBE',
-    fontSize: 15,
-    marginBottom: 18,
-  },
-
-  button: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 17,
-    borderRadius: 30,
-    alignItems: 'center',
-  },
-
-  buttonPressed: {
-    backgroundColor: '#AAAAAA',
-    transform: [{ scale: 0.98 }],
-  },
-
-  buttonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  bottomText: {
-    color: '#555555',
-    textAlign: 'center',
-    fontSize: 12,
-    paddingBottom: 18,
-    letterSpacing: 1,
   },
 });
