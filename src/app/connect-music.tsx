@@ -1,5 +1,8 @@
+import { Auth, AuthStatus } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import {
+    Alert,
     Pressable,
     SafeAreaView,
     StyleSheet,
@@ -8,8 +11,48 @@ import {
 } from 'react-native';
 
 export default function ConnectMusicScreen() {
+  const [connecting, setConnecting] = useState(false);
+
+  const connectAppleMusic = async () => {
+    try {
+      setConnecting(true);
+
+      const result = await Auth.authorize();
+
+      console.log('Apple Music authorization:', result);
+
+      if (result.status === AuthStatus.AUTHORIZED) {
+        Alert.alert(
+          'Apple Music connected',
+          'NOW can now access your Apple Music data.',
+          [
+            {
+              text: 'Continue',
+              onPress: () => router.replace('/now'),
+            },
+          ]
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Apple Music not connected',
+        'NOW needs Apple Music permission to build your Music DNA.'
+      );
+    } catch (error) {
+      console.error('Apple Music connection error:', error);
+
+      Alert.alert(
+        'Could not connect Apple Music',
+        'Something went wrong while requesting Apple Music access.'
+      );
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   const continueForNow = () => {
-    router.replace('/connect-music');
+    router.replace('/now');
   };
 
   return (
@@ -29,15 +72,18 @@ export default function ConnectMusicScreen() {
 
           <View style={styles.services}>
             <Pressable
+              disabled={connecting}
               style={({ pressed }) => [
                 styles.appleButton,
-                pressed && styles.pressed,
+                (pressed || connecting) && styles.pressed,
               ]}
-              onPress={() => {}}
+              onPress={connectAppleMusic}
             >
               <View>
                 <Text style={styles.appleLabel}>APPLE MUSIC</Text>
-                <Text style={styles.appleText}>Connect Apple Music</Text>
+                <Text style={styles.appleText}>
+                  {connecting ? 'Connecting...' : 'Connect Apple Music'}
+                </Text>
               </View>
 
               <Text style={styles.arrow}>→</Text>

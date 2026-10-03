@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -18,11 +19,61 @@ export default function SetupProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
+
   const [loading, setLoading] = useState(false);
+  const [checkingProfile, setCheckingProfile] =
+    useState(true);
+
+  useEffect(() => {
+    loadExistingProfile();
+  }, []);
+
+  const loadExistingProfile = async () => {
+    setCheckingProfile(true);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setCheckingProfile(false);
+      router.replace('/login');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name, username, city')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.log(
+        'Existing profile check error:',
+        error.message
+      );
+    }
+
+    if (data) {
+      setDisplayName(data.display_name || '');
+      setUsername(data.username || '');
+      setCity(data.city || '');
+    }
+
+    setCheckingProfile(false);
+  };
 
   const saveProfile = async () => {
-    if (!displayName.trim() || !username.trim() || !city.trim()) {
-      Alert.alert('Almost there', 'Fill out all three fields.');
+    if (
+      !displayName.trim() ||
+      !username.trim() ||
+      !city.trim()
+    ) {
+      Alert.alert(
+        'Almost there',
+        'Fill out all three fields.'
+      );
       return;
     }
 
@@ -35,7 +86,12 @@ export default function SetupProfileScreen() {
 
     if (userError || !user) {
       setLoading(false);
-      Alert.alert('Session error', 'Please sign in again.');
+
+      Alert.alert(
+        'Session error',
+        'Please sign in again.'
+      );
+
       router.replace('/login');
       return;
     }
@@ -45,17 +101,58 @@ export default function SetupProfileScreen() {
       .replace(/^@/, '')
       .toLowerCase();
 
-    const { error } = await supabase.from('profiles').insert({
-      user_id: user.id,
-      display_name: displayName.trim(),
-      username: cleanUsername,
-      city: city.trim(),
-    });
+    const { data: existingProfile, error: checkError } =
+      await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (checkError) {
+      setLoading(false);
+
+      Alert.alert(
+        'Could not check profile',
+        checkError.message
+      );
+
+      return;
+    }
+
+    let saveError = null;
+
+    if (existingProfile) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          display_name: displayName.trim(),
+          username: cleanUsername,
+          city: city.trim(),
+        })
+        .eq('user_id', user.id);
+
+      saveError = error;
+    } else {
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: user.id,
+          display_name: displayName.trim(),
+          username: cleanUsername,
+          city: city.trim(),
+        });
+
+      saveError = error;
+    }
 
     setLoading(false);
 
-    if (error) {
-      Alert.alert('Could not save profile', error.message);
+    if (saveError) {
+      Alert.alert(
+        'Could not save profile',
+        saveError.message
+      );
+
       return;
     }
 
@@ -68,24 +165,43 @@ export default function SetupProfileScreen() {
     city.trim().length > 0 &&
     !loading;
 
+  if (checkingProfile) {
+    return (
+      <SafeAreaView style={styles.loadingScreen}>
+        <ActivityIndicator
+          size="large"
+          color="#ffffff"
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : undefined
+        }
       >
         <View style={styles.content}>
           <View>
             <Text style={styles.logo}>NOW</Text>
 
-            <Text style={styles.heading}>Make it yours.</Text>
+            <Text style={styles.heading}>
+              Make it yours.
+            </Text>
 
             <Text style={styles.subheading}>
               This is how people will know you on NOW.
             </Text>
 
             <View style={styles.form}>
-              <Text style={styles.label}>DISPLAY NAME</Text>
+              <Text style={styles.label}>
+                DISPLAY NAME
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -96,7 +212,9 @@ export default function SetupProfileScreen() {
                 autoCorrect={false}
               />
 
-              <Text style={styles.label}>USERNAME</Text>
+              <Text style={styles.label}>
+                USERNAME
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -108,7 +226,9 @@ export default function SetupProfileScreen() {
                 autoCorrect={false}
               />
 
-              <Text style={styles.label}>CITY</Text>
+              <Text style={styles.label}>
+                CITY
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -127,12 +247,17 @@ export default function SetupProfileScreen() {
               disabled={!canContinue}
               style={({ pressed }) => [
                 styles.button,
-                !canContinue && styles.buttonDisabled,
-                pressed && canContinue && styles.buttonPressed,
+                !canContinue &&
+                  styles.buttonDisabled,
+                pressed &&
+                  canContinue &&
+                  styles.buttonPressed,
               ]}
             >
               <Text style={styles.buttonText}>
-                {loading ? 'Saving...' : 'Continue'}
+                {loading
+                  ? 'Saving...'
+                  : 'Continue'}
               </Text>
             </Pressable>
 
@@ -150,6 +275,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090909',
+  },
+
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: '#090909',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   content: {

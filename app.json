@@ -8,7 +8,12 @@
     "scheme": "musicsocial",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.brewskiii.musicsocial",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppleMusicUsageDescription": "NOW uses your Apple Music activity and library to help you discover people who listen like you."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,11 +37,18 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "@wwdrew/expo-apple-music"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ec97215f-fbf5-47ed-a26d-5626c7dde9c5"
+      }
     }
   }
 }

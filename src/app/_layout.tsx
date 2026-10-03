@@ -10,13 +10,21 @@ export default function RootLayout() {
         },
       }}
     >
+      <Stack.Screen name="index" />
       <Stack.Screen name="signup" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="setup-profile" />
+      <Stack.Screen name="connect-music" />
+
       <Stack.Screen name="now" />
-      <Stack.Screen name="index" />
       <Stack.Screen name="listeners" />
+      <Stack.Screen name="messages" />
+      <Stack.Screen name="my-profile" />
+
       <Stack.Screen name="profile" />
       <Stack.Screen name="chat" />
+      <Stack.Screen name="create-post" />
+      <Stack.Screen name="post" />
     </Stack>
   );
 }

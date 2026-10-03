@@ -30,15 +30,65 @@ export default function LoginScreen() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const {
+      data: signInData,
+      error: signInError,
+    } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
 
+    if (signInError) {
+      setLoading(false);
+
+      Alert.alert(
+        'Could not sign in',
+        signInError.message
+      );
+
+      return;
+    }
+
+    const user = signInData.user;
+
+    if (!user) {
+      setLoading(false);
+
+      Alert.alert(
+        'Session error',
+        'Could not load your account.'
+      );
+
+      return;
+    }
+
+    const {
+      data: existingProfile,
+      error: profileError,
+    } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     setLoading(false);
 
-    if (error) {
-      Alert.alert('Could not sign in', error.message);
+    if (profileError) {
+      console.log(
+        'Profile check error:',
+        profileError
+      );
+
+      Alert.alert(
+        'Could not load profile',
+        profileError.message
+      );
+
+      return;
+    }
+
+    if (!existingProfile) {
+      router.replace('/setup-profile');
       return;
     }
 
@@ -49,20 +99,30 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : undefined
+        }
       >
         <View style={styles.content}>
           <View>
-            <Text style={styles.logo}>NOW</Text>
+            <Text style={styles.logo}>
+              NOW
+            </Text>
 
-            <Text style={styles.heading}>Welcome back.</Text>
+            <Text style={styles.heading}>
+              Welcome back.
+            </Text>
 
             <Text style={styles.subheading}>
               Sign in and see who's listening.
             </Text>
 
             <View style={styles.form}>
-              <Text style={styles.label}>EMAIL</Text>
+              <Text style={styles.label}>
+                EMAIL
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -75,7 +135,9 @@ export default function LoginScreen() {
                 autoCorrect={false}
               />
 
-              <Text style={styles.label}>PASSWORD</Text>
+              <Text style={styles.label}>
+                PASSWORD
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -92,22 +154,42 @@ export default function LoginScreen() {
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.button,
-                  pressed && styles.buttonPressed,
-                  loading && styles.buttonDisabled,
+                  pressed &&
+                    styles.buttonPressed,
+                  loading &&
+                    styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.buttonText}>
-                  {loading ? 'Signing in...' : 'Sign in'}
+                <Text
+                  style={styles.buttonText}
+                >
+                  {loading
+                    ? 'Signing in...'
+                    : 'Sign in'}
                 </Text>
               </Pressable>
 
               <Pressable
-                onPress={() => router.replace('/signup')}
-                style={styles.signupButton}
+                onPress={() =>
+                  router.replace(
+                    '/signup'
+                  )
+                }
+                style={
+                  styles.signupButton
+                }
               >
-                <Text style={styles.signupText}>
+                <Text
+                  style={
+                    styles.signupText
+                  }
+                >
                   New here?{' '}
-                  <Text style={styles.signupBold}>
+                  <Text
+                    style={
+                      styles.signupBold
+                    }
+                  >
                     Create an account
                   </Text>
                 </Text>

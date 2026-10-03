@@ -1,0 +1,207 @@
+import { router } from 'expo-router';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+type BottomNavProps = {
+  active:
+    | 'now'
+    | 'discover'
+    | 'messages'
+    | 'profile';
+};
+
+export default function BottomNav({
+  active,
+}: BottomNavProps) {
+  const goTo = (
+    destination:
+      | '/now'
+      | '/listeners'
+      | '/messages'
+      | '/my-profile'
+  ) => {
+    router.replace(destination);
+  };
+
+  return (
+    <View style={styles.container}>
+      <Pressable
+        style={styles.item}
+        onPress={() => goTo('/now')}
+      >
+        <Text
+          style={[
+            styles.icon,
+            active === 'now' && styles.active,
+          ]}
+        >
+          ◉
+        </Text>
+
+        <Text
+          style={[
+            styles.label,
+            active === 'now' && styles.active,
+          ]}
+        >
+          HOME
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.item}
+        onPress={() => goTo('/listeners')}
+      >
+        <Text
+          style={[
+            styles.icon,
+            active === 'discover' && styles.active,
+          ]}
+        >
+          ◌
+        </Text>
+
+        <Text
+          style={[
+            styles.label,
+            active === 'discover' && styles.active,
+          ]}
+        >
+          DISCOVER
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.createWrap}
+        onPress={() => router.push('/create-post')}
+      >
+        {({ pressed }) => (
+          <View
+            style={[
+              styles.createButton,
+              pressed && styles.createButtonPressed,
+            ]}
+          >
+            <Text style={styles.createText}>+</Text>
+          </View>
+        )}
+      </Pressable>
+
+      <Pressable
+        style={styles.item}
+        onPress={() => goTo('/messages')}
+      >
+        <Text
+          style={[
+            styles.icon,
+            active === 'messages' && styles.active,
+          ]}
+        >
+          ◫
+        </Text>
+
+        <Text
+          style={[
+            styles.label,
+            active === 'messages' && styles.active,
+          ]}
+        >
+          MESSAGES
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.item}
+        onPress={() => goTo('/my-profile')}
+      >
+        <Text
+          style={[
+            styles.icon,
+            active === 'profile' && styles.active,
+          ]}
+        >
+          ○
+        </Text>
+
+        <Text
+          style={[
+            styles.label,
+            active === 'profile' && styles.active,
+          ]}
+        >
+          ME
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    height: 78,
+    borderTopWidth: 1,
+    borderTopColor: '#202020',
+    backgroundColor: '#090909',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 5,
+    paddingTop: 8,
+    paddingBottom: 5,
+  },
+
+  item: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  icon: {
+    color: '#555555',
+    fontSize: 22,
+    lineHeight: 24,
+  },
+
+  label: {
+    color: '#555555',
+    fontSize: 7,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginTop: 5,
+  },
+
+  active: {
+    color: '#FFFFFF',
+  },
+
+  createWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  createButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  createButtonPressed: {
+    opacity: 0.65,
+    transform: [{ scale: 0.94 }],
+  },
+
+  createText: {
+    color: '#000000',
+    fontSize: 29,
+    fontWeight: '400',
+    lineHeight: 32,
+  },
+});
