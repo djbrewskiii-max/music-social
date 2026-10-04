@@ -93,7 +93,9 @@ export default function ListenersScreen() {
 
     const myArtistNames = new Set(
       myArtists
-        .map((artist) => normalize(artist.name))
+        .map((artist) =>
+          normalize(artist.name)
+        )
         .filter(Boolean)
     );
 
@@ -148,11 +150,14 @@ export default function ListenersScreen() {
     return {
       sharedArtists:
         uniqueSharedArtists,
+
       sharedTracks:
         uniqueSharedTracks,
+
       overlapCount:
         uniqueSharedArtists.length +
         uniqueSharedTracks.length,
+
       hasMusicDNA: true,
     };
   };
@@ -303,9 +308,7 @@ export default function ListenersScreen() {
             );
           });
 
-      setListeners(
-        rankedListeners
-      );
+      setListeners(rankedListeners);
     } catch (error) {
       console.log(
         'Listeners error:',
@@ -323,9 +326,7 @@ export default function ListenersScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={styles.screen}
-    >
+    <SafeAreaView style={styles.screen}>
       <View style={styles.page}>
         <ScrollView
           style={styles.scroll}
@@ -355,22 +356,87 @@ export default function ListenersScreen() {
           </View>
 
           <Text style={styles.eyebrow}>
-            LISTENING WITH YOU
+            FIND YOUR PEOPLE
           </Text>
 
           <Text style={styles.title}>
-            Who sounds like you?
+            Discover.
           </Text>
 
           <Text style={styles.subtitle}>
-            People on NOW ranked by the
-            music you have in common.
+            Find people who sound like
+            you — and the shows bringing
+            everyone together.
           </Text>
 
-          {loading ? (
+          <View style={styles.tabs}>
             <View
-              style={styles.loading}
+              style={[
+                styles.tab,
+                styles.tabActive,
+              ]}
             >
+              <Text
+                style={[
+                  styles.tabText,
+                  styles.tabTextActive,
+                ]}
+              >
+                PEOPLE
+              </Text>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.tab,
+                pressed &&
+                  styles.tabPressed,
+              ]}
+              onPress={() =>
+                router.push('/concerts')
+              }
+            >
+              <Text
+                style={styles.tabText}
+              >
+                CONCERTS
+              </Text>
+            </Pressable>
+          </View>
+
+          <View
+            style={
+              styles.sectionHeading
+            }
+          >
+            <Text
+              style={
+                styles.sectionEyebrow
+              }
+            >
+              MUSIC MATCH
+            </Text>
+
+            <Text
+              style={
+                styles.sectionTitle
+              }
+            >
+              Who sounds like you?
+            </Text>
+
+            <Text
+              style={
+                styles.sectionSubtitle
+              }
+            >
+              Ranked by the music you
+              have in common.
+            </Text>
+          </View>
+
+          {loading ? (
+            <View style={styles.loading}>
               <ActivityIndicator
                 size="large"
                 color="#ffffff"
@@ -471,9 +537,7 @@ export default function ListenersScreen() {
 
                   return (
                     <Pressable
-                      key={
-                        listener.id
-                      }
+                      key={listener.id}
                       style={({
                         pressed,
                       }) => [
@@ -597,8 +661,7 @@ export default function ListenersScreen() {
                                 styles.matchLabel
                               }
                             >
-                              THINGS IN
-                              COMMON
+                              THINGS IN COMMON
                             </Text>
                           </View>
 
@@ -689,29 +752,6 @@ export default function ListenersScreen() {
             </View>
           )}
 
-          {!loading &&
-            listeners.length > 0 && (
-              <View
-                style={
-                  styles.bottomNote
-                }
-              >
-                <View
-                  style={
-                    styles.liveDot
-                  }
-                />
-
-                <Text
-                  style={
-                    styles.bottomNoteText
-                  }
-                >
-                  RANKED BY YOUR MUSIC
-                </Text>
-              </View>
-            )}
-
           <Text style={styles.footer}>
             YOUR MUSIC. YOUR PEOPLE. RIGHT
             NOW.
@@ -724,294 +764,331 @@ export default function ListenersScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: '#050505',
-    },
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#050505',
+  },
 
-    page: {
-      flex: 1,
-    },
+  page: {
+    flex: 1,
+  },
 
-    scroll: {
-      flex: 1,
-    },
+  scroll: {
+    flex: 1,
+  },
 
-    content: {
-      paddingHorizontal: 22,
-      paddingTop: 10,
-      paddingBottom: 50,
-    },
+  content: {
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 50,
+  },
 
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent:
-        'space-between',
-      minHeight: 60,
-      marginBottom: 38,
-    },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent:
+      'space-between',
+    minHeight: 60,
+    marginBottom: 34,
+  },
 
-    brand: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    logo: {
-      color: '#ffffff',
-      fontSize: 20,
-      fontWeight: '900',
-      letterSpacing: 3,
-    },
+  logo: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 3,
+  },
 
-    brandDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-      backgroundColor: '#39E75F',
-      marginLeft: 8,
-    },
+  brandDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#39E75F',
+    marginLeft: 8,
+  },
 
-    headerLabel: {
-      color: '#555555',
-      fontSize: 9,
-      fontWeight: '800',
-      letterSpacing: 1.5,
-    },
+  headerLabel: {
+    color: '#555555',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
 
-    eyebrow: {
-      color: '#777777',
-      fontSize: 10,
-      fontWeight: '800',
-      letterSpacing: 2,
-      marginBottom: 12,
-    },
+  eyebrow: {
+    color: '#777777',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
 
-    title: {
-      color: '#ffffff',
-      fontSize: 31,
-      fontWeight: '800',
-      letterSpacing: -0.9,
-    },
+  title: {
+    color: '#ffffff',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
 
-    subtitle: {
-      color: '#777777',
-      fontSize: 14,
-      lineHeight: 20,
-      marginTop: 9,
-      marginBottom: 32,
-      maxWidth: 330,
-    },
+  subtitle: {
+    color: '#777777',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 9,
+    maxWidth: 340,
+  },
 
-    loading: {
-      paddingTop: 70,
-      paddingBottom: 70,
-      alignItems: 'center',
-    },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#202020',
+    marginTop: 31,
+  },
 
-    loadingText: {
-      color: '#666666',
-      fontSize: 12,
-      marginTop: 18,
-    },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 2,
+    borderBottomColor:
+      'transparent',
+  },
 
-    listenerList: {
-      gap: 14,
-    },
+  tabActive: {
+    borderBottomColor: '#ffffff',
+  },
 
-    listenerCard: {
-      borderWidth: 1,
-      borderColor: '#202020',
-      borderRadius: 20,
-      padding: 17,
-      backgroundColor: '#090909',
-    },
+  tabPressed: {
+    opacity: 0.55,
+  },
 
-    listenerCardPressed: {
-      opacity: 0.65,
-    },
+  tabText: {
+    color: '#555555',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
 
-    cardTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+  tabTextActive: {
+    color: '#ffffff',
+  },
 
-    avatar: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
-      backgroundColor: '#181818',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 15,
-    },
+  sectionHeading: {
+    marginTop: 34,
+    marginBottom: 24,
+  },
 
-    avatarText: {
-      color: '#ffffff',
-      fontSize: 22,
-      fontWeight: '800',
-    },
+  sectionEyebrow: {
+    color: '#555555',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.8,
+    marginBottom: 8,
+  },
 
-    listenerInfo: {
-      flex: 1,
-    },
+  sectionTitle: {
+    color: '#ffffff',
+    fontSize: 25,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
 
-    name: {
-      color: '#ffffff',
-      fontSize: 17,
-      fontWeight: '700',
-    },
+  sectionSubtitle: {
+    color: '#666666',
+    fontSize: 12,
+    marginTop: 7,
+  },
 
-    username: {
-      color: '#888888',
-      fontSize: 12,
-      marginTop: 4,
-    },
+  loading: {
+    paddingTop: 60,
+    paddingBottom: 70,
+    alignItems: 'center',
+  },
 
-    city: {
-      color: '#555555',
-      fontSize: 11,
-      marginTop: 5,
-    },
+  loadingText: {
+    color: '#666666',
+    fontSize: 12,
+    marginTop: 18,
+  },
 
-    arrowCircle: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      borderWidth: 1,
-      borderColor: '#292929',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+  listenerList: {
+    gap: 14,
+  },
 
-    arrow: {
-      color: '#ffffff',
-      fontSize: 17,
-    },
+  listenerCard: {
+    borderWidth: 1,
+    borderColor: '#202020',
+    borderRadius: 20,
+    padding: 17,
+    backgroundColor: '#090909',
+  },
 
-    cardDivider: {
-      height: 1,
-      backgroundColor: '#1c1c1c',
-      marginVertical: 17,
-    },
+  listenerCardPressed: {
+    opacity: 0.65,
+  },
 
-    matchArea: {
-      gap: 12,
-    },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    matchCountRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+  avatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#181818',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
 
-    matchNumber: {
-      color: '#ffffff',
-      fontSize: 30,
-      fontWeight: '900',
-      letterSpacing: -1,
-      marginRight: 10,
-    },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '800',
+  },
 
-    matchLabel: {
-      color: '#777777',
-      fontSize: 9,
-      lineHeight: 13,
-      fontWeight: '800',
-      letterSpacing: 1.5,
-      width: 70,
-    },
+  listenerInfo: {
+    flex: 1,
+  },
 
-    matchLine: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+  name: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
 
-    matchType: {
-      color: '#555555',
-      fontSize: 9,
-      fontWeight: '800',
-      letterSpacing: 1.4,
-      width: 65,
-    },
+  username: {
+    color: '#888888',
+    fontSize: 12,
+    marginTop: 4,
+  },
 
-    matchValue: {
-      color: '#bdbdbd',
-      fontSize: 12,
-      flex: 1,
-    },
+  city: {
+    color: '#555555',
+    fontSize: 11,
+    marginTop: 5,
+  },
 
-    noOverlap: {
-      color: '#666666',
-      fontSize: 12,
-      lineHeight: 18,
-    },
+  arrowCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#292929',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-    emptyCard: {
-      borderWidth: 1,
-      borderColor: '#202020',
-      borderRadius: 18,
-      padding: 22,
-      marginTop: 10,
-    },
+  arrow: {
+    color: '#ffffff',
+    fontSize: 17,
+  },
 
-    emptyTitle: {
-      color: '#ffffff',
-      fontSize: 18,
-      fontWeight: '700',
-      marginBottom: 8,
-    },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#1c1c1c',
+    marginVertical: 17,
+  },
 
-    emptyText: {
-      color: '#777777',
-      fontSize: 13,
-      lineHeight: 20,
-    },
+  matchArea: {
+    gap: 12,
+  },
 
-    retryButton: {
-      alignSelf: 'flex-start',
-      borderWidth: 1,
-      borderColor: '#333333',
-      borderRadius: 100,
-      paddingHorizontal: 18,
-      paddingVertical: 10,
-      marginTop: 18,
-    },
+  matchCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    retryText: {
-      color: '#ffffff',
-      fontSize: 12,
-      fontWeight: '700',
-    },
+  matchNumber: {
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginRight: 10,
+  },
 
-    bottomNote: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 28,
-    },
+  matchLabel: {
+    color: '#777777',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    width: 90,
+  },
 
-    liveDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: '#ffffff',
-      marginRight: 8,
-    },
+  matchLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
 
-    bottomNoteText: {
-      color: '#555555',
-      fontSize: 9,
-      fontWeight: '800',
-      letterSpacing: 1.5,
-    },
+  matchType: {
+    color: '#555555',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    width: 65,
+  },
 
-    footer: {
-      color: '#3f3f3f',
-      textAlign: 'center',
-      fontSize: 9,
-      fontWeight: '800',
-      letterSpacing: 1.5,
-      marginTop: 50,
-    },
-  });
+  matchValue: {
+    color: '#bdbdbd',
+    fontSize: 12,
+    flex: 1,
+  },
+
+  noOverlap: {
+    color: '#666666',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  emptyCard: {
+    borderWidth: 1,
+    borderColor: '#202020',
+    borderRadius: 18,
+    padding: 22,
+  },
+
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+
+  emptyText: {
+    color: '#777777',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+
+  retryButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 100,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 18,
+  },
+
+  retryText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  footer: {
+    color: '#3f3f3f',
+    textAlign: 'center',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginTop: 50,
+  },
+});

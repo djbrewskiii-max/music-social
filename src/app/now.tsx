@@ -226,11 +226,6 @@ export default function NowScreen() {
             };
           });
 
-        /*
-         * Green live listeners first.
-         * Within each group, newest
-         * verification/activity first.
-         */
         people.sort((a, b) => {
           if (
             a.listeningNow !==
@@ -790,6 +785,32 @@ export default function NowScreen() {
     });
   };
 
+  const openPresenceChat = (
+    person: ListeningPerson
+  ) => {
+    router.push({
+      pathname: '/chat',
+      params: {
+        userId: person.user_id,
+        name:
+          person.displayName ||
+          'Listener',
+        ...(person.song_title
+          ? {
+              song:
+                person.song_title,
+            }
+          : {}),
+        ...(person.artist_name
+          ? {
+              artist:
+                person.artist_name,
+            }
+          : {}),
+      },
+    });
+  };
+
   const openPresenceMusic =
     async (
       person: ListeningPerson
@@ -1212,6 +1233,38 @@ export default function NowScreen() {
                               : 'RECENTLY LISTENED'}
                           </Text>
                         </View>
+
+                        <Pressable
+                          style={({
+                            pressed,
+                          }) => [
+                            styles.saySomethingButton,
+
+                            pressed &&
+                              styles.saySomethingButtonPressed,
+                          ]}
+                          onPress={() =>
+                            openPresenceChat(
+                              person
+                            )
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.saySomethingText
+                            }
+                          >
+                            SAY SOMETHING
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.saySomethingArrow
+                            }
+                          >
+                            →
+                          </Text>
+                        </Pressable>
                       </View>
                     );
                   }
@@ -2039,6 +2092,36 @@ const styles =
 
     presenceStatusRecent: {
       color: '#FFD60A',
+    },
+
+    saySomethingButton: {
+      height: 37,
+      borderRadius: 100,
+      borderWidth: 1,
+      borderColor: '#303030',
+      marginTop: 14,
+      paddingHorizontal: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: '#141414',
+    },
+
+    saySomethingButtonPressed: {
+      opacity: 0.6,
+    },
+
+    saySomethingText: {
+      color: '#ffffff',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    saySomethingArrow: {
+      color: '#777777',
+      fontSize: 15,
+      fontWeight: '700',
     },
 
     feedHeading: {
