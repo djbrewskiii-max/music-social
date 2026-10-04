@@ -17,14 +17,22 @@ index 734a02a..d549b62 100644
          queueService: self.queueService,
 diff --git a/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift b/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift
 new file mode 100644
-index 0000000..de49ed7
+index 0000000..cd4642a
 --- /dev/null
 +++ b/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,191 @@
 +// SystemPlaybackReader.swift
-+// Read-only experiment for NOW.
-+// Reads playback information from Apple's SystemMusicPlayer
-+// without changing the package's existing ApplicationMusicPlayer.
++// Read-only system playback reader for NOW.
++//
++// SystemMusicPlayer is the source of truth for whether
++// Apple Music is actually playing and which song is
++// currently playing.
++//
++// Some SystemMusicPlayer queue entries contain title,
++// artist, and ID but omit artwork. When that happens,
++// NOW attempts to enrich the exact song from Apple's
++// music catalog so the live presence card can still
++// display album artwork.
 +
 +import Foundation
 +import MusicKit
@@ -50,7 +58,9 @@ index 0000000..de49ed7
 +    let state = player.state
 +
 +    var result: [String: Any] = [
-+      "playbackStatus": describePlaybackStatus(state.playbackStatus),
++      "playbackStatus": describePlaybackStatus(
++        state.playbackStatus
++      ),
 +      "playbackRate": state.playbackRate,
 +      "hasCurrentEntry": false
 +    ]
@@ -62,13 +72,19 @@ index 0000000..de49ed7
 +    result["hasCurrentEntry"] = true
 +
 +    switch entry.item {
++
 +    case .song(let song):
 +      result["itemType"] = "song"
-+      result["currentSong"] = MusicItemMapper.map(song)
++
++      let mappedSong =
++        await mapSongWithArtworkFallback(song)
++
++      result["currentSong"] = mappedSong
 +
 +    case .musicVideo(let musicVideo):
 +      result["itemType"] = "musicVideo"
-+      result["currentSong"] = MusicItemMapper.map(musicVideo)
++      result["currentSong"] =
++        MusicItemMapper.map(musicVideo)
 +
 +    default:
 +      result["itemType"] = "other"
@@ -77,12 +93,102 @@ index 0000000..de49ed7
 +    return result
 +  }
 +
++  // MARK: - Song Artwork Enrichment
++
++  private func mapSongWithArtworkFallback(
++    _ song: Song
++  ) async -> [String: Any] {
++
++    /*
++     * First map the exact Song object supplied by
++     * SystemMusicPlayer.
++     *
++     * If SystemMusicPlayer included artwork, nothing
++     * else needs to happen.
++     */
++    let systemMappedSong =
++      MusicItemMapper.map(song)
++
++    if let artworkUrl =
++      systemMappedSong["artworkUrl"] as? String,
++       !artworkUrl.isEmpty {
++
++      return systemMappedSong
++    }
++
++    /*
++     * SystemMusicPlayer occasionally provides a partial
++     * Song object. It still identifies the exact song,
++     * but artwork may not be hydrated.
++     *
++     * Use that exact MusicItemID to request the complete
++     * catalog Song.
++     */
++    do {
++      var request =
++        MusicCatalogResourceRequest<Song>(
++          matching: \.id,
++          equalTo: song.id
++        )
++
++      request.limit = 1
++
++      let response =
++        try await request.response()
++
++      guard let catalogSong =
++        response.items.first else {
++
++        return systemMappedSong
++      }
++
++      let catalogMappedSong =
++        MusicItemMapper.map(catalogSong)
++
++      /*
++       * Keep SystemMusicPlayer's metadata as our
++       * playback truth and only fill the missing
++       * artwork from the catalog response.
++       */
++      guard let catalogArtworkUrl =
++        catalogMappedSong["artworkUrl"] as? String,
++        !catalogArtworkUrl.isEmpty else {
++
++        return systemMappedSong
++      }
++
++      var enrichedSong =
++        systemMappedSong
++
++      enrichedSong["artworkUrl"] =
++        catalogArtworkUrl
++
++      return enrichedSong
++
++    } catch {
++      /*
++       * Artwork enrichment is optional.
++       *
++       * A catalog/network failure must NEVER cause NOW
++       * to lose a valid live playback result.
++       */
++      print(
++        "NOW artwork enrichment error:",
++        error.localizedDescription
++      )
++
++      return systemMappedSong
++    }
++  }
++
 +  // MARK: - Playback Status
 +
 +  private func describePlaybackStatus(
 +    _ status: MusicPlayer.PlaybackStatus
 +  ) -> String {
++
 +    switch status {
++
 +    case .playing:
 +      return "playing"
 +

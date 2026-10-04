@@ -4,6 +4,8 @@ import {
   AppStateStatus,
 } from 'react-native';
 
+import Catalog from '@wwdrew/expo-apple-music/build/modules/catalog';
+
 import { supabase } from './supabase';
 
 type SystemSong = {
@@ -47,8 +49,17 @@ let currentAppState: AppStateStatus =
 
 let started = false;
 
+/*
+ * Small in-memory cache.
+ *
+ * We do NOT want to hit Apple's catalog
+ * every 15 seconds for the same song.
+ */
+const artworkCache =
+  new Map<string, string | null>();
+
 const formatArtworkUrl = (
-  url?: string,
+  url?: string | null,
   width = 600,
   height = 600
 ) => {
@@ -60,6 +71,89 @@ const formatArtworkUrl = (
     .replace('{w}', String(width))
     .replace('{h}', String(height));
 };
+
+/*
+ * SystemMusicPlayer is our source of truth
+ * for WHAT is actually playing.
+ *
+ * Unfortunately, the system player often
+ * gives us the song ID/title/artist but
+ * does not give us artwork.
+ *
+ * When artwork is missing, use the exact
+ * Apple Music catalog ID returned by the
+ * system player to retrieve the song's
+ * catalog metadata.
+ */
+const getCatalogArtwork =
+  async (
+    appleMusicId?: string
+  ): Promise<string | null> => {
+    if (!appleMusicId) {
+      return null;
+    }
+
+    if (
+      artworkCache.has(
+        appleMusicId
+      )
+    ) {
+      return (
+        artworkCache.get(
+          appleMusicId
+        ) ?? null
+      );
+    }
+
+    try {
+      const result =
+        await Catalog.getByIds(
+          'songs',
+          [appleMusicId]
+        );
+
+      const catalogSong =
+        result.songs?.[0];
+
+      const artwork =
+        formatArtworkUrl(
+          catalogSong?.artworkUrl
+        );
+
+      artworkCache.set(
+        appleMusicId,
+        artwork
+      );
+
+      if (artwork) {
+        console.log(
+          '🖼️ CATALOG ARTWORK FOUND:',
+          appleMusicId
+        );
+      } else {
+        console.log(
+          '⚠️ NO CATALOG ARTWORK:',
+          appleMusicId
+        );
+      }
+
+      return artwork;
+    } catch (error) {
+      console.log(
+        'Catalog artwork lookup error:',
+        error
+      );
+
+      /*
+       * Do not cache errors.
+       *
+       * If Apple's request temporarily
+       * fails, NOW can try again on the
+       * next heartbeat.
+       */
+      return null;
+    }
+  };
 
 const getSystemPlayback =
   async (): Promise<SystemPlaybackState | null> => {
@@ -119,54 +213,154 @@ export const refreshPresence =
         !!song?.title &&
         !!song?.artistName;
 
-      if (isVerifiedPlaying && song) {
+      if (
+        isVerifiedPlaying &&
+        song
+      ) {
         /*
          * TRUE LIVE PLAYBACK.
          *
-         * NOW has directly verified that
-         * Apple Music is currently playing
-         * this exact song.
+         * SystemMusicPlayer has directly
+         * verified that Apple Music is
+         * currently playing this exact
+         * song.
          */
+
+        /*
+         * Prefer artwork directly from
+         * SystemMusicPlayer if Apple ever
+         * provides it.
+         *
+         * Otherwise enrich the live song
+         * with the Apple Music REST catalog
+         * using the exact song ID.
+         */
+        let artwork =
+          formatArtworkUrl(
+            song.artworkUrl
+          );
+
+        if (
+          !artwork &&
+          song.id
+        ) {
+          artwork =
+            await getCatalogArtwork(
+              song.id
+            );
+        }
+
+        /*
+         * Build the live presence update.
+         *
+         * If artwork lookup somehow fails,
+         * we intentionally avoid replacing
+         * an existing good artwork URL with
+         * null for the SAME song.
+         */
+        const livePresence: {
+          user_id: string;
+          song_title: string;
+          artist_name: string;
+          apple_music_id:
+            | string
+            | null;
+          is_playing: boolean;
+          last_active_at: string;
+          last_verified_playing_at: string;
+          updated_at: string;
+          artwork_url?: string;
+        } = {
+          user_id:
+            user.id,
+
+          song_title:
+            song.title!,
+
+          artist_name:
+            song.artistName!,
+
+          apple_music_id:
+            song.id || null,
+
+          is_playing:
+            true,
+
+          last_active_at:
+            now,
+
+          last_verified_playing_at:
+            now,
+
+          updated_at:
+            now,
+        };
+
+        if (artwork) {
+          livePresence.artwork_url =
+            artwork;
+        }
+
+        /*
+         * If this is a different song and
+         * artwork genuinely could not be
+         * found, clear the old artwork so
+         * NOW never shows the previous
+         * song's cover on a new song.
+         */
+        if (!artwork) {
+          const {
+            data:
+              existingPresence,
+          } = await supabase
+            .from(
+              'listening_presence'
+            )
+            .select(
+              'apple_music_id'
+            )
+            .eq(
+              'user_id',
+              user.id
+            )
+            .maybeSingle();
+
+          const isDifferentSong =
+            existingPresence
+              ?.apple_music_id !==
+            (song.id || null);
+
+          if (isDifferentSong) {
+            (
+              livePresence as
+                typeof livePresence & {
+                  artwork_url:
+                    | string
+                    | null;
+                }
+            ).artwork_url =
+              null;
+          }
+        }
+
         const {
-          error: presenceError,
+          error:
+            presenceError,
         } = await supabase
-          .from('listening_presence')
+          .from(
+            'listening_presence'
+          )
           .upsert(
-            {
-              user_id: user.id,
-
-              song_title:
-                song.title,
-
-              artist_name:
-                song.artistName,
-
-              artwork_url:
-                formatArtworkUrl(
-                  song.artworkUrl
-                ),
-
-              apple_music_id:
-                song.id || null,
-
-              is_playing: true,
-
-              last_active_at:
-                now,
-
-              last_verified_playing_at:
-                now,
-
-              updated_at:
-                now,
-            },
+            livePresence,
             {
               onConflict:
                 'user_id',
             }
           );
 
-        if (presenceError) {
+        if (
+          presenceError
+        ) {
           console.log(
             'Live presence update error:',
             presenceError.message
@@ -179,6 +373,13 @@ export const refreshPresence =
           '🟢 LISTENING NOW:',
           `${song.title} — ${song.artistName}`
         );
+
+        if (artwork) {
+          console.log(
+            '🖼️ LIVE ARTWORK:',
+            artwork
+          );
+        }
 
         return;
       }
@@ -199,15 +400,27 @@ export const refreshPresence =
       const {
         error: activityError,
       } = await supabase
-        .from('listening_presence')
+        .from(
+          'listening_presence'
+        )
         .update({
-          is_playing: false,
-          last_active_at: now,
-          updated_at: now,
-        })
-        .eq('user_id', user.id);
+          is_playing:
+            false,
 
-      if (activityError) {
+          last_active_at:
+            now,
+
+          updated_at:
+            now,
+        })
+        .eq(
+          'user_id',
+          user.id
+        );
+
+      if (
+        activityError
+      ) {
         console.log(
           'Presence activity update error:',
           activityError.message
@@ -229,37 +442,45 @@ export const refreshPresence =
     }
   };
 
-const startHeartbeat = () => {
-  if (heartbeat) {
-    clearInterval(heartbeat);
-  }
+const startHeartbeat =
+  () => {
+    if (heartbeat) {
+      clearInterval(
+        heartbeat
+      );
+    }
 
-  /*
-   * Verify immediately when NOW becomes
-   * active.
-   */
-  refreshPresence();
+    /*
+     * Verify immediately when NOW becomes
+     * active.
+     */
+    refreshPresence();
 
-  /*
-   * Then re-check Apple Music every
-   * 15 seconds while NOW remains active.
-   */
-  heartbeat = setInterval(
-    () => {
-      refreshPresence();
-    },
-    HEARTBEAT_MS
-  );
-};
+    /*
+     * Then re-check Apple Music every
+     * 15 seconds while NOW remains active.
+     */
+    heartbeat =
+      setInterval(
+        () => {
+          refreshPresence();
+        },
+        HEARTBEAT_MS
+      );
+  };
 
-const stopHeartbeat = () => {
-  if (!heartbeat) {
-    return;
-  }
+const stopHeartbeat =
+  () => {
+    if (!heartbeat) {
+      return;
+    }
 
-  clearInterval(heartbeat);
-  heartbeat = null;
-};
+    clearInterval(
+      heartbeat
+    );
+
+    heartbeat = null;
+  };
 
 export const startPresenceTracking =
   () => {
@@ -273,7 +494,8 @@ export const startPresenceTracking =
       AppState.currentState;
 
     if (
-      currentAppState === 'active'
+      currentAppState ===
+      'active'
     ) {
       startHeartbeat();
     }
@@ -282,7 +504,8 @@ export const startPresenceTracking =
       AppState.addEventListener(
         'change',
         (
-          nextState: AppStateStatus
+          nextState:
+            AppStateStatus
         ) => {
           const previousState =
             currentAppState;
@@ -298,7 +521,8 @@ export const startPresenceTracking =
            * the next heartbeat.
            */
           if (
-            nextState === 'active'
+            nextState ===
+            'active'
           ) {
             startHeartbeat();
             return;
