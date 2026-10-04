@@ -49,12 +49,6 @@ let currentAppState: AppStateStatus =
 
 let started = false;
 
-/*
- * Small in-memory cache.
- *
- * We do NOT want to hit Apple's catalog
- * every 15 seconds for the same song.
- */
 const artworkCache =
   new Map<string, string | null>();
 
@@ -72,19 +66,6 @@ const formatArtworkUrl = (
     .replace('{h}', String(height));
 };
 
-/*
- * SystemMusicPlayer is our source of truth
- * for WHAT is actually playing.
- *
- * Unfortunately, the system player often
- * gives us the song ID/title/artist but
- * does not give us artwork.
- *
- * When artwork is missing, use the exact
- * Apple Music catalog ID returned by the
- * system player to retrieve the song's
- * catalog metadata.
- */
 const getCatalogArtwork =
   async (
     appleMusicId?: string
@@ -144,13 +125,6 @@ const getCatalogArtwork =
         error
       );
 
-      /*
-       * Do not cache errors.
-       *
-       * If Apple's request temporarily
-       * fails, NOW can try again on the
-       * next heartbeat.
-       */
       return null;
     }
   };
@@ -169,6 +143,145 @@ const getSystemPlayback =
     }
   };
 
+/*
+ * APP PRESENCE
+ *
+ * This is intentionally separate from
+ * Apple Music playback.
+ *
+ * If NOW is open in the foreground,
+ * last_active_at should stay fresh even
+ * if MusicKit/native playback detection
+ * temporarily fails.
+ */
+const refreshAppActivity =
+  async () => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } =
+        await supabase.auth.getUser();
+
+      if (
+        userError ||
+        !user
+      ) {
+        return;
+      }
+
+      const now =
+        new Date().toISOString();
+
+      const {
+        data: existingPresence,
+        error: existingError,
+      } = await supabase
+        .from(
+          'listening_presence'
+        )
+        .select('user_id')
+        .eq(
+          'user_id',
+          user.id
+        )
+        .maybeSingle();
+
+      if (existingError) {
+        console.log(
+          'Presence activity lookup error:',
+          existingError.message
+        );
+        return;
+      }
+
+      /*
+       * Existing users simply get a fresh
+       * foreground heartbeat.
+       */
+      if (existingPresence) {
+        const {
+          error: activityError,
+        } = await supabase
+          .from(
+            'listening_presence'
+          )
+          .update({
+            last_active_at:
+              now,
+          })
+          .eq(
+            'user_id',
+            user.id
+          );
+
+        if (activityError) {
+          console.log(
+            'App activity update error:',
+            activityError.message
+          );
+        }
+
+        return;
+      }
+
+      /*
+       * Normally a connected Apple Music
+       * user already has a presence row.
+       *
+       * This fallback creates one so app
+       * presence itself does not depend on
+       * successful playback detection.
+       */
+      const {
+        error: insertError,
+      } = await supabase
+        .from(
+          'listening_presence'
+        )
+        .insert({
+          user_id:
+            user.id,
+
+          song_title:
+            null,
+
+          artist_name:
+            null,
+
+          artwork_url:
+            null,
+
+          apple_music_id:
+            null,
+
+          is_playing:
+            false,
+
+          last_active_at:
+            now,
+
+          last_verified_playing_at:
+            null,
+
+          updated_at:
+            now,
+        });
+
+      if (insertError) {
+        console.log(
+          'App activity insert error:',
+          insertError.message
+        );
+      }
+    } catch (error) {
+      console.log(
+        'App activity refresh error:',
+        error
+      );
+    }
+  };
+
 export const refreshPresence =
   async () => {
     try {
@@ -178,7 +291,10 @@ export const refreshPresence =
       } =
         await supabase.auth.getUser();
 
-      if (userError || !user) {
+      if (
+        userError ||
+        !user
+      ) {
         return;
       }
 
@@ -186,12 +302,12 @@ export const refreshPresence =
         await getSystemPlayback();
 
       /*
-       * A failed native read is NOT the
-       * same thing as Apple Music being
-       * paused.
+       * A failed native read does NOT mean
+       * the user left NOW and does NOT mean
+       * their music stopped.
        *
-       * Leave the existing presence alone
-       * rather than recording false data.
+       * App activity has already been
+       * handled separately.
        */
       if (!playback) {
         return;
@@ -209,7 +325,8 @@ export const refreshPresence =
         playback.playbackRate !== 0 &&
         playback.hasCurrentEntry ===
           true &&
-        playback.itemType === 'song' &&
+        playback.itemType ===
+          'song' &&
         !!song?.title &&
         !!song?.artistName;
 
@@ -217,24 +334,6 @@ export const refreshPresence =
         isVerifiedPlaying &&
         song
       ) {
-        /*
-         * TRUE LIVE PLAYBACK.
-         *
-         * SystemMusicPlayer has directly
-         * verified that Apple Music is
-         * currently playing this exact
-         * song.
-         */
-
-        /*
-         * Prefer artwork directly from
-         * SystemMusicPlayer if Apple ever
-         * provides it.
-         *
-         * Otherwise enrich the live song
-         * with the Apple Music REST catalog
-         * using the exact song ID.
-         */
         let artwork =
           formatArtworkUrl(
             song.artworkUrl
@@ -250,14 +349,6 @@ export const refreshPresence =
             );
         }
 
-        /*
-         * Build the live presence update.
-         *
-         * If artwork lookup somehow fails,
-         * we intentionally avoid replacing
-         * an existing good artwork URL with
-         * null for the SAME song.
-         */
         const livePresence: {
           user_id: string;
           song_title: string;
@@ -269,7 +360,9 @@ export const refreshPresence =
           last_active_at: string;
           last_verified_playing_at: string;
           updated_at: string;
-          artwork_url?: string;
+          artwork_url?:
+            | string
+            | null;
         } = {
           user_id:
             user.id,
@@ -302,11 +395,8 @@ export const refreshPresence =
         }
 
         /*
-         * If this is a different song and
-         * artwork genuinely could not be
-         * found, clear the old artwork so
-         * NOW never shows the previous
-         * song's cover on a new song.
+         * Never leave the previous song's
+         * artwork attached to a new song.
          */
         if (!artwork) {
           const {
@@ -331,14 +421,7 @@ export const refreshPresence =
             (song.id || null);
 
           if (isDifferentSong) {
-            (
-              livePresence as
-                typeof livePresence & {
-                  artwork_url:
-                    | string
-                    | null;
-                }
-            ).artwork_url =
+            livePresence.artwork_url =
               null;
           }
         }
@@ -374,28 +457,17 @@ export const refreshPresence =
           `${song.title} — ${song.artistName}`
         );
 
-        if (artwork) {
-          console.log(
-            '🖼️ LIVE ARTWORK:',
-            artwork
-          );
-        }
-
         return;
       }
 
       /*
-       * NOW successfully checked Apple
-       * Music, but Apple Music is NOT
-       * currently playing a verified song.
+       * NOW is open, but Apple Music has
+       * been successfully verified as not
+       * currently playing.
        *
-       * Keep the previous song information
-       * because that becomes:
-       *
-       * 🟡 Recently Listened
-       *
-       * But explicitly mark it as no longer
-       * live.
+       * Preserve the previous song so the
+       * live-room card still has musical
+       * context.
        */
       const {
         error: activityError,
@@ -422,7 +494,7 @@ export const refreshPresence =
         activityError
       ) {
         console.log(
-          'Presence activity update error:',
+          'Presence playback update error:',
           activityError.message
         );
 
@@ -430,7 +502,7 @@ export const refreshPresence =
       }
 
       console.log(
-        '🟡 NOT CURRENTLY PLAYING:',
+        '🟡 ON NOW, MUSIC PAUSED:',
         playback.playbackStatus ||
           'unknown'
       );
@@ -442,6 +514,21 @@ export const refreshPresence =
     }
   };
 
+const runHeartbeat =
+  async () => {
+    /*
+     * First establish that the user has
+     * NOW open.
+     */
+    await refreshAppActivity();
+
+    /*
+     * Then independently determine what
+     * Apple Music is doing.
+     */
+    await refreshPresence();
+  };
+
 const startHeartbeat =
   () => {
     if (heartbeat) {
@@ -451,19 +538,15 @@ const startHeartbeat =
     }
 
     /*
-     * Verify immediately when NOW becomes
-     * active.
+     * Do not wait 15 seconds when NOW
+     * becomes active.
      */
-    refreshPresence();
+    runHeartbeat();
 
-    /*
-     * Then re-check Apple Music every
-     * 15 seconds while NOW remains active.
-     */
     heartbeat =
       setInterval(
         () => {
-          refreshPresence();
+          runHeartbeat();
         },
         HEARTBEAT_MS
       );
@@ -516,9 +599,8 @@ export const startPresenceTracking =
           /*
            * User returned to NOW.
            *
-           * Immediately verify Apple Music
-           * again rather than waiting for
-           * the next heartbeat.
+           * Immediately refresh both their
+           * app presence and playback.
            */
           if (
             nextState ===
@@ -529,21 +611,17 @@ export const startPresenceTracking =
           }
 
           /*
-           * NOW is leaving the foreground.
+           * Stop heartbeats when NOW leaves
+           * the foreground.
            *
-           * Stop the JS timer because iOS
-           * may suspend the application.
+           * We intentionally do NOT delete
+           * the presence row or instantly
+           * mark the user offline.
            *
-           * We do NOT immediately set
-           * is_playing=false here. A brief
-           * switch to another app should
-           * not instantly turn someone's
-           * Listening Now status yellow.
-           *
-           * The feed will use
-           * last_verified_playing_at with
-           * a freshness window so stale
-           * green statuses expire safely.
+           * HOME uses last_active_at plus a
+           * short grace period. That avoids
+           * flickering when somebody briefly
+           * switches apps.
            */
           if (
             previousState ===
@@ -565,6 +643,7 @@ export const startPresenceTracking =
         appStateSubscription
       ) {
         appStateSubscription.remove();
+
         appStateSubscription =
           null;
       }

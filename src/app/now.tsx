@@ -1,5 +1,12 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import {
+  router,
+  useFocusEffect,
+} from 'expo-router';
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -79,14 +86,21 @@ type PresenceRow = {
   last_verified_playing_at: string | null;
 };
 
-type ListeningPerson = PresenceRow & {
-  displayName: string;
-  username: string;
-  listeningNow: boolean;
-};
+type ListeningPerson =
+  PresenceRow & {
+    displayName: string;
+    username: string;
+    listeningNow: boolean;
+  };
+
+const ACTIVE_NOW_MS =
+  60 * 1000;
 
 const LIVE_FRESHNESS_MS =
-  5 * 60 * 1000;
+  60 * 1000;
+
+const ROOM_REFRESH_MS =
+  15 * 1000;
 
 export default function NowScreen() {
   const [posts, setPosts] =
@@ -95,13 +109,18 @@ export default function NowScreen() {
   const [
     listeningPeople,
     setListeningPeople,
-  ] = useState<ListeningPerson[]>([]);
+  ] =
+    useState<ListeningPerson[]>(
+      []
+    );
 
   const [loading, setLoading] =
     useState(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
   const [
     likingPostIds,
@@ -111,13 +130,19 @@ export default function NowScreen() {
   const [
     replyingPostId,
     setReplyingPostId,
-  ] = useState<string | null>(null);
+  ] = useState<string | null>(
+    null
+  );
 
-  const [replyBody, setReplyBody] =
-    useState('');
+  const [
+    replyBody,
+    setReplyBody,
+  ] = useState('');
 
-  const [sendingReply, setSendingReply] =
-    useState(false);
+  const [
+    sendingReply,
+    setSendingReply,
+  ] = useState(false);
 
   const loadListeningPresence =
     useCallback(async () => {
@@ -126,14 +151,18 @@ export default function NowScreen() {
           data: presenceData,
           error: presenceError,
         } = await supabase
-          .from('listening_presence')
+          .from(
+            'listening_presence'
+          )
           .select(
             'user_id, song_title, artist_name, artwork_url, apple_music_id, last_active_at, updated_at, is_playing, last_verified_playing_at'
           )
-          .not('song_title', 'is', null)
-          .order('updated_at', {
-            ascending: false,
-          });
+          .order(
+            'last_active_at',
+            {
+              ascending: false,
+            }
+          );
 
         if (presenceError) {
           console.log(
@@ -143,9 +172,28 @@ export default function NowScreen() {
           return;
         }
 
-        const presenceRows =
+        const allPresenceRows =
           (presenceData as PresenceRow[]) ||
           [];
+
+        const now =
+          Date.now();
+
+        const presenceRows =
+          allPresenceRows.filter(
+            (presence) => {
+              const activeAt =
+                new Date(
+                  presence.last_active_at
+                ).getTime();
+
+              return (
+                activeAt > 0 &&
+                now - activeAt <=
+                  ACTIVE_NOW_MS
+              );
+            }
+          );
 
         if (
           presenceRows.length === 0
@@ -154,13 +202,15 @@ export default function NowScreen() {
           return;
         }
 
-        const userIds = Array.from(
-          new Set(
-            presenceRows.map(
-              (row) => row.user_id
+        const userIds =
+          Array.from(
+            new Set(
+              presenceRows.map(
+                (row) =>
+                  row.user_id
+              )
             )
-          )
-        );
+          );
 
         const {
           data: profileData,
@@ -170,7 +220,10 @@ export default function NowScreen() {
           .select(
             'user_id, display_name, username'
           )
-          .in('user_id', userIds);
+          .in(
+            'user_id',
+            userIds
+          );
 
         if (profileError) {
           console.log(
@@ -183,75 +236,75 @@ export default function NowScreen() {
           (profileData as ProfileRow[]) ||
           [];
 
-        const now = Date.now();
+        const people:
+          ListeningPerson[] =
+          presenceRows.map(
+            (presence) => {
+              const profile =
+                profiles.find(
+                  (item) =>
+                    item.user_id ===
+                    presence.user_id
+                );
 
-        const people: ListeningPerson[] =
-          presenceRows.map((presence) => {
-            const profile =
-              profiles.find(
-                (item) =>
-                  item.user_id ===
-                  presence.user_id
-              );
+              const verifiedAt =
+                presence.last_verified_playing_at
+                  ? new Date(
+                      presence.last_verified_playing_at
+                    ).getTime()
+                  : 0;
 
-            const verifiedAt =
-              presence.last_verified_playing_at
-                ? new Date(
-                    presence.last_verified_playing_at
-                  ).getTime()
-                : 0;
+              const verificationIsFresh =
+                verifiedAt > 0 &&
+                now - verifiedAt <=
+                  LIVE_FRESHNESS_MS;
 
-            const verificationIsFresh =
-              verifiedAt > 0 &&
-              now - verifiedAt <=
-                LIVE_FRESHNESS_MS;
+              const listeningNow =
+                presence.is_playing ===
+                  true &&
+                verificationIsFresh;
 
-            const listeningNow =
-              presence.is_playing ===
-                true &&
-              verificationIsFresh;
+              return {
+                ...presence,
 
-            return {
-              ...presence,
+                displayName:
+                  profile?.display_name ||
+                  'Listener',
 
-              displayName:
-                profile?.display_name ||
-                'Listener',
+                username:
+                  profile?.username ||
+                  'nowuser',
 
-              username:
-                profile?.username ||
-                'nowuser',
+                listeningNow,
+              };
+            }
+          );
 
-              listeningNow,
-            };
-          });
+        people.sort(
+          (a, b) => {
+            if (
+              a.listeningNow !==
+              b.listeningNow
+            ) {
+              return a.listeningNow
+                ? -1
+                : 1;
+            }
 
-        people.sort((a, b) => {
-          if (
-            a.listeningNow !==
-            b.listeningNow
-          ) {
-            return a.listeningNow
-              ? -1
-              : 1;
+            return (
+              new Date(
+                b.last_active_at
+              ).getTime() -
+              new Date(
+                a.last_active_at
+              ).getTime()
+            );
           }
+        );
 
-          const aTime =
-            new Date(
-              a.last_verified_playing_at ||
-                a.updated_at
-            ).getTime();
-
-          const bTime =
-            new Date(
-              b.last_verified_playing_at ||
-                b.updated_at
-            ).getTime();
-
-          return bTime - aTime;
-        });
-
-        setListeningPeople(people);
+        setListeningPeople(
+          people
+        );
       } catch (error) {
         console.log(
           'Listening presence load error:',
@@ -260,110 +313,567 @@ export default function NowScreen() {
       }
     }, []);
 
-  const loadFeed = useCallback(
-    async (showLoader = false) => {
-      if (showLoader) {
-        setLoading(true);
+  /*
+   * Keep the live room fresh while HOME
+   * is mounted.
+   *
+   * This does NOT reload the whole feed.
+   * It only refreshes Who's here.
+   */
+  useEffect(() => {
+    const interval =
+      setInterval(
+        () => {
+          loadListeningPresence();
+        },
+        ROOM_REFRESH_MS
+      );
+
+    return () => {
+      clearInterval(
+        interval
+      );
+    };
+  }, [
+    loadListeningPresence,
+  ]);
+
+  const loadFeed =
+    useCallback(
+      async (
+        showLoader = false
+      ) => {
+        if (showLoader) {
+          setLoading(true);
+        }
+
+        try {
+          const {
+            data: { user },
+            error: userError,
+          } =
+            await supabase.auth.getUser();
+
+          if (
+            userError ||
+            !user
+          ) {
+            router.replace(
+              '/login'
+            );
+            return;
+          }
+
+          await loadListeningPresence();
+
+          const {
+            data: postData,
+            error: postError,
+          } = await supabase
+            .from('posts')
+            .select(
+              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+            )
+            .order(
+              'created_at',
+              {
+                ascending: false,
+              }
+            )
+            .limit(50);
+
+          if (postError) {
+            console.log(
+              'Feed post error:',
+              postError.message
+            );
+            return;
+          }
+
+          const postRows =
+            (postData as PostRow[]) ||
+            [];
+
+          if (
+            postRows.length === 0
+          ) {
+            setPosts([]);
+            return;
+          }
+
+          const postIds =
+            postRows.map(
+              (post) =>
+                post.id
+            );
+
+          const [
+            likeResult,
+            replyResult,
+          ] =
+            await Promise.all([
+              supabase
+                .from(
+                  'post_likes'
+                )
+                .select(
+                  'post_id, user_id'
+                )
+                .in(
+                  'post_id',
+                  postIds
+                ),
+
+              supabase
+                .from(
+                  'post_replies'
+                )
+                .select(
+                  'id, created_at, post_id, user_id, body'
+                )
+                .in(
+                  'post_id',
+                  postIds
+                )
+                .order(
+                  'created_at',
+                  {
+                    ascending: true,
+                  }
+                ),
+            ]);
+
+          if (
+            likeResult.error
+          ) {
+            console.log(
+              'Feed likes error:',
+              likeResult.error
+                .message
+            );
+          }
+
+          if (
+            replyResult.error
+          ) {
+            console.log(
+              'Feed replies error:',
+              replyResult.error
+                .message
+            );
+          }
+
+          const likes =
+            (likeResult.data as LikeRow[]) ||
+            [];
+
+          const replies =
+            (replyResult.data as ReplyRow[]) ||
+            [];
+
+          const allUserIds =
+            Array.from(
+              new Set([
+                ...postRows.map(
+                  (post) =>
+                    post.user_id
+                ),
+                ...replies.map(
+                  (reply) =>
+                    reply.user_id
+                ),
+              ])
+            );
+
+          const {
+            data: profileData,
+            error: profileError,
+          } = await supabase
+            .from('profiles')
+            .select(
+              'user_id, display_name, username'
+            )
+            .in(
+              'user_id',
+              allUserIds
+            );
+
+          if (
+            profileError
+          ) {
+            console.log(
+              'Feed profile error:',
+              profileError.message
+            );
+          }
+
+          const profiles =
+            (profileData as ProfileRow[]) ||
+            [];
+
+          const feedPosts:
+            FeedPost[] =
+            postRows.map(
+              (post) => {
+                const profile =
+                  profiles.find(
+                    (item) =>
+                      item.user_id ===
+                      post.user_id
+                  );
+
+                const postLikes =
+                  likes.filter(
+                    (like) =>
+                      like.post_id ===
+                      post.id
+                  );
+
+                const postReplies =
+                  replies.filter(
+                    (reply) =>
+                      reply.post_id ===
+                      post.id
+                  );
+
+                const latestReplyRow =
+                  postReplies.length >
+                  0
+                    ? postReplies[
+                        postReplies.length -
+                          1
+                      ]
+                    : null;
+
+                let latestReply:
+                  | ReplyPreview
+                  | null = null;
+
+                if (
+                  latestReplyRow
+                ) {
+                  const replyProfile =
+                    profiles.find(
+                      (item) =>
+                        item.user_id ===
+                        latestReplyRow.user_id
+                    );
+
+                  latestReply = {
+                    id:
+                      latestReplyRow.id,
+
+                    userId:
+                      latestReplyRow.user_id,
+
+                    displayName:
+                      replyProfile?.display_name ||
+                      'Listener',
+
+                    username:
+                      replyProfile?.username ||
+                      'nowuser',
+
+                    body:
+                      latestReplyRow.body,
+                  };
+                }
+
+                return {
+                  ...post,
+
+                  displayName:
+                    profile?.display_name ||
+                    'Listener',
+
+                  username:
+                    profile?.username ||
+                    'nowuser',
+
+                  likeCount:
+                    postLikes.length,
+
+                  likedByMe:
+                    postLikes.some(
+                      (like) =>
+                        like.user_id ===
+                        user.id
+                    ),
+
+                  replyCount:
+                    postReplies.length,
+
+                  latestReply,
+                };
+              }
+            );
+
+          setPosts(feedPosts);
+        } catch (error) {
+          console.log(
+            'Feed error:',
+            error
+          );
+        } finally {
+          if (showLoader) {
+            setLoading(false);
+          }
+        }
+      },
+      [
+        loadListeningPresence,
+      ]
+    );
+
+  useFocusEffect(
+    useCallback(() => {
+      loadFeed(true);
+    }, [loadFeed])
+  );
+
+  const refresh =
+    async () => {
+      setRefreshing(true);
+
+      await loadFeed();
+
+      setRefreshing(false);
+    };
+
+  const toggleLike =
+    async (
+      postId: string
+    ) => {
+      if (
+        likingPostIds.includes(
+          postId
+        )
+      ) {
+        return;
       }
+
+      const post =
+        posts.find(
+          (item) =>
+            item.id === postId
+        );
+
+      if (!post) {
+        return;
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } =
+        await supabase.auth.getUser();
+
+      if (
+        userError ||
+        !user
+      ) {
+        router.replace(
+          '/login'
+        );
+        return;
+      }
+
+      setLikingPostIds(
+        (current) => [
+          ...current,
+          postId,
+        ]
+      );
+
+      const wasLiked =
+        post.likedByMe;
+
+      setPosts(
+        (currentPosts) =>
+          currentPosts.map(
+            (currentPost) =>
+              currentPost.id ===
+              postId
+                ? {
+                    ...currentPost,
+
+                    likedByMe:
+                      !wasLiked,
+
+                    likeCount:
+                      wasLiked
+                        ? Math.max(
+                            0,
+                            currentPost.likeCount -
+                              1
+                          )
+                        : currentPost.likeCount +
+                          1,
+                  }
+                : currentPost
+          )
+      );
+
+      try {
+        if (wasLiked) {
+          const {
+            error,
+          } = await supabase
+            .from(
+              'post_likes'
+            )
+            .delete()
+            .eq(
+              'post_id',
+              postId
+            )
+            .eq(
+              'user_id',
+              user.id
+            );
+
+          if (error) {
+            throw error;
+          }
+        } else {
+          const {
+            error,
+          } = await supabase
+            .from(
+              'post_likes'
+            )
+            .insert({
+              post_id:
+                postId,
+              user_id:
+                user.id,
+            });
+
+          if (error) {
+            throw error;
+          }
+        }
+      } catch (error) {
+        console.log(
+          'Like error:',
+          error
+        );
+
+        setPosts(
+          (currentPosts) =>
+            currentPosts.map(
+              (currentPost) =>
+                currentPost.id ===
+                postId
+                  ? {
+                      ...currentPost,
+
+                      likedByMe:
+                        wasLiked,
+
+                      likeCount:
+                        wasLiked
+                          ? currentPost.likeCount +
+                            1
+                          : Math.max(
+                              0,
+                              currentPost.likeCount -
+                                1
+                            ),
+                    }
+                  : currentPost
+            )
+        );
+      } finally {
+        setLikingPostIds(
+          (current) =>
+            current.filter(
+              (id) =>
+                id !==
+                postId
+            )
+        );
+      }
+    };
+
+  const startQuickReply =
+    (postId: string) => {
+      if (
+        replyingPostId ===
+        postId
+      ) {
+        setReplyingPostId(
+          null
+        );
+        setReplyBody('');
+        return;
+      }
+
+      setReplyingPostId(
+        postId
+      );
+      setReplyBody('');
+    };
+
+  const sendQuickReply =
+    async (
+      postId: string
+    ) => {
+      const trimmed =
+        replyBody.trim();
+
+      if (
+        !trimmed ||
+        sendingReply
+      ) {
+        return;
+      }
+
+      setSendingReply(true);
 
       try {
         const {
           data: { user },
           error: userError,
-        } = await supabase.auth.getUser();
+        } =
+          await supabase.auth.getUser();
 
-        if (userError || !user) {
-          router.replace('/login');
+        if (
+          userError ||
+          !user
+        ) {
+          router.replace(
+            '/login'
+          );
           return;
         }
-
-        await loadListeningPresence();
 
         const {
-          data: postData,
-          error: postError,
+          data: insertedReply,
+          error,
         } = await supabase
-          .from('posts')
-          .select(
-            'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+          .from(
+            'post_replies'
           )
-          .order('created_at', {
-            ascending: false,
+          .insert({
+            post_id:
+              postId,
+            user_id:
+              user.id,
+            body: trimmed,
           })
-          .limit(50);
+          .select(
+            'id, created_at, post_id, user_id, body'
+          )
+          .single();
 
-        if (postError) {
+        if (error) {
           console.log(
-            'Feed post error:',
-            postError.message
+            'Quick reply error:',
+            error.message
           );
           return;
         }
-
-        const postRows =
-          (postData as PostRow[]) || [];
-
-        if (postRows.length === 0) {
-          setPosts([]);
-          return;
-        }
-
-        const postIds = postRows.map(
-          (post) => post.id
-        );
-
-        const [
-          likeResult,
-          replyResult,
-        ] = await Promise.all([
-          supabase
-            .from('post_likes')
-            .select('post_id, user_id')
-            .in('post_id', postIds),
-
-          supabase
-            .from('post_replies')
-            .select(
-              'id, created_at, post_id, user_id, body'
-            )
-            .in('post_id', postIds)
-            .order('created_at', {
-              ascending: true,
-            }),
-        ]);
-
-        if (likeResult.error) {
-          console.log(
-            'Feed likes error:',
-            likeResult.error.message
-          );
-        }
-
-        if (replyResult.error) {
-          console.log(
-            'Feed replies error:',
-            replyResult.error.message
-          );
-        }
-
-        const likes =
-          (likeResult.data as LikeRow[]) ||
-          [];
-
-        const replies =
-          (replyResult.data as ReplyRow[]) ||
-          [];
-
-        const allUserIds = Array.from(
-          new Set([
-            ...postRows.map(
-              (post) => post.user_id
-            ),
-            ...replies.map(
-              (reply) => reply.user_id
-            ),
-          ])
-        );
 
         const {
           data: profileData,
@@ -373,447 +883,131 @@ export default function NowScreen() {
           .select(
             'user_id, display_name, username'
           )
-          .in('user_id', allUserIds);
+          .eq(
+            'user_id',
+            user.id
+          )
+          .maybeSingle();
 
-        if (profileError) {
+        if (
+          profileError
+        ) {
           console.log(
-            'Feed profile error:',
+            'Quick reply profile error:',
             profileError.message
           );
         }
 
-        const profiles =
-          (profileData as ProfileRow[]) ||
-          [];
+        const reply =
+          insertedReply as ReplyRow;
 
-        const feedPosts: FeedPost[] =
-          postRows.map((post) => {
-            const profile =
-              profiles.find(
-                (item) =>
-                  item.user_id ===
-                  post.user_id
-              );
+        const newPreview:
+          ReplyPreview = {
+          id: reply.id,
+          userId:
+            user.id,
 
-            const postLikes =
-              likes.filter(
-                (like) =>
-                  like.post_id === post.id
-              );
+          displayName:
+            profileData?.display_name ||
+            'Listener',
 
-            const postReplies =
-              replies.filter(
-                (reply) =>
-                  reply.post_id === post.id
-              );
+          username:
+            profileData?.username ||
+            'nowuser',
 
-            const latestReplyRow =
-              postReplies.length > 0
-                ? postReplies[
-                    postReplies.length - 1
-                  ]
-                : null;
+          body: trimmed,
+        };
 
-            let latestReply:
-              | ReplyPreview
-              | null = null;
+        setPosts(
+          (currentPosts) =>
+            currentPosts.map(
+              (post) =>
+                post.id ===
+                postId
+                  ? {
+                      ...post,
 
-            if (latestReplyRow) {
-              const replyProfile =
-                profiles.find(
-                  (item) =>
-                    item.user_id ===
-                    latestReplyRow.user_id
-                );
+                      replyCount:
+                        post.replyCount +
+                        1,
 
-              latestReply = {
-                id: latestReplyRow.id,
+                      latestReply:
+                        newPreview,
+                    }
+                  : post
+            )
+        );
 
-                userId:
-                  latestReplyRow.user_id,
-
-                displayName:
-                  replyProfile?.display_name ||
-                  'Listener',
-
-                username:
-                  replyProfile?.username ||
-                  'nowuser',
-
-                body:
-                  latestReplyRow.body,
-              };
-            }
-
-            return {
-              ...post,
-
-              displayName:
-                profile?.display_name ||
-                'Listener',
-
-              username:
-                profile?.username ||
-                'nowuser',
-
-              likeCount:
-                postLikes.length,
-
-              likedByMe:
-                postLikes.some(
-                  (like) =>
-                    like.user_id ===
-                    user.id
-                ),
-
-              replyCount:
-                postReplies.length,
-
-              latestReply,
-            };
-          });
-
-        setPosts(feedPosts);
+        setReplyBody('');
+        setReplyingPostId(
+          null
+        );
       } catch (error) {
         console.log(
-          'Feed error:',
+          'Quick reply error:',
           error
         );
       } finally {
-        if (showLoader) {
-          setLoading(false);
-        }
+        setSendingReply(false);
       }
-    },
-    [loadListeningPresence]
-  );
+    };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFeed(true);
-    }, [loadFeed])
-  );
+  const openProfile =
+    (userId: string) => {
+      router.push({
+        pathname: '/profile',
+        params: {
+          userId,
+        },
+      });
+    };
 
-  const refresh = async () => {
-    setRefreshing(true);
+  const openPost =
+    (postId: string) => {
+      router.push({
+        pathname: '/post',
+        params: {
+          postId,
+        },
+      });
+    };
 
-    await loadFeed();
+  const openPresenceChat =
+    (
+      person:
+        ListeningPerson
+    ) => {
+      router.push({
+        pathname: '/chat',
+        params: {
+          userId:
+            person.user_id,
 
-    setRefreshing(false);
-  };
+          name:
+            person.displayName ||
+            'Listener',
 
-  const toggleLike = async (
-    postId: string
-  ) => {
-    if (
-      likingPostIds.includes(postId)
-    ) {
-      return;
-    }
-
-    const post = posts.find(
-      (item) => item.id === postId
-    );
-
-    if (!post) {
-      return;
-    }
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      router.replace('/login');
-      return;
-    }
-
-    setLikingPostIds((current) => [
-      ...current,
-      postId,
-    ]);
-
-    const wasLiked =
-      post.likedByMe;
-
-    setPosts((currentPosts) =>
-      currentPosts.map(
-        (currentPost) =>
-          currentPost.id === postId
+          ...(person.song_title
             ? {
-                ...currentPost,
-
-                likedByMe:
-                  !wasLiked,
-
-                likeCount:
-                  wasLiked
-                    ? Math.max(
-                        0,
-                        currentPost.likeCount -
-                          1
-                      )
-                    : currentPost.likeCount +
-                      1,
+                song:
+                  person.song_title,
               }
-            : currentPost
-      )
-    );
+            : {}),
 
-    try {
-      if (wasLiked) {
-        const { error } =
-          await supabase
-            .from('post_likes')
-            .delete()
-            .eq('post_id', postId)
-            .eq(
-              'user_id',
-              user.id
-            );
-
-        if (error) {
-          throw error;
-        }
-      } else {
-        const { error } =
-          await supabase
-            .from('post_likes')
-            .insert({
-              post_id: postId,
-              user_id: user.id,
-            });
-
-        if (error) {
-          throw error;
-        }
-      }
-    } catch (error) {
-      console.log(
-        'Like error:',
-        error
-      );
-
-      setPosts((currentPosts) =>
-        currentPosts.map(
-          (currentPost) =>
-            currentPost.id === postId
-              ? {
-                  ...currentPost,
-
-                  likedByMe:
-                    wasLiked,
-
-                  likeCount:
-                    wasLiked
-                      ? currentPost.likeCount +
-                        1
-                      : Math.max(
-                          0,
-                          currentPost.likeCount -
-                            1
-                        ),
-                }
-              : currentPost
-        )
-      );
-    } finally {
-      setLikingPostIds(
-        (current) =>
-          current.filter(
-            (id) =>
-              id !== postId
-          )
-      );
-    }
-  };
-
-  const startQuickReply = (
-    postId: string
-  ) => {
-    if (
-      replyingPostId === postId
-    ) {
-      setReplyingPostId(null);
-      setReplyBody('');
-      return;
-    }
-
-    setReplyingPostId(postId);
-    setReplyBody('');
-  };
-
-  const sendQuickReply = async (
-    postId: string
-  ) => {
-    const trimmed =
-      replyBody.trim();
-
-    if (
-      !trimmed ||
-      sendingReply
-    ) {
-      return;
-    }
-
-    setSendingReply(true);
-
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } =
-        await supabase.auth.getUser();
-
-      if (userError || !user) {
-        router.replace('/login');
-        return;
-      }
-
-      const {
-        data: insertedReply,
-        error,
-      } = await supabase
-        .from('post_replies')
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          body: trimmed,
-        })
-        .select(
-          'id, created_at, post_id, user_id, body'
-        )
-        .single();
-
-      if (error) {
-        console.log(
-          'Quick reply error:',
-          error.message
-        );
-        return;
-      }
-
-      const {
-        data: profileData,
-        error: profileError,
-      } = await supabase
-        .from('profiles')
-        .select(
-          'user_id, display_name, username'
-        )
-        .eq(
-          'user_id',
-          user.id
-        )
-        .maybeSingle();
-
-      if (profileError) {
-        console.log(
-          'Quick reply profile error:',
-          profileError.message
-        );
-      }
-
-      const reply =
-        insertedReply as ReplyRow;
-
-      const newPreview: ReplyPreview = {
-        id: reply.id,
-        userId: user.id,
-
-        displayName:
-          profileData?.display_name ||
-          'Listener',
-
-        username:
-          profileData?.username ||
-          'nowuser',
-
-        body: trimmed,
-      };
-
-      setPosts((currentPosts) =>
-        currentPosts.map(
-          (post) =>
-            post.id === postId
-              ? {
-                  ...post,
-
-                  replyCount:
-                    post.replyCount +
-                    1,
-
-                  latestReply:
-                    newPreview,
-                }
-              : post
-        )
-      );
-
-      setReplyBody('');
-      setReplyingPostId(null);
-    } catch (error) {
-      console.log(
-        'Quick reply error:',
-        error
-      );
-    } finally {
-      setSendingReply(false);
-    }
-  };
-
-  const openProfile = (
-    userId: string
-  ) => {
-    router.push({
-      pathname: '/profile',
-      params: {
-        userId,
-      },
-    });
-  };
-
-  const openPost = (
-    postId: string
-  ) => {
-    router.push({
-      pathname: '/post',
-      params: {
-        postId,
-      },
-    });
-  };
-
-  const openPresenceChat = (
-    person: ListeningPerson
-  ) => {
-    router.push({
-      pathname: '/chat',
-      params: {
-        userId: person.user_id,
-        name:
-          person.displayName ||
-          'Listener',
-        ...(person.song_title
-          ? {
-              song:
-                person.song_title,
-            }
-          : {}),
-        ...(person.artist_name
-          ? {
-              artist:
-                person.artist_name,
-            }
-          : {}),
-      },
-    });
-  };
+          ...(person.artist_name
+            ? {
+                artist:
+                  person.artist_name,
+              }
+            : {}),
+        },
+      });
+    };
 
   const openPresenceMusic =
     async (
-      person: ListeningPerson
+      person:
+        ListeningPerson
     ) => {
       try {
         if (
@@ -853,99 +1047,104 @@ export default function NowScreen() {
       }
     };
 
-  const openAppleMusic = async (
-    post: FeedPost
-  ) => {
-    try {
-      if (
-        post.apple_music_id
-      ) {
-        const songUrl =
-          `https://music.apple.com/us/song/${encodeURIComponent(
-            post.apple_music_id
-          )}`;
+  const openAppleMusic =
+    async (
+      post: FeedPost
+    ) => {
+      try {
+        if (
+          post.apple_music_id
+        ) {
+          const songUrl =
+            `https://music.apple.com/us/song/${encodeURIComponent(
+              post.apple_music_id
+            )}`;
 
-        try {
-          await Linking.openURL(
-            songUrl
-          );
-          return;
-        } catch (error) {
-          console.log(
-            'Direct Apple Music URL failed:',
-            error
-          );
+          try {
+            await Linking.openURL(
+              songUrl
+            );
+            return;
+          } catch (error) {
+            console.log(
+              'Direct Apple Music URL failed:',
+              error
+            );
+          }
         }
-      }
 
-      const searchTerm =
-        encodeURIComponent(
-          `${post.song_title} ${post.artist_name}`
+        const searchTerm =
+          encodeURIComponent(
+            `${post.song_title} ${post.artist_name}`
+          );
+
+        await Linking.openURL(
+          `https://music.apple.com/us/search?term=${searchTerm}`
+        );
+      } catch (error) {
+        console.log(
+          'Apple Music open error:',
+          error
+        );
+      }
+    };
+
+  const formatPostTime =
+    (
+      dateString: string
+    ) => {
+      const date =
+        new Date(
+          dateString
         );
 
-      await Linking.openURL(
-        `https://music.apple.com/us/search?term=${searchTerm}`
-      );
-    } catch (error) {
-      console.log(
-        'Apple Music open error:',
-        error
-      );
-    }
-  };
+      const now =
+        new Date();
 
-  const formatPostTime = (
-    dateString: string
-  ) => {
-    const date =
-      new Date(dateString);
+      const difference =
+        now.getTime() -
+        date.getTime();
 
-    const now =
-      new Date();
+      const minutes =
+        Math.floor(
+          difference /
+            60000
+        );
 
-    const difference =
-      now.getTime() -
-      date.getTime();
-
-    const minutes =
-      Math.floor(
-        difference / 60000
-      );
-
-    if (minutes < 1) {
-      return 'now';
-    }
-
-    if (minutes < 60) {
-      return `${minutes}m`;
-    }
-
-    const hours =
-      Math.floor(
-        minutes / 60
-      );
-
-    if (hours < 24) {
-      return `${hours}h`;
-    }
-
-    const days =
-      Math.floor(
-        hours / 24
-      );
-
-    if (days < 7) {
-      return `${days}d`;
-    }
-
-    return date.toLocaleDateString(
-      [],
-      {
-        month: 'short',
-        day: 'numeric',
+      if (minutes < 1) {
+        return 'now';
       }
-    );
-  };
+
+      if (minutes < 60) {
+        return `${minutes}m`;
+      }
+
+      const hours =
+        Math.floor(
+          minutes / 60
+        );
+
+      if (hours < 24) {
+        return `${hours}h`;
+      }
+
+      const days =
+        Math.floor(
+          hours / 24
+        );
+
+      if (days < 7) {
+        return `${days}d`;
+      }
+
+      return date.toLocaleDateString(
+        [],
+        {
+          month: 'short',
+          day: 'numeric',
+        }
+      );
+    };
 
   if (loading) {
     return (
@@ -977,19 +1176,26 @@ export default function NowScreen() {
       <KeyboardAvoidingView
         style={styles.page}
         behavior={
-          Platform.OS === 'ios'
+          Platform.OS ===
+          'ios'
             ? 'padding'
             : undefined
         }
       >
         <View
-          style={styles.header}
+          style={
+            styles.header
+          }
         >
           <View
-            style={styles.brand}
+            style={
+              styles.brand
+            }
           >
             <Text
-              style={styles.logo}
+              style={
+                styles.logo
+              }
             >
               NOW
             </Text>
@@ -1011,7 +1217,9 @@ export default function NowScreen() {
         </View>
 
         <ScrollView
-          style={styles.scroll}
+          style={
+            styles.scroll
+          }
           contentContainerStyle={
             styles.feed
           }
@@ -1024,23 +1232,24 @@ export default function NowScreen() {
               refreshing={
                 refreshing
               }
-              onRefresh={refresh}
+              onRefresh={
+                refresh
+              }
               tintColor="#ffffff"
             />
           }
         >
-          {listeningPeople.length >
-            0 && (
+          <View
+            style={
+              styles.listeningSection
+            }
+          >
             <View
               style={
-                styles.listeningSection
+                styles.listeningSectionHeader
               }
             >
-              <View
-                style={
-                  styles.listeningSectionHeader
-                }
-              >
+              <View>
                 <Text
                   style={
                     styles.listeningEyebrow
@@ -1054,10 +1263,62 @@ export default function NowScreen() {
                     styles.listeningSectionTitle
                   }
                 >
-                  Who's listening
+                  Who's here
                 </Text>
               </View>
 
+              {listeningPeople.length >
+                0 && (
+                <View
+                  style={
+                    styles.roomCount
+                  }
+                >
+                  <View
+                    style={
+                      styles.roomCountDot
+                    }
+                  />
+
+                  <Text
+                    style={
+                      styles.roomCountText
+                    }
+                  >
+                    {
+                      listeningPeople.length
+                    }{' '}
+                    HERE
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {listeningPeople.length ===
+            0 ? (
+              <View
+                style={
+                  styles.emptyRoom
+                }
+              >
+                <Text
+                  style={
+                    styles.emptyRoomTitle
+                  }
+                >
+                  It's quiet right now.
+                </Text>
+
+                <Text
+                  style={
+                    styles.emptyRoomText
+                  }
+                >
+                  People with NOW open will
+                  appear here.
+                </Text>
+              </View>
+            ) : (
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={
@@ -1066,13 +1327,16 @@ export default function NowScreen() {
                 contentContainerStyle={
                   styles.listeningRow
                 }
+                decelerationRate="fast"
               >
                 {listeningPeople.map(
                   (person) => {
                     const initial =
                       person.displayName
                         .trim()
-                        .charAt(0)
+                        .charAt(
+                          0
+                        )
                         .toUpperCase() ||
                       '?';
 
@@ -1105,7 +1369,9 @@ export default function NowScreen() {
                                 styles.listenerAvatarText
                               }
                             >
-                              {initial}
+                              {
+                                initial
+                              }
                             </Text>
                           </View>
 
@@ -1141,6 +1407,12 @@ export default function NowScreen() {
                               }
                             </Text>
                           </View>
+
+                          <View
+                            style={
+                              styles.onlineIndicator
+                            }
+                          />
                         </Pressable>
 
                         <Pressable
@@ -1179,29 +1451,35 @@ export default function NowScreen() {
                             </View>
                           )}
 
-                          <Text
+                          <View
                             style={
-                              styles.presenceSong
-                            }
-                            numberOfLines={
-                              1
+                              styles.presenceMusicText
                             }
                           >
-                            {person.song_title ||
-                              'Unknown song'}
-                          </Text>
+                            <Text
+                              style={
+                                styles.presenceSong
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {person.song_title ||
+                                'No recent song'}
+                            </Text>
 
-                          <Text
-                            style={
-                              styles.presenceArtist
-                            }
-                            numberOfLines={
-                              1
-                            }
-                          >
-                            {person.artist_name ||
-                              'Unknown artist'}
-                          </Text>
+                            <Text
+                              style={
+                                styles.presenceArtist
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {person.artist_name ||
+                                'On NOW'}
+                            </Text>
+                          </View>
                         </Pressable>
 
                         <View
@@ -1215,7 +1493,7 @@ export default function NowScreen() {
 
                               person.listeningNow
                                 ? styles.presenceDotLive
-                                : styles.presenceDotRecent,
+                                : styles.presenceDotOnline,
                             ]}
                           />
 
@@ -1225,12 +1503,15 @@ export default function NowScreen() {
 
                               person.listeningNow
                                 ? styles.presenceStatusLive
-                                : styles.presenceStatusRecent,
+                                : styles.presenceStatusOnline,
                             ]}
+                            numberOfLines={
+                              1
+                            }
                           >
                             {person.listeningNow
                               ? 'LISTENING NOW'
-                              : 'RECENTLY LISTENED'}
+                              : 'ON NOW · LAST PLAYED'}
                           </Text>
                         </View>
 
@@ -1270,8 +1551,8 @@ export default function NowScreen() {
                   }
                 )}
               </ScrollView>
-            </View>
-          )}
+            )}
+          </View>
 
           <View
             style={
@@ -1287,9 +1568,12 @@ export default function NowScreen() {
             </Text>
           </View>
 
-          {posts.length === 0 ? (
+          {posts.length ===
+          0 ? (
             <View
-              style={styles.empty}
+              style={
+                styles.empty
+              }
             >
               <Text
                 style={
@@ -1304,7 +1588,8 @@ export default function NowScreen() {
                   styles.emptyTitle
                 }
               >
-                It's quiet in here.
+                It's quiet in
+                here.
               </Text>
 
               <Text
@@ -1313,8 +1598,9 @@ export default function NowScreen() {
                 }
               >
                 Post what you're
-                listening to and start
-                the conversation.
+                listening to and
+                start the
+                conversation.
               </Text>
 
               <Pressable
@@ -1337,366 +1623,356 @@ export default function NowScreen() {
               </Pressable>
             </View>
           ) : (
-            posts.map((post) => {
-              const initial =
-                post.displayName
-                  .trim()
-                  .charAt(0)
-                  .toUpperCase() ||
-                '?';
+            posts.map(
+              (post) => {
+                const initial =
+                  post.displayName
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase() ||
+                  '?';
 
-              const likeBusy =
-                likingPostIds.includes(
-                  post.id
-                );
+                const likeBusy =
+                  likingPostIds.includes(
+                    post.id
+                  );
 
-              const quickReplyOpen =
-                replyingPostId ===
-                post.id;
+                const quickReplyOpen =
+                  replyingPostId ===
+                  post.id;
 
-              return (
-                <View
-                  key={post.id}
-                  style={styles.post}
-                >
+                return (
                   <View
+                    key={
+                      post.id
+                    }
                     style={
-                      styles.postHeader
+                      styles.post
                     }
                   >
-                    <Pressable
-                      onPress={() =>
-                        openProfile(
-                          post.user_id
-                        )
-                      }
+                    <View
                       style={
-                        styles.avatar
+                        styles.postHeader
                       }
                     >
-                      <Text
-                        style={
-                          styles.avatarText
+                      <Pressable
+                        onPress={() =>
+                          openProfile(
+                            post.user_id
+                          )
                         }
-                      >
-                        {initial}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={
-                        styles.authorInfo
-                      }
-                      onPress={() =>
-                        openProfile(
-                          post.user_id
-                        )
-                      }
-                    >
-                      <View
                         style={
-                          styles.authorLine
+                          styles.avatar
                         }
                       >
                         <Text
                           style={
-                            styles.displayName
-                          }
-                          numberOfLines={
-                            1
+                            styles.avatarText
                           }
                         >
                           {
-                            post.displayName
+                            initial
                           }
                         </Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={
+                          styles.authorInfo
+                        }
+                        onPress={() =>
+                          openProfile(
+                            post.user_id
+                          )
+                        }
+                      >
+                        <View
+                          style={
+                            styles.authorLine
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.displayName
+                            }
+                            numberOfLines={
+                              1
+                            }
+                          >
+                            {
+                              post.displayName
+                            }
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.postTime
+                            }
+                          >
+                            ·{' '}
+                            {formatPostTime(
+                              post.created_at
+                            )}
+                          </Text>
+                        </View>
 
                         <Text
                           style={
-                            styles.postTime
+                            styles.username
                           }
                         >
-                          ·{' '}
-                          {formatPostTime(
-                            post.created_at
-                          )}
+                          @
+                          {
+                            post.username
+                          }
                         </Text>
-                      </View>
+                      </Pressable>
 
                       <Text
                         style={
-                          styles.username
+                          styles.more
                         }
                       >
-                        @{post.username}
+                        •••
                       </Text>
-                    </Pressable>
+                    </View>
 
-                    <Text
-                      style={styles.more}
-                    >
-                      •••
-                    </Text>
-                  </View>
-
-                  {!!post.body && (
-                    <Text
-                      style={styles.body}
-                    >
-                      {post.body}
-                    </Text>
-                  )}
-
-                  <Pressable
-                    style={({
-                      pressed,
-                    }) => [
-                      styles.musicCard,
-
-                      pressed &&
-                        styles.musicCardPressed,
-                    ]}
-                    onPress={() =>
-                      openAppleMusic(
-                        post
-                      )
-                    }
-                  >
-                    {post.artwork_url ? (
-                      <Image
-                        source={{
-                          uri:
-                            post.artwork_url,
-                        }}
+                    {!!post.body && (
+                      <Text
                         style={
-                          styles.artwork
-                        }
-                      />
-                    ) : (
-                      <View
-                        style={
-                          styles.artworkPlaceholder
+                          styles.body
                         }
                       >
-                        <Text
-                          style={
-                            styles.musicNote
-                          }
-                        >
-                          ♪
-                        </Text>
-                      </View>
+                        {
+                          post.body
+                        }
+                      </Text>
                     )}
-
-                    <View
-                      style={
-                        styles.musicInfo
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.song
-                        }
-                        numberOfLines={
-                          1
-                        }
-                      >
-                        {
-                          post.song_title
-                        }
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.artist
-                        }
-                        numberOfLines={
-                          1
-                        }
-                      >
-                        {
-                          post.artist_name
-                        }
-                      </Text>
-
-                      {!!post.album_name && (
-                        <Text
-                          style={
-                            styles.album
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            post.album_name
-                          }
-                        </Text>
-                      )}
-                    </View>
-
-                    <View
-                      style={
-                        styles.playCircle
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.play
-                        }
-                      >
-                        ▶
-                      </Text>
-                    </View>
-                  </Pressable>
-
-                  <View
-                    style={
-                      styles.actions
-                    }
-                  >
-                    <Pressable
-                      style={
-                        styles.action
-                      }
-                      disabled={
-                        likeBusy
-                      }
-                      onPress={() =>
-                        toggleLike(
-                          post.id
-                        )
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.actionIcon,
-
-                          post.likedByMe &&
-                            styles.likedIcon,
-                        ]}
-                      >
-                        {post.likedByMe
-                          ? '♥'
-                          : '♡'}
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.actionText,
-
-                          post.likedByMe &&
-                            styles.likedText,
-                        ]}
-                      >
-                        LIKE
-                        {post.likeCount >
-                        0
-                          ? ` ${post.likeCount}`
-                          : ''}
-                      </Text>
-                    </Pressable>
 
                     <Pressable
                       style={({
                         pressed,
                       }) => [
-                        styles.action,
+                        styles.musicCard,
 
                         pressed &&
-                          styles.actionPressed,
+                          styles.musicCardPressed,
                       ]}
                       onPress={() =>
-                        startQuickReply(
-                          post.id
+                        openAppleMusic(
+                          post
                         )
                       }
                     >
-                      <Text
-                        style={
-                          styles.actionIcon
-                        }
-                      >
-                        ◯
-                      </Text>
+                      {post.artwork_url ? (
+                        <Image
+                          source={{
+                            uri:
+                              post.artwork_url,
+                          }}
+                          style={
+                            styles.artwork
+                          }
+                        />
+                      ) : (
+                        <View
+                          style={
+                            styles.artworkPlaceholder
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.musicNote
+                            }
+                          >
+                            ♪
+                          </Text>
+                        </View>
+                      )}
 
-                      <Text
+                      <View
                         style={
-                          styles.actionText
+                          styles.musicInfo
                         }
                       >
-                        REPLY
-                        {post.replyCount >
-                        0
-                          ? ` ${post.replyCount}`
-                          : ''}
-                      </Text>
+                        <Text
+                          style={
+                            styles.song
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.song_title
+                          }
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.artist
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.artist_name
+                          }
+                        </Text>
+
+                        {!!post.album_name && (
+                          <Text
+                            style={
+                              styles.album
+                            }
+                            numberOfLines={
+                              1
+                            }
+                          >
+                            {
+                              post.album_name
+                            }
+                          </Text>
+                        )}
+                      </View>
+
+                      <View
+                        style={
+                          styles.playCircle
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.play
+                          }
+                        >
+                          ▶
+                        </Text>
+                      </View>
                     </Pressable>
 
-                    <Pressable
+                    <View
                       style={
-                        styles.action
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.actionIcon
-                        }
-                      >
-                        ↗
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.actionText
-                        }
-                      >
-                        SHARE
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {post.latestReply && (
-                    <Pressable
-                      style={
-                        styles.replyPreview
-                      }
-                      onPress={() =>
-                        openPost(
-                          post.id
-                        )
+                        styles.actions
                       }
                     >
                       <Pressable
                         style={
-                          styles.replyAvatar
+                          styles.action
+                        }
+                        disabled={
+                          likeBusy
                         }
                         onPress={() =>
-                          openProfile(
-                            post.latestReply!
-                              .userId
+                          toggleLike(
+                            post.id
+                          )
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.actionIcon,
+
+                            post.likedByMe &&
+                              styles.likedIcon,
+                          ]}
+                        >
+                          {post.likedByMe
+                            ? '♥'
+                            : '♡'}
+                        </Text>
+
+                        <Text
+                          style={[
+                            styles.actionText,
+
+                            post.likedByMe &&
+                              styles.likedText,
+                          ]}
+                        >
+                          LIKE
+                          {post.likeCount >
+                          0
+                            ? ` ${post.likeCount}`
+                            : ''}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={({
+                          pressed,
+                        }) => [
+                          styles.action,
+
+                          pressed &&
+                            styles.actionPressed,
+                        ]}
+                        onPress={() =>
+                          startQuickReply(
+                            post.id
                           )
                         }
                       >
                         <Text
                           style={
-                            styles.replyAvatarText
+                            styles.actionIcon
                           }
                         >
-                          {post.latestReply.displayName
-                            .trim()
-                            .charAt(0)
-                            .toUpperCase() ||
-                            '?'}
+                          ◯
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.actionText
+                          }
+                        >
+                          REPLY
+                          {post.replyCount >
+                          0
+                            ? ` ${post.replyCount}`
+                            : ''}
                         </Text>
                       </Pressable>
 
-                      <View
+                      <Pressable
                         style={
-                          styles.replyPreviewContent
+                          styles.action
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.actionIcon
+                          }
+                        >
+                          ↗
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.actionText
+                          }
+                        >
+                          SHARE
+                        </Text>
+                      </Pressable>
+                    </View>
+
+                    {post.latestReply && (
+                      <Pressable
+                        style={
+                          styles.replyPreview
+                        }
+                        onPress={() =>
+                          openPost(
+                            post.id
+                          )
                         }
                       >
                         <Pressable
+                          style={
+                            styles.replyAvatar
+                          }
                           onPress={() =>
                             openProfile(
                               post.latestReply!
@@ -1704,149 +1980,181 @@ export default function NowScreen() {
                             )
                           }
                         >
-                          <View
+                          <Text
                             style={
-                              styles.replyAuthorLine
+                              styles.replyAvatarText
                             }
                           >
-                            <Text
-                              style={
-                                styles.replyDisplayName
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {
-                                post
-                                  .latestReply
-                                  .displayName
-                              }
-                            </Text>
-
-                            <Text
-                              style={
-                                styles.replyUsername
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              @
-                              {
-                                post
-                                  .latestReply
-                                  .username
-                              }
-                            </Text>
-                          </View>
+                            {post.latestReply.displayName
+                              .trim()
+                              .charAt(
+                                0
+                              )
+                              .toUpperCase() ||
+                              '?'}
+                          </Text>
                         </Pressable>
 
-                        <Text
+                        <View
                           style={
-                            styles.replyPreviewBody
-                          }
-                          numberOfLines={
-                            2
+                            styles.replyPreviewContent
                           }
                         >
-                          {
-                            post.latestReply
-                              .body
-                          }
-                        </Text>
-                      </View>
-                    </Pressable>
-                  )}
+                          <Pressable
+                            onPress={() =>
+                              openProfile(
+                                post.latestReply!
+                                  .userId
+                              )
+                            }
+                          >
+                            <View
+                              style={
+                                styles.replyAuthorLine
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.replyDisplayName
+                                }
+                                numberOfLines={
+                                  1
+                                }
+                              >
+                                {
+                                  post
+                                    .latestReply
+                                    .displayName
+                                }
+                              </Text>
 
-                  {post.replyCount >
-                    0 && (
-                    <Pressable
-                      style={
-                        styles.viewConversation
-                      }
-                      onPress={() =>
-                        openPost(
-                          post.id
-                        )
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.viewConversationText
-                        }
-                      >
-                        View{' '}
-                        {post.replyCount ===
-                        1
-                          ? '1 reply'
-                          : `all ${post.replyCount} replies`}
-                        {'  '}→
-                      </Text>
-                    </Pressable>
-                  )}
+                              <Text
+                                style={
+                                  styles.replyUsername
+                                }
+                                numberOfLines={
+                                  1
+                                }
+                              >
+                                @
+                                {
+                                  post
+                                    .latestReply
+                                    .username
+                                }
+                              </Text>
+                            </View>
+                          </Pressable>
 
-                  {quickReplyOpen && (
-                    <View
-                      style={
-                        styles.quickReply
-                      }
-                    >
-                      <TextInput
-                        style={
-                          styles.quickReplyInput
-                        }
-                        value={
-                          replyBody
-                        }
-                        onChangeText={
-                          setReplyBody
-                        }
-                        placeholder={`Reply to @${post.username}...`}
-                        placeholderTextColor="#666666"
-                        maxLength={280}
-                        multiline
-                        autoFocus
-                      />
+                          <Text
+                            style={
+                              styles.replyPreviewBody
+                            }
+                            numberOfLines={
+                              2
+                            }
+                          >
+                            {
+                              post
+                                .latestReply
+                                .body
+                            }
+                          </Text>
+                        </View>
+                      </Pressable>
+                    )}
 
+                    {post.replyCount >
+                      0 && (
                       <Pressable
-                        style={[
-                          styles.quickReplyButton,
-
-                          (!replyBody.trim() ||
-                            sendingReply) &&
-                            styles.quickReplyButtonDisabled,
-                        ]}
-                        disabled={
-                          !replyBody.trim() ||
-                          sendingReply
+                        style={
+                          styles.viewConversation
                         }
                         onPress={() =>
-                          sendQuickReply(
+                          openPost(
                             post.id
                           )
                         }
                       >
-                        {sendingReply ? (
-                          <ActivityIndicator
-                            size="small"
-                            color="#000000"
-                          />
-                        ) : (
-                          <Text
-                            style={
-                              styles.quickReplyButtonText
-                            }
-                          >
-                            REPLY
-                          </Text>
-                        )}
+                        <Text
+                          style={
+                            styles.viewConversationText
+                          }
+                        >
+                          View{' '}
+                          {post.replyCount ===
+                          1
+                            ? '1 reply'
+                            : `all ${post.replyCount} replies`}
+                          {'  '}→
+                        </Text>
                       </Pressable>
-                    </View>
-                  )}
-                </View>
-              );
-            })
+                    )}
+
+                    {quickReplyOpen && (
+                      <View
+                        style={
+                          styles.quickReply
+                        }
+                      >
+                        <TextInput
+                          style={
+                            styles.quickReplyInput
+                          }
+                          value={
+                            replyBody
+                          }
+                          onChangeText={
+                            setReplyBody
+                          }
+                          placeholder={`Reply to @${post.username}...`}
+                          placeholderTextColor="#666666"
+                          maxLength={
+                            280
+                          }
+                          multiline
+                          autoFocus
+                        />
+
+                        <Pressable
+                          style={[
+                            styles.quickReplyButton,
+
+                            (!replyBody.trim() ||
+                              sendingReply) &&
+                              styles.quickReplyButtonDisabled,
+                          ]}
+                          disabled={
+                            !replyBody.trim() ||
+                            sendingReply
+                          }
+                          onPress={() =>
+                            sendQuickReply(
+                              post.id
+                            )
+                          }
+                        >
+                          {sendingReply ? (
+                            <ActivityIndicator
+                              size="small"
+                              color="#000000"
+                            />
+                          ) : (
+                            <Text
+                              style={
+                                styles.quickReplyButtonText
+                              }
+                            >
+                              REPLY
+                            </Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                );
+              }
+            )
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1932,8 +2240,8 @@ const styles =
     },
 
     listeningSection: {
-      paddingTop: 25,
-      paddingBottom: 27,
+      paddingTop: 23,
+      paddingBottom: 25,
       borderBottomWidth: 1,
       borderBottomColor:
         '#1c1c1c',
@@ -1941,7 +2249,11 @@ const styles =
 
     listeningSectionHeader: {
       paddingHorizontal: 20,
-      marginBottom: 17,
+      marginBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent:
+        'space-between',
     },
 
     listeningEyebrow: {
@@ -1949,7 +2261,7 @@ const styles =
       fontSize: 9,
       fontWeight: '900',
       letterSpacing: 1.8,
-      marginBottom: 6,
+      marginBottom: 5,
     },
 
     listeningSectionTitle: {
@@ -1959,60 +2271,92 @@ const styles =
       letterSpacing: -0.6,
     },
 
+    roomCount: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingBottom: 3,
+    },
+
+    roomCountDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor:
+        '#39E75F',
+      marginRight: 6,
+    },
+
+    roomCountText: {
+      color: '#666666',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
     listeningRow: {
-      paddingHorizontal: 20,
+      paddingLeft: 20,
       paddingRight: 8,
     },
 
     listeningCard: {
-      width: 215,
+      width: 178,
       borderWidth: 1,
       borderColor: '#242424',
       borderRadius: 17,
       backgroundColor:
         '#0d0d0d',
-      padding: 14,
-      marginRight: 12,
+      padding: 12,
+      marginRight: 11,
     },
 
     listenerHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 14,
+      marginBottom: 11,
     },
 
     listenerAvatar: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 29,
+      height: 29,
+      borderRadius: 15,
       backgroundColor:
         '#1b1b1b',
       alignItems: 'center',
       justifyContent:
         'center',
-      marginRight: 9,
+      marginRight: 8,
     },
 
     listenerAvatarText: {
       color: '#ffffff',
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '800',
     },
 
     listenerIdentity: {
       flex: 1,
+      minWidth: 0,
     },
 
     listenerName: {
       color: '#ffffff',
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '800',
     },
 
     listenerUsername: {
       color: '#606060',
-      fontSize: 9,
+      fontSize: 8,
       marginTop: 2,
+    },
+
+    onlineIndicator: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor:
+        '#39E75F',
+      marginLeft: 5,
     },
 
     presenceMusic: {
@@ -2022,52 +2366,55 @@ const styles =
     presenceArtwork: {
       width: '100%',
       aspectRatio: 1,
-      borderRadius: 10,
+      borderRadius: 9,
       backgroundColor:
         '#181818',
-      marginBottom: 12,
     },
 
     presenceArtworkPlaceholder: {
       width: '100%',
       aspectRatio: 1,
-      borderRadius: 10,
+      borderRadius: 9,
       backgroundColor:
         '#181818',
       alignItems: 'center',
       justifyContent:
         'center',
-      marginBottom: 12,
     },
 
     presenceMusicNote: {
       color: '#555555',
-      fontSize: 32,
+      fontSize: 29,
+    },
+
+    presenceMusicText: {
+      marginTop: 10,
     },
 
     presenceSong: {
       color: '#ffffff',
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '800',
     },
 
     presenceArtist: {
       color: '#777777',
-      fontSize: 11,
-      marginTop: 4,
+      fontSize: 10,
+      marginTop: 3,
     },
 
     presenceStatus: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 13,
+      marginTop: 11,
+      minHeight: 12,
     },
 
     presenceDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-      marginRight: 7,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      marginRight: 6,
     },
 
     presenceDotLive: {
@@ -2075,36 +2422,40 @@ const styles =
         '#39E75F',
     },
 
-    presenceDotRecent: {
+    presenceDotOnline: {
       backgroundColor:
-        '#FFD60A',
+        '#39E75F',
     },
 
     presenceStatusText: {
-      fontSize: 8,
+      flex: 1,
+      fontSize: 7,
       fontWeight: '900',
-      letterSpacing: 0.9,
+      letterSpacing: 0.55,
     },
 
     presenceStatusLive: {
       color: '#39E75F',
     },
 
-    presenceStatusRecent: {
-      color: '#FFD60A',
+    presenceStatusOnline: {
+      color: '#777777',
     },
 
     saySomethingButton: {
-      height: 37,
+      height: 34,
       borderRadius: 100,
       borderWidth: 1,
-      borderColor: '#303030',
-      marginTop: 14,
-      paddingHorizontal: 13,
+      borderColor:
+        '#303030',
+      marginTop: 12,
+      paddingHorizontal: 11,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: '#141414',
+      justifyContent:
+        'space-between',
+      backgroundColor:
+        '#141414',
     },
 
     saySomethingButtonPressed: {
@@ -2113,15 +2464,37 @@ const styles =
 
     saySomethingText: {
       color: '#ffffff',
-      fontSize: 8,
+      fontSize: 7,
       fontWeight: '900',
-      letterSpacing: 1,
+      letterSpacing: 0.8,
     },
 
     saySomethingArrow: {
       color: '#777777',
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '700',
+    },
+
+    emptyRoom: {
+      marginHorizontal: 20,
+      borderWidth: 1,
+      borderColor: '#202020',
+      borderRadius: 15,
+      padding: 18,
+      backgroundColor:
+        '#0a0a0a',
+    },
+
+    emptyRoomTitle: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
+    },
+
+    emptyRoomText: {
+      color: '#666666',
+      fontSize: 11,
+      marginTop: 5,
     },
 
     feedHeading: {
