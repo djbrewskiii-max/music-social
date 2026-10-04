@@ -1,0 +1,109 @@
+diff --git a/node_modules/@wwdrew/expo-apple-music/ios/ExpoAppleMusicModuleDefinition.swift b/node_modules/@wwdrew/expo-apple-music/ios/ExpoAppleMusicModuleDefinition.swift
+index 734a02a..d549b62 100644
+--- a/node_modules/@wwdrew/expo-apple-music/ios/ExpoAppleMusicModuleDefinition.swift
++++ b/node_modules/@wwdrew/expo-apple-music/ios/ExpoAppleMusicModuleDefinition.swift
+@@ -300,6 +300,12 @@ extension ExpoAppleMusicModule {
+       await ExpoBridgePlayer.getCurrentState(playbackController: self.playbackController)
+     }
+ 
++    // MARK: - NOW System Playback Test
++
++    AsyncFunction("getSystemPlaybackState") { () -> [String: Any] in
++      await SystemPlaybackReader.shared.getCurrentPlayback()
++    }
++
+     AsyncFunction("playLibrarySong") { (musicUserToken: String, songId: String) -> String in
+       try await ExpoBridgePlayer.playLibrarySong(
+         queueService: self.queueService,
+diff --git a/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift b/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift
+new file mode 100644
+index 0000000..de49ed7
+--- /dev/null
++++ b/node_modules/@wwdrew/expo-apple-music/ios/SystemPlaybackReader.swift
+@@ -0,0 +1,85 @@
++// SystemPlaybackReader.swift
++// Read-only experiment for NOW.
++// Reads playback information from Apple's SystemMusicPlayer
++// without changing the package's existing ApplicationMusicPlayer.
++
++import Foundation
++import MusicKit
++
++@available(iOS 16.0, *)
++final class SystemPlaybackReader {
++
++  // MARK: - Shared Instance
++
++  static let shared = SystemPlaybackReader()
++
++  // MARK: - Player
++
++  private var player: SystemMusicPlayer {
++    SystemMusicPlayer.shared
++  }
++
++  private init() {}
++
++  // MARK: - Current Playback
++
++  func getCurrentPlayback() async -> [String: Any] {
++    let state = player.state
++
++    var result: [String: Any] = [
++      "playbackStatus": describePlaybackStatus(state.playbackStatus),
++      "playbackRate": state.playbackRate,
++      "hasCurrentEntry": false
++    ]
++
++    guard let entry = player.queue.currentEntry else {
++      return result
++    }
++
++    result["hasCurrentEntry"] = true
++
++    switch entry.item {
++    case .song(let song):
++      result["itemType"] = "song"
++      result["currentSong"] = MusicItemMapper.map(song)
++
++    case .musicVideo(let musicVideo):
++      result["itemType"] = "musicVideo"
++      result["currentSong"] = MusicItemMapper.map(musicVideo)
++
++    default:
++      result["itemType"] = "other"
++    }
++
++    return result
++  }
++
++  // MARK: - Playback Status
++
++  private func describePlaybackStatus(
++    _ status: MusicPlayer.PlaybackStatus
++  ) -> String {
++    switch status {
++    case .playing:
++      return "playing"
++
++    case .paused:
++      return "paused"
++
++    case .stopped:
++      return "stopped"
++
++    case .interrupted:
++      return "interrupted"
++
++    case .seekingForward:
++      return "seekingForward"
++
++    case .seekingBackward:
++      return "seekingBackward"
++
++    @unknown default:
++      return "unknown"
++    }
++  }
++}
+\ No newline at end of file

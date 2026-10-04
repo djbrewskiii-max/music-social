@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
+import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 
 type Profile = {
@@ -55,12 +56,14 @@ type MusicDNA = {
 const normalize = (value: string) =>
   value.trim().toLowerCase();
 
-const artworkUrl = (
+const formatArtworkUrl = (
   url?: string,
   width = 600,
   height = 600
 ) => {
-  if (!url) return undefined;
+  if (!url) {
+    return undefined;
+  }
 
   return url
     .replace('{w}', String(width))
@@ -151,6 +154,13 @@ export default function MyProfileScreen() {
       }
 
       if (existingDNA) {
+        const existingRecentTracks =
+          Array.isArray(
+            existingDNA.recent_tracks
+          )
+            ? existingDNA.recent_tracks
+            : [];
+
         setMusicDNA({
           topArtists:
             Array.isArray(
@@ -167,12 +177,18 @@ export default function MyProfileScreen() {
               : [],
 
           recentTracks:
-            Array.isArray(
-              existingDNA.recent_tracks
-            )
-              ? existingDNA.recent_tracks
-              : [],
+            existingRecentTracks,
         });
+
+        if (
+          existingRecentTracks.length > 0
+        ) {
+          setMusicConnected(true);
+
+          setStatusText(
+            'Apple Music data loaded.'
+          );
+        }
       }
 
       await connectAndRefreshMusic(
@@ -214,17 +230,20 @@ export default function MyProfileScreen() {
       >();
 
     tracks.forEach((track) => {
-      const artistKey = normalize(
-        track.artist
-      );
+      const artistKey =
+        normalize(track.artist);
 
       const songKey =
         `${normalize(
           track.artist
-        )}::${normalize(track.song)}`;
+        )}::${normalize(
+          track.song
+        )}`;
 
       const existingArtist =
-        artistCounts.get(artistKey);
+        artistCounts.get(
+          artistKey
+        );
 
       if (existingArtist) {
         existingArtist.count += 1;
@@ -254,14 +273,17 @@ export default function MyProfileScreen() {
       if (existingSong) {
         existingSong.count += 1;
       } else {
-        songCounts.set(songKey, {
-          id: track.id,
-          song: track.song,
-          artist: track.artist,
-          count: 1,
-          artworkUrl:
-            track.artworkUrl,
-        });
+        songCounts.set(
+          songKey,
+          {
+            id: track.id,
+            song: track.song,
+            artist: track.artist,
+            count: 1,
+            artworkUrl:
+              track.artworkUrl,
+          }
+        );
       }
     });
 
@@ -327,17 +349,20 @@ export default function MyProfileScreen() {
         'Music loaded, but NOW could not save your Music DNA.'
       );
 
-      return;
+      return false;
     }
 
     setStatusText(
-      'Your Music DNA is up to date.'
+      'Apple Music connected · Music DNA is up to date.'
     );
+
+    return true;
   };
 
   const connectAndRefreshMusic =
     async (userId?: string) => {
       setMusicLoading(true);
+
       setStatusText(
         'Checking Apple Music...'
       );
@@ -384,13 +409,24 @@ export default function MyProfileScreen() {
             AuthStatus.authorized ||
           !authResult.musicUserToken
         ) {
-          setMusicConnected(
-            false
-          );
+          if (
+            musicDNA.recentTracks
+              .length === 0
+          ) {
+            setMusicConnected(
+              false
+            );
 
-          setStatusText(
-            'Apple Music is not connected.'
-          );
+            setStatusText(
+              'Apple Music is not connected.'
+            );
+          } else {
+            setMusicConnected(true);
+
+            setStatusText(
+              'Your saved Apple Music data is available. Tap refresh to reconnect live access.'
+            );
+          }
 
           return;
         }
@@ -401,7 +437,7 @@ export default function MyProfileScreen() {
           'Reading your recent music...'
         );
 
-        const historyResult =
+        const history =
           await History.getRecentlyPlayedTracks(
             authResult.musicUserToken,
             {
@@ -409,46 +445,31 @@ export default function MyProfileScreen() {
             }
           );
 
-        const rawTracks =
-          historyResult?.data || [];
-
         const tracks: MusicTrack[] =
-          rawTracks
-            .map((item: any) => {
-              const attributes =
-                item?.attributes;
-
-              if (!attributes) {
-                return null;
-              }
-
-              const song =
-                attributes.name;
-
-              const artist =
-                attributes.artistName;
-
+          history.songs
+            .map((song) => {
               if (
-                !song ||
-                !artist
+                !song.title ||
+                !song.artistName
               ) {
                 return null;
               }
 
               return {
-                id: item.id,
-                song,
-                artist,
+                id: song.id,
+                song: song.title,
+                artist:
+                  song.artistName,
                 artworkUrl:
-                  artworkUrl(
-                    attributes
-                      ?.artwork?.url
+                  formatArtworkUrl(
+                    song.artworkUrl ||
+                      ''
                   ),
               };
             })
             .filter(
               (
-                track: MusicTrack | null
+                track
               ): track is MusicTrack =>
                 track !== null
             );
@@ -457,7 +478,7 @@ export default function MyProfileScreen() {
           tracks.length === 0
         ) {
           setStatusText(
-            'No recent Apple Music plays found yet.'
+            'Apple Music is connected, but no recent plays were found yet.'
           );
 
           return;
@@ -468,19 +489,39 @@ export default function MyProfileScreen() {
 
         setMusicDNA(dna);
 
-        await saveMusicDNA(
-          resolvedUserId,
-          dna
-        );
+        const saved =
+          await saveMusicDNA(
+            resolvedUserId,
+            dna
+          );
+
+        if (saved) {
+          await refreshPresence();
+        }
       } catch (error) {
         console.log(
           'Apple Music error:',
           error
         );
 
-        setStatusText(
-          'NOW could not refresh Apple Music right now.'
-        );
+        if (
+          musicDNA.recentTracks
+            .length > 0
+        ) {
+          setMusicConnected(true);
+
+          setStatusText(
+            'Your saved Apple Music data is available. NOW could not refresh it right now.'
+          );
+        } else {
+          setMusicConnected(
+            false
+          );
+
+          setStatusText(
+            'NOW could not connect to Apple Music right now.'
+          );
+        }
       } finally {
         setMusicLoading(false);
       }
@@ -686,7 +727,8 @@ export default function MyProfileScreen() {
                       {artist.artworkUrl ? (
                         <Image
                           source={{
-                            uri: artist.artworkUrl,
+                            uri:
+                              artist.artworkUrl,
                           }}
                           style={
                             styles.artistArtwork
@@ -795,7 +837,8 @@ export default function MyProfileScreen() {
                     {track.artworkUrl ? (
                       <Image
                         source={{
-                          uri: track.artworkUrl,
+                          uri:
+                            track.artworkUrl,
                         }}
                         style={
                           styles.trackArtwork
@@ -887,6 +930,37 @@ export default function MyProfileScreen() {
             )}
           </Pressable>
 
+          <Pressable
+            style={({ pressed }) => [
+              styles.systemTestButton,
+              pressed &&
+                styles.systemTestButtonPressed,
+            ]}
+            onPress={() =>
+              router.push(
+                '/system-music-test'
+              )
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.systemTestEyebrow
+                }
+              >
+                NOW LAB
+              </Text>
+
+              <Text
+                style={
+                  styles.systemTestText
+                }
+              >
+                SYSTEM MUSIC TEST →
+              </Text>
+            </View>
+          </Pressable>
+
           <Text
             style={
               styles.footer
@@ -903,300 +977,347 @@ export default function MyProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#050505',
-  },
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        '#050505',
+    },
 
-  page: {
-    flex: 1,
-  },
+    page: {
+      flex: 1,
+    },
 
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: '#050505',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    loadingScreen: {
+      flex: 1,
+      backgroundColor:
+        '#050505',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
 
-  loadingText: {
-    color: '#666666',
-    fontSize: 13,
-    marginTop: 14,
-  },
+    loadingText: {
+      color: '#666666',
+      fontSize: 13,
+      marginTop: 14,
+    },
 
-  content: {
-    paddingHorizontal: 22,
-    paddingBottom: 50,
-  },
+    content: {
+      paddingHorizontal: 22,
+      paddingBottom: 50,
+    },
 
-  header: {
-    minHeight: 70,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent:
-      'space-between',
-  },
+    header: {
+      minHeight: 70,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+    },
 
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    brand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
 
-  logo: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 3,
-  },
+    logo: {
+      color: '#ffffff',
+      fontSize: 18,
+      fontWeight: '900',
+      letterSpacing: 3,
+    },
 
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#39E75F',
-    marginLeft: 8,
-  },
+    liveDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor:
+        '#39E75F',
+      marginLeft: 8,
+    },
 
-  signOut: {
-    color: '#666666',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-  },
+    signOut: {
+      color: '#666666',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 1.3,
+    },
 
-  profileArea: {
-    alignItems: 'center',
-    paddingTop: 28,
-    paddingBottom: 48,
-  },
+    profileArea: {
+      alignItems: 'center',
+      paddingTop: 28,
+      paddingBottom: 48,
+    },
 
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 19,
-  },
+    avatar: {
+      width: 92,
+      height: 92,
+      borderRadius: 46,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginBottom: 19,
+    },
 
-  avatarText: {
-    color: '#ffffff',
-    fontSize: 34,
-    fontWeight: '800',
-  },
+    avatarText: {
+      color: '#ffffff',
+      fontSize: 34,
+      fontWeight: '800',
+    },
 
-  name: {
-    color: '#ffffff',
-    fontSize: 27,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-  },
+    name: {
+      color: '#ffffff',
+      fontSize: 27,
+      fontWeight: '800',
+      letterSpacing: -0.7,
+    },
 
-  username: {
-    color: '#777777',
-    fontSize: 13,
-    marginTop: 5,
-  },
+    username: {
+      color: '#777777',
+      fontSize: 13,
+      marginTop: 5,
+    },
 
-  city: {
-    color: '#555555',
-    fontSize: 12,
-    marginTop: 7,
-  },
+    city: {
+      color: '#555555',
+      fontSize: 12,
+      marginTop: 7,
+    },
 
-  musicHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent:
-      'space-between',
-    marginBottom: 27,
-  },
+    musicHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent:
+        'space-between',
+      marginBottom: 27,
+    },
 
-  eyebrow: {
-    color: '#666666',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
+    eyebrow: {
+      color: '#666666',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 2,
+      marginBottom: 8,
+    },
 
-  sectionTitle: {
-    color: '#ffffff',
-    fontSize: 29,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
+    sectionTitle: {
+      color: '#ffffff',
+      fontSize: 29,
+      fontWeight: '800',
+      letterSpacing: -0.8,
+    },
 
-  connectionDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#333333',
-    marginBottom: 7,
-  },
+    connectionDot: {
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor:
+        '#333333',
+      marginBottom: 7,
+    },
 
-  connectionDotActive: {
-    backgroundColor: '#39E75F',
-  },
+    connectionDotActive: {
+      backgroundColor:
+        '#39E75F',
+    },
 
-  subheading: {
-    color: '#666666',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.7,
-    marginBottom: 15,
-  },
+    subheading: {
+      color: '#666666',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 1.7,
+      marginBottom: 15,
+    },
 
-  artistRow: {
-    paddingRight: 20,
-  },
+    artistRow: {
+      paddingRight: 20,
+    },
 
-  artistCard: {
-    width: 115,
-    marginRight: 14,
-  },
+    artistCard: {
+      width: 115,
+      marginRight: 14,
+    },
 
-  artistArtwork: {
-    width: 115,
-    height: 115,
-    borderRadius: 10,
-    backgroundColor: '#151515',
-  },
+    artistArtwork: {
+      width: 115,
+      height: 115,
+      borderRadius: 10,
+      backgroundColor:
+        '#151515',
+    },
 
-  artistArtworkPlaceholder: {
-    width: 115,
-    height: 115,
-    borderRadius: 10,
-    backgroundColor: '#151515',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    artistArtworkPlaceholder: {
+      width: 115,
+      height: 115,
+      borderRadius: 10,
+      backgroundColor:
+        '#151515',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
 
-  artistInitial: {
-    color: '#555555',
-    fontSize: 34,
-    fontWeight: '800',
-  },
+    artistInitial: {
+      color: '#555555',
+      fontSize: 34,
+      fontWeight: '800',
+    },
 
-  artistName: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 10,
-  },
+    artistName: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 10,
+    },
 
-  playCount: {
-    color: '#555555',
-    fontSize: 10,
-    marginTop: 3,
-  },
+    playCount: {
+      color: '#555555',
+      fontSize: 10,
+      marginTop: 3,
+    },
 
-  divider: {
-    height: 1,
-    backgroundColor: '#1c1c1c',
-    marginVertical: 32,
-  },
+    divider: {
+      height: 1,
+      backgroundColor:
+        '#1c1c1c',
+      marginVertical: 32,
+    },
 
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
+    trackRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
 
-  trackArtwork: {
-    width: 54,
-    height: 54,
-    borderRadius: 6,
-    backgroundColor: '#151515',
-  },
+    trackArtwork: {
+      width: 54,
+      height: 54,
+      borderRadius: 6,
+      backgroundColor:
+        '#151515',
+    },
 
-  trackArtworkPlaceholder: {
-    width: 54,
-    height: 54,
-    borderRadius: 6,
-    backgroundColor: '#151515',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    trackArtworkPlaceholder: {
+      width: 54,
+      height: 54,
+      borderRadius: 6,
+      backgroundColor:
+        '#151515',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
 
-  trackArtworkText: {
-    color: '#555555',
-    fontSize: 20,
-  },
+    trackArtworkText: {
+      color: '#555555',
+      fontSize: 20,
+    },
 
-  trackInfo: {
-    flex: 1,
-    marginLeft: 13,
-  },
+    trackInfo: {
+      flex: 1,
+      marginLeft: 13,
+    },
 
-  trackSong: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+    trackSong: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '700',
+    },
 
-  trackArtist: {
-    color: '#777777',
-    fontSize: 12,
-    marginTop: 4,
-  },
+    trackArtist: {
+      color: '#777777',
+      fontSize: 12,
+      marginTop: 4,
+    },
 
-  emptyMusic: {
-    borderWidth: 1,
-    borderColor: '#202020',
-    borderRadius: 18,
-    padding: 22,
-  },
+    emptyMusic: {
+      borderWidth: 1,
+      borderColor: '#202020',
+      borderRadius: 18,
+      padding: 22,
+    },
 
-  emptyMusicTitle: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
+    emptyMusicTitle: {
+      color: '#ffffff',
+      fontSize: 17,
+      fontWeight: '700',
+    },
 
-  emptyMusicText: {
-    color: '#666666',
-    fontSize: 12,
-    lineHeight: 19,
-    marginTop: 7,
-  },
+    emptyMusicText: {
+      color: '#666666',
+      fontSize: 12,
+      lineHeight: 19,
+      marginTop: 7,
+    },
 
-  status: {
-    color: '#555555',
-    fontSize: 11,
-    lineHeight: 17,
-    textAlign: 'center',
-    marginTop: 24,
-  },
+    status: {
+      color: '#555555',
+      fontSize: 11,
+      lineHeight: 17,
+      textAlign: 'center',
+      marginTop: 24,
+    },
 
-  refreshButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 100,
-    minHeight: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
+    refreshButton: {
+      backgroundColor:
+        '#ffffff',
+      borderRadius: 100,
+      minHeight: 50,
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginTop: 18,
+    },
 
-  refreshButtonPressed: {
-    opacity: 0.7,
-  },
+    refreshButtonPressed: {
+      opacity: 0.7,
+    },
 
-  refreshButtonText: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
-  },
+    refreshButtonText: {
+      color: '#000000',
+      fontSize: 13,
+      fontWeight: '800',
+    },
 
-  footer: {
-    color: '#3f3f3f',
-    textAlign: 'center',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginTop: 48,
-  },
-});
+    systemTestButton: {
+      minHeight: 68,
+      borderWidth: 1,
+      borderColor: '#292929',
+      borderRadius: 16,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      marginTop: 12,
+    },
+
+    systemTestButtonPressed: {
+      opacity: 0.65,
+    },
+
+    systemTestEyebrow: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.5,
+      marginBottom: 5,
+    },
+
+    systemTestText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+
+    footer: {
+      color: '#3f3f3f',
+      textAlign: 'center',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+      marginTop: 48,
+    },
+  });

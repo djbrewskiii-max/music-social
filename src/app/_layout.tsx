@@ -1,6 +1,18 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+
+import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
+  useEffect(() => {
+    const stopPresenceTracking =
+      startPresenceTracking();
+
+    return () => {
+      stopPresenceTracking();
+    };
+  }, []);
+
   return (
     <Stack
       screenOptions={{

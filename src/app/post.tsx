@@ -1,17 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 import { supabase } from '../supabase';
@@ -25,6 +26,7 @@ type PostRow = {
   artist_name: string;
   album_name: string | null;
   artwork_url: string | null;
+  apple_music_id: string | null;
 };
 
 type ProfileRow = {
@@ -41,25 +43,27 @@ type ReplyRow = {
   body: string;
 };
 
-type ThreadReply = ReplyRow & {
+type ThreadPost = PostRow & {
   displayName: string;
   username: string;
 };
 
-type ThreadPost = PostRow & {
+type ThreadReply = ReplyRow & {
   displayName: string;
   username: string;
 };
 
 export default function PostScreen() {
   const params = useLocalSearchParams<{
-    postId?: string;
+    postId?: string | string[];
   }>();
 
   const postId =
     typeof params.postId === 'string'
       ? params.postId
-      : '';
+      : Array.isArray(params.postId)
+        ? params.postId[0]
+        : '';
 
   const [post, setPost] =
     useState<ThreadPost | null>(null);
@@ -76,39 +80,63 @@ export default function PostScreen() {
   const [sending, setSending] =
     useState(false);
 
+  const [errorMessage, setErrorMessage] =
+    useState('');
+
   const loadThread = useCallback(async () => {
     if (!postId) {
+      setErrorMessage(
+        'This post could not be opened.'
+      );
+      setLoading(false);
       return;
     }
 
     try {
-      const { data: postData, error: postError } =
-        await supabase
-          .from('posts')
-          .select(
-            'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url'
-          )
-          .eq('id', postId)
-          .maybeSingle();
+      setErrorMessage('');
 
-      if (postError || !postData) {
+      const {
+        data: postData,
+        error: postError,
+      } = await supabase
+        .from('posts')
+        .select(
+          'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+        )
+        .eq('id', postId)
+        .maybeSingle();
+
+      if (postError) {
         console.log(
           'Thread post error:',
-          postError?.message
+          postError.message
+        );
+
+        setErrorMessage(
+          'We could not load this post.'
         );
         return;
       }
 
-      const { data: replyData, error: replyError } =
-        await supabase
-          .from('post_replies')
-          .select(
-            'id, created_at, post_id, user_id, body'
-          )
-          .eq('post_id', postId)
-          .order('created_at', {
-            ascending: true,
-          });
+      if (!postData) {
+        setErrorMessage(
+          'This post is no longer available.'
+        );
+        return;
+      }
+
+      const {
+        data: replyData,
+        error: replyError,
+      } = await supabase
+        .from('post_replies')
+        .select(
+          'id, created_at, post_id, user_id, body'
+        )
+        .eq('post_id', postId)
+        .order('created_at', {
+          ascending: true,
+        });
 
       if (replyError) {
         console.log(
@@ -149,11 +177,12 @@ export default function PostScreen() {
       const profiles =
         (profileData as ProfileRow[]) || [];
 
-      const postProfile = profiles.find(
-        (profile) =>
-          profile.user_id ===
-          postData.user_id
-      );
+      const postProfile =
+        profiles.find(
+          (profile) =>
+            profile.user_id ===
+            postData.user_id
+        );
 
       setPost({
         ...(postData as PostRow),
@@ -165,13 +194,14 @@ export default function PostScreen() {
           'nowuser',
       });
 
-      const threadReplies: ThreadReply[] =
+      const threadReplies =
         replyRows.map((reply) => {
-          const profile = profiles.find(
-            (item) =>
-              item.user_id ===
-              reply.user_id
-          );
+          const profile =
+            profiles.find(
+              (item) =>
+                item.user_id ===
+                reply.user_id
+            );
 
           return {
             ...reply,
@@ -187,51 +217,91 @@ export default function PostScreen() {
       setReplies(threadReplies);
     } catch (error) {
       console.log(
-        'Thread error:',
+        'Thread loading error:',
         error
       );
+
+      setErrorMessage(
+        'Something went wrong loading this conversation.'
+      );
+    } finally {
+      setLoading(false);
     }
   }, [postId]);
 
   useEffect(() => {
-    const start = async () => {
-      setLoading(true);
-      await loadThread();
-      setLoading(false);
-    };
+    setLoading(true);
+    loadThread();
+  }, [loadThread]);
 
-    start();
-
-    if (!postId) {
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
       return;
     }
 
-    const channel = supabase
-      .channel(`post-thread-${postId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'post_replies',
-          filter: `post_id=eq.${postId}`,
-        },
-        () => {
-          loadThread();
-        }
-      )
-      .subscribe();
+    router.replace('/now');
+  };
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadThread, postId]);
+  const openProfile = (
+    userId: string
+  ) => {
+    router.push({
+      pathname: '/profile',
+      params: {
+        userId,
+      },
+    });
+  };
+
+  const openAppleMusic = async () => {
+    if (!post) {
+      return;
+    }
+
+    try {
+      if (post.apple_music_id) {
+        const songUrl =
+          `https://music.apple.com/us/song/${encodeURIComponent(
+            post.apple_music_id
+          )}`;
+
+        try {
+          await Linking.openURL(songUrl);
+          return;
+        } catch (error) {
+          console.log(
+            'Direct Apple Music URL failed:',
+            error
+          );
+        }
+      }
+
+      const searchTerm =
+        encodeURIComponent(
+          `${post.song_title} ${post.artist_name}`
+        );
+
+      await Linking.openURL(
+        `https://music.apple.com/us/search?term=${searchTerm}`
+      );
+    } catch (error) {
+      console.log(
+        'Apple Music open error:',
+        error
+      );
+    }
+  };
 
   const sendReply = async () => {
     const trimmed =
       replyBody.trim();
 
-    if (!trimmed || sending || !postId) {
+    if (
+      !trimmed ||
+      !postId ||
+      sending
+    ) {
       return;
     }
 
@@ -248,38 +318,63 @@ export default function PostScreen() {
         return;
       }
 
-      const { error } = await supabase
+      const {
+        data: insertedReply,
+        error: replyError,
+      } = await supabase
         .from('post_replies')
         .insert({
           post_id: postId,
           user_id: user.id,
           body: trimmed,
-        });
+        })
+        .select(
+          'id, created_at, post_id, user_id, body'
+        )
+        .single();
 
-      if (error) {
+      if (replyError) {
         console.log(
-          'Reply error:',
-          error.message
+          'Reply insert error:',
+          replyError.message
         );
         return;
       }
 
+      const {
+        data: profileData,
+      } = await supabase
+        .from('profiles')
+        .select(
+          'user_id, display_name, username'
+        )
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const newReply: ThreadReply = {
+        ...(insertedReply as ReplyRow),
+        displayName:
+          profileData?.display_name ||
+          'Listener',
+        username:
+          profileData?.username ||
+          'nowuser',
+      };
+
+      setReplies((current) => [
+        ...current,
+        newReply,
+      ]);
+
       setReplyBody('');
-      await loadThread();
+    } catch (error) {
+      console.log(
+        'Reply send error:',
+        error
+      );
     } finally {
       setSending(false);
     }
-  };
-
-  const openProfile = (
-    userId: string
-  ) => {
-    router.push({
-      pathname: '/profile',
-      params: {
-        userId,
-      },
-    });
   };
 
   const formatTime = (
@@ -304,17 +399,25 @@ export default function PostScreen() {
           size="large"
           color="#ffffff"
         />
+
+        <Text
+          style={styles.loadingText}
+        >
+          Loading conversation...
+        </Text>
       </SafeAreaView>
     );
   }
 
   if (!post) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView
+        style={styles.screen}
+      >
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
+            onPress={goBack}
+            hitSlop={15}
           >
             <Text style={styles.back}>
               ←
@@ -322,16 +425,40 @@ export default function PostScreen() {
           </Pressable>
 
           <Text style={styles.logo}>
-            NOW
+            POST
           </Text>
 
           <View style={styles.spacer} />
         </View>
 
         <View style={styles.missing}>
-          <Text style={styles.missingTitle}>
+          <Text
+            style={styles.missingTitle}
+          >
             Post unavailable.
           </Text>
+
+          <Text
+            style={styles.missingText}
+          >
+            {errorMessage ||
+              'We could not find this post.'}
+          </Text>
+
+          <Pressable
+            style={styles.homeButton}
+            onPress={() =>
+              router.replace('/now')
+            }
+          >
+            <Text
+              style={
+                styles.homeButtonText
+              }
+            >
+              BACK TO NOW
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -352,11 +479,12 @@ export default function PostScreen() {
             ? 'padding'
             : undefined
         }
+        keyboardVerticalOffset={0}
       >
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
+            onPress={goBack}
+            hitSlop={15}
           >
             <Text style={styles.back}>
               ←
@@ -380,41 +508,71 @@ export default function PostScreen() {
           }
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.originalPost}>
+          <View
+            style={styles.originalPost}
+          >
             <Pressable
               style={styles.authorRow}
               onPress={() =>
-                openProfile(post.user_id)
+                openProfile(
+                  post.user_id
+                )
               }
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
+              <View
+                style={styles.avatar}
+              >
+                <Text
+                  style={
+                    styles.avatarText
+                  }
+                >
                   {postInitial}
                 </Text>
               </View>
 
-              <View style={styles.authorInfo}>
-                <Text style={styles.displayName}>
+              <View
+                style={
+                  styles.authorInfo
+                }
+              >
+                <Text
+                  style={
+                    styles.displayName
+                  }
+                >
                   {post.displayName}
                 </Text>
 
-                <Text style={styles.username}>
+                <Text
+                  style={styles.username}
+                >
                   @{post.username}
                 </Text>
               </View>
             </Pressable>
 
             {!!post.body && (
-              <Text style={styles.postBody}>
+              <Text
+                style={styles.postBody}
+              >
                 {post.body}
               </Text>
             )}
 
-            <View style={styles.musicCard}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.musicCard,
+                pressed &&
+                  styles.musicCardPressed,
+              ]}
+              onPress={openAppleMusic}
+            >
               {post.artwork_url ? (
                 <Image
                   source={{
-                    uri: post.artwork_url,
+                    uri:
+                      post.artwork_url,
                   }}
                   style={styles.artwork}
                 />
@@ -424,13 +582,19 @@ export default function PostScreen() {
                     styles.artworkPlaceholder
                   }
                 >
-                  <Text style={styles.musicNote}>
+                  <Text
+                    style={
+                      styles.musicNote
+                    }
+                  >
                     ♪
                   </Text>
                 </View>
               )}
 
-              <View style={styles.musicInfo}>
+              <View
+                style={styles.musicInfo}
+              >
                 <Text
                   style={styles.song}
                   numberOfLines={1}
@@ -454,19 +618,43 @@ export default function PostScreen() {
                   </Text>
                 )}
               </View>
-            </View>
 
-            <Text style={styles.postDate}>
-              {formatTime(post.created_at)}
+              <View
+                style={
+                  styles.playCircle
+                }
+              >
+                <Text
+                  style={styles.play}
+                >
+                  ▶
+                </Text>
+              </View>
+            </Pressable>
+
+            <Text
+              style={styles.postDate}
+            >
+              {formatTime(
+                post.created_at
+              )}
             </Text>
           </View>
 
-          <View style={styles.conversationHeader}>
-            <Text style={styles.eyebrow}>
+          <View
+            style={
+              styles.conversationHeader
+            }
+          >
+            <Text
+              style={styles.eyebrow}
+            >
               CONVERSATION
             </Text>
 
-            <Text style={styles.replyCount}>
+            <Text
+              style={styles.replyCount}
+            >
               {replies.length}{' '}
               {replies.length === 1
                 ? 'reply'
@@ -475,13 +663,24 @@ export default function PostScreen() {
           </View>
 
           {replies.length === 0 ? (
-            <View style={styles.noReplies}>
-              <Text style={styles.noRepliesTitle}>
+            <View
+              style={styles.noReplies}
+            >
+              <Text
+                style={
+                  styles.noRepliesTitle
+                }
+              >
                 Say something.
               </Text>
 
-              <Text style={styles.noRepliesText}>
-                Music is better when somebody else gets it.
+              <Text
+                style={
+                  styles.noRepliesText
+                }
+              >
+                Music is better when
+                somebody else gets it.
               </Text>
             </View>
           ) : (
@@ -490,7 +689,8 @@ export default function PostScreen() {
                 reply.displayName
                   .trim()
                   .charAt(0)
-                  .toUpperCase() || '?';
+                  .toUpperCase() ||
+                '?';
 
               return (
                 <View
@@ -498,43 +698,77 @@ export default function PostScreen() {
                   style={styles.reply}
                 >
                   <Pressable
-                    style={styles.replyAvatar}
+                    style={
+                      styles.replyAvatar
+                    }
                     onPress={() =>
-                      openProfile(reply.user_id)
+                      openProfile(
+                        reply.user_id
+                      )
                     }
                   >
                     <Text
-                      style={styles.replyAvatarText}
+                      style={
+                        styles.replyAvatarText
+                      }
                     >
                       {initial}
                     </Text>
                   </Pressable>
 
-                  <View style={styles.replyContent}>
+                  <View
+                    style={
+                      styles.replyContent
+                    }
+                  >
                     <Pressable
                       onPress={() =>
-                        openProfile(reply.user_id)
+                        openProfile(
+                          reply.user_id
+                        )
                       }
                     >
-                      <View style={styles.replyNameRow}>
-                        <Text style={styles.replyName}>
-                          {reply.displayName}
+                      <View
+                        style={
+                          styles.replyNameRow
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.replyName
+                          }
+                        >
+                          {
+                            reply.displayName
+                          }
                         </Text>
 
                         <Text
-                          style={styles.replyUsername}
+                          style={
+                            styles.replyUsername
+                          }
                         >
                           @{reply.username}
                         </Text>
                       </View>
                     </Pressable>
 
-                    <Text style={styles.replyBody}>
+                    <Text
+                      style={
+                        styles.replyBody
+                      }
+                    >
                       {reply.body}
                     </Text>
 
-                    <Text style={styles.replyTime}>
-                      {formatTime(reply.created_at)}
+                    <Text
+                      style={
+                        styles.replyTime
+                      }
+                    >
+                      {formatTime(
+                        reply.created_at
+                      )}
                     </Text>
                   </View>
                 </View>
@@ -557,11 +791,13 @@ export default function PostScreen() {
           <Pressable
             style={[
               styles.replyButton,
-              (!replyBody.trim() || sending) &&
+              (!replyBody.trim() ||
+                sending) &&
                 styles.replyButtonDisabled,
             ]}
             disabled={
-              !replyBody.trim() || sending
+              !replyBody.trim() ||
+              sending
             }
             onPress={sendReply}
           >
@@ -572,7 +808,9 @@ export default function PostScreen() {
               />
             ) : (
               <Text
-                style={styles.replyButtonText}
+                style={
+                  styles.replyButtonText
+                }
               >
                 REPLY
               </Text>
@@ -597,6 +835,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  loadingText: {
+    color: '#666666',
+    fontSize: 13,
+    marginTop: 14,
+  },
+
   header: {
     height: 68,
     borderBottomWidth: 1,
@@ -604,7 +848,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
   },
 
   back: {
@@ -693,6 +938,10 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
 
+  musicCardPressed: {
+    opacity: 0.65,
+  },
+
   artwork: {
     width: 70,
     height: 70,
@@ -717,6 +966,7 @@ const styles = StyleSheet.create({
   musicInfo: {
     flex: 1,
     marginLeft: 14,
+    paddingRight: 8,
   },
 
   song: {
@@ -737,6 +987,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  playCircle: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#444444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  play: {
+    color: '#ffffff',
+    fontSize: 11,
+    marginLeft: 2,
+  },
+
   postDate: {
     color: '#555555',
     fontSize: 10,
@@ -749,7 +1015,8 @@ const styles = StyleSheet.create({
     paddingBottom: 17,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
   },
 
   eyebrow: {
@@ -891,11 +1158,35 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 30,
   },
 
   missingTitle: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
+  },
+
+  missingText: {
+    color: '#777777',
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 9,
+  },
+
+  homeButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    marginTop: 25,
+  },
+
+  homeButtonText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 });
