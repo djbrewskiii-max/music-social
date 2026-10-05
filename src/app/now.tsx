@@ -5,6 +5,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -42,6 +43,7 @@ type ProfileRow = {
   user_id: string | null;
   display_name: string | null;
   username: string | null;
+  city?: string | null;
 };
 
 type LikeRow = {
@@ -57,12 +59,13 @@ type ReplyRow = {
   body: string;
 };
 
-type ReplyPreview = {
+type FeedReply = {
   id: string;
   userId: string;
   displayName: string;
   username: string;
   body: string;
+  createdAt: string;
 };
 
 type FeedPost = PostRow & {
@@ -71,7 +74,8 @@ type FeedPost = PostRow & {
   likeCount: number;
   likedByMe: boolean;
   replyCount: number;
-  latestReply: ReplyPreview | null;
+  replies: FeedReply[];
+  latestReply: FeedReply | null;
 };
 
 type PresenceRow = {
@@ -86,21 +90,73 @@ type PresenceRow = {
   last_verified_playing_at: string | null;
 };
 
-type ListeningPerson =
-  PresenceRow & {
-    displayName: string;
-    username: string;
-    listeningNow: boolean;
-  };
+type ListeningPerson = PresenceRow & {
+  displayName: string;
+  username: string;
+  listeningNow: boolean;
+};
 
-const ACTIVE_NOW_MS =
-  60 * 1000;
+type TopArtist = {
+  name: string;
+  count?: number;
+  artworkUrl?: string;
+};
 
-const LIVE_FRESHNESS_MS =
-  60 * 1000;
+type MusicTrack = {
+  id?: string;
+  song: string;
+  artist: string;
+  artworkUrl?: string;
+};
 
-const ROOM_REFRESH_MS =
-  15 * 1000;
+type MusicDNA = {
+  user_id: string;
+  top_artists: TopArtist[] | null;
+  top_songs: MusicTrack[] | null;
+  recent_tracks: MusicTrack[] | null;
+};
+
+type OrbitPerson = {
+  userId: string;
+  displayName: string;
+  username: string;
+  city: string | null;
+  sharedArtists: string[];
+  sharedTracks: MusicTrack[];
+  overlapCount: number;
+};
+
+type PostFeedItem = {
+  type: 'post';
+  key: string;
+  post: FeedPost;
+};
+
+type ConversationFeedItem = {
+  type: 'conversation';
+  key: string;
+  post: FeedPost;
+};
+
+type OrbitFeedItem = {
+  type: 'orbit';
+  key: string;
+};
+
+type FeedItem =
+  | PostFeedItem
+  | ConversationFeedItem
+  | OrbitFeedItem;
+
+const ACTIVE_NOW_MS = 60 * 1000;
+const LIVE_FRESHNESS_MS = 60 * 1000;
+const ROOM_REFRESH_MS = 15 * 1000;
+
+const normalize = (value: string) =>
+  value.trim().toLowerCase();
+
+const songKey = (track: MusicTrack) =>
+  `${normalize(track.artist)}::${normalize(track.song)}`;
 
 export default function NowScreen() {
   const [posts, setPosts] =
@@ -109,10 +165,12 @@ export default function NowScreen() {
   const [
     listeningPeople,
     setListeningPeople,
-  ] =
-    useState<ListeningPerson[]>(
-      []
-    );
+  ] = useState<ListeningPerson[]>([]);
+
+  const [
+    orbitPerson,
+    setOrbitPerson,
+  ] = useState<OrbitPerson | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -130,9 +188,7 @@ export default function NowScreen() {
   const [
     replyingPostId,
     setReplyingPostId,
-  ] = useState<string | null>(
-    null
-  );
+  ] = useState<string | null>(null);
 
   const [
     replyBody,
@@ -144,6 +200,269 @@ export default function NowScreen() {
     setSendingReply,
   ] = useState(false);
 
+  const compareMusicDNA = (
+    myDNA: MusicDNA | null,
+    theirDNA: MusicDNA | null
+  ) => {
+    if (!myDNA || !theirDNA) {
+      return {
+        sharedArtists: [] as string[],
+        sharedTracks: [] as MusicTrack[],
+        overlapCount: 0,
+      };
+    }
+
+    const myArtists =
+      Array.isArray(myDNA.top_artists)
+        ? myDNA.top_artists
+        : [];
+
+    const theirArtists =
+      Array.isArray(theirDNA.top_artists)
+        ? theirDNA.top_artists
+        : [];
+
+    const myArtistNames = new Set(
+      myArtists
+        .map((artist) =>
+          normalize(artist.name)
+        )
+        .filter(Boolean)
+    );
+
+    const sharedArtists =
+      theirArtists
+        .filter((artist) =>
+          myArtistNames.has(
+            normalize(artist.name)
+          )
+        )
+        .map((artist) => artist.name)
+        .filter(
+          (artist, index, array) =>
+            array.findIndex(
+              (candidate) =>
+                normalize(candidate) ===
+                normalize(artist)
+            ) === index
+        );
+
+    const myRecent =
+      Array.isArray(myDNA.recent_tracks)
+        ? myDNA.recent_tracks
+        : [];
+
+    const theirRecent =
+      Array.isArray(theirDNA.recent_tracks)
+        ? theirDNA.recent_tracks
+        : [];
+
+    const myTrackKeys = new Set(
+      myRecent.map(songKey)
+    );
+
+    const sharedTracks =
+      theirRecent
+        .filter((track) =>
+          myTrackKeys.has(songKey(track))
+        )
+        .filter(
+          (track, index, array) =>
+            array.findIndex(
+              (candidate) =>
+                songKey(candidate) ===
+                songKey(track)
+            ) === index
+        );
+
+    return {
+      sharedArtists,
+      sharedTracks,
+      overlapCount:
+        sharedArtists.length +
+        sharedTracks.length,
+    };
+  };
+
+  const loadOrbitRecommendation =
+    useCallback(
+      async (currentUserId: string) => {
+        try {
+          const {
+            data: myDNAData,
+            error: myDNAError,
+          } = await supabase
+            .from('music_dna')
+            .select(
+              'user_id, top_artists, top_songs, recent_tracks'
+            )
+            .eq(
+              'user_id',
+              currentUserId
+            )
+            .maybeSingle();
+
+          if (myDNAError) {
+            console.log(
+              'Orbit Music DNA error:',
+              myDNAError.message
+            );
+            setOrbitPerson(null);
+            return;
+          }
+
+          if (!myDNAData) {
+            setOrbitPerson(null);
+            return;
+          }
+
+          const {
+            data: profileData,
+            error: profileError,
+          } = await supabase
+            .from('profiles')
+            .select(
+              'user_id, display_name, username, city'
+            )
+            .neq(
+              'user_id',
+              currentUserId
+            );
+
+          if (profileError) {
+            console.log(
+              'Orbit profiles error:',
+              profileError.message
+            );
+            setOrbitPerson(null);
+            return;
+          }
+
+          const profiles =
+            (profileData as ProfileRow[]) ||
+            [];
+
+          const otherUserIds =
+            profiles
+              .map(
+                (profile) =>
+                  profile.user_id
+              )
+              .filter(
+                (id): id is string =>
+                  !!id
+              );
+
+          if (
+            otherUserIds.length === 0
+          ) {
+            setOrbitPerson(null);
+            return;
+          }
+
+          const {
+            data: dnaData,
+            error: dnaError,
+          } = await supabase
+            .from('music_dna')
+            .select(
+              'user_id, top_artists, top_songs, recent_tracks'
+            )
+            .in(
+              'user_id',
+              otherUserIds
+            );
+
+          if (dnaError) {
+            console.log(
+              'Orbit candidates error:',
+              dnaError.message
+            );
+            setOrbitPerson(null);
+            return;
+          }
+
+          const dnaRows =
+            (dnaData as MusicDNA[]) ||
+            [];
+
+          const dnaByUser =
+            new Map<string, MusicDNA>();
+
+          dnaRows.forEach((dna) => {
+            dnaByUser.set(
+              dna.user_id,
+              dna
+            );
+          });
+
+          const candidates =
+            profiles
+              .filter(
+                (
+                  profile
+                ): profile is ProfileRow & {
+                  user_id: string;
+                } =>
+                  !!profile.user_id
+              )
+              .map((profile) => {
+                const theirDNA =
+                  dnaByUser.get(
+                    profile.user_id
+                  ) || null;
+
+                const comparison =
+                  compareMusicDNA(
+                    myDNAData as MusicDNA,
+                    theirDNA
+                  );
+
+                return {
+                  userId:
+                    profile.user_id,
+
+                  displayName:
+                    profile.display_name ||
+                    'Listener',
+
+                  username:
+                    profile.username ||
+                    'nowuser',
+
+                  city:
+                    profile.city ||
+                    null,
+
+                  ...comparison,
+                };
+              })
+              .filter(
+                (candidate) =>
+                  candidate.overlapCount >
+                  0
+              )
+              .sort(
+                (a, b) =>
+                  b.overlapCount -
+                  a.overlapCount
+              );
+
+          setOrbitPerson(
+            candidates[0] || null
+          );
+        } catch (error) {
+          console.log(
+            'Orbit recommendation error:',
+            error
+          );
+
+          setOrbitPerson(null);
+        }
+      },
+      []
+    );
+
   const loadListeningPresence =
     useCallback(async () => {
       try {
@@ -151,9 +470,7 @@ export default function NowScreen() {
           data: presenceData,
           error: presenceError,
         } = await supabase
-          .from(
-            'listening_presence'
-          )
+          .from('listening_presence')
           .select(
             'user_id, song_title, artist_name, artwork_url, apple_music_id, last_active_at, updated_at, is_playing, last_verified_playing_at'
           )
@@ -176,8 +493,7 @@ export default function NowScreen() {
           (presenceData as PresenceRow[]) ||
           [];
 
-        const now =
-          Date.now();
+        const now = Date.now();
 
         const presenceRows =
           allPresenceRows.filter(
@@ -206,8 +522,7 @@ export default function NowScreen() {
           Array.from(
             new Set(
               presenceRows.map(
-                (row) =>
-                  row.user_id
+                (row) => row.user_id
               )
             )
           );
@@ -280,31 +595,27 @@ export default function NowScreen() {
             }
           );
 
-        people.sort(
-          (a, b) => {
-            if (
-              a.listeningNow !==
-              b.listeningNow
-            ) {
-              return a.listeningNow
-                ? -1
-                : 1;
-            }
-
-            return (
-              new Date(
-                b.last_active_at
-              ).getTime() -
-              new Date(
-                a.last_active_at
-              ).getTime()
-            );
+        people.sort((a, b) => {
+          if (
+            a.listeningNow !==
+            b.listeningNow
+          ) {
+            return a.listeningNow
+              ? -1
+              : 1;
           }
-        );
 
-        setListeningPeople(
-          people
-        );
+          return (
+            new Date(
+              b.last_active_at
+            ).getTime() -
+            new Date(
+              a.last_active_at
+            ).getTime()
+          );
+        });
+
+        setListeningPeople(people);
       } catch (error) {
         console.log(
           'Listening presence load error:',
@@ -313,30 +624,16 @@ export default function NowScreen() {
       }
     }, []);
 
-  /*
-   * Keep the live room fresh while HOME
-   * is mounted.
-   *
-   * This does NOT reload the whole feed.
-   * It only refreshes Who's here.
-   */
   useEffect(() => {
     const interval =
-      setInterval(
-        () => {
-          loadListeningPresence();
-        },
-        ROOM_REFRESH_MS
-      );
+      setInterval(() => {
+        loadListeningPresence();
+      }, ROOM_REFRESH_MS);
 
     return () => {
-      clearInterval(
-        interval
-      );
+      clearInterval(interval);
     };
-  }, [
-    loadListeningPresence,
-  ]);
+  }, [loadListeningPresence]);
 
   const loadFeed =
     useCallback(
@@ -358,13 +655,16 @@ export default function NowScreen() {
             userError ||
             !user
           ) {
-            router.replace(
-              '/login'
-            );
+            router.replace('/login');
             return;
           }
 
-          await loadListeningPresence();
+          await Promise.all([
+            loadListeningPresence(),
+            loadOrbitRecommendation(
+              user.id
+            ),
+          ]);
 
           const {
             data: postData,
@@ -403,53 +703,46 @@ export default function NowScreen() {
 
           const postIds =
             postRows.map(
-              (post) =>
-                post.id
+              (post) => post.id
             );
 
           const [
             likeResult,
             replyResult,
-          ] =
-            await Promise.all([
-              supabase
-                .from(
-                  'post_likes'
-                )
-                .select(
-                  'post_id, user_id'
-                )
-                .in(
-                  'post_id',
-                  postIds
-                ),
+          ] = await Promise.all([
+            supabase
+              .from('post_likes')
+              .select(
+                'post_id, user_id'
+              )
+              .in(
+                'post_id',
+                postIds
+              ),
 
-              supabase
-                .from(
-                  'post_replies'
-                )
-                .select(
-                  'id, created_at, post_id, user_id, body'
-                )
-                .in(
-                  'post_id',
-                  postIds
-                )
-                .order(
-                  'created_at',
-                  {
-                    ascending: true,
-                  }
-                ),
-            ]);
+            supabase
+              .from('post_replies')
+              .select(
+                'id, created_at, post_id, user_id, body'
+              )
+              .in(
+                'post_id',
+                postIds
+              )
+              .order(
+                'created_at',
+                {
+                  ascending: true,
+                }
+              ),
+          ]);
 
           if (
             likeResult.error
           ) {
             console.log(
               'Feed likes error:',
-              likeResult.error
-                .message
+              likeResult.error.message
             );
           }
 
@@ -458,8 +751,7 @@ export default function NowScreen() {
           ) {
             console.log(
               'Feed replies error:',
-              replyResult.error
-                .message
+              replyResult.error.message
             );
           }
 
@@ -529,55 +821,55 @@ export default function NowScreen() {
                       post.id
                   );
 
-                const postReplies =
+                const postReplyRows =
                   replies.filter(
                     (reply) =>
                       reply.post_id ===
                       post.id
                   );
 
-                const latestReplyRow =
-                  postReplies.length >
+                const feedReplies:
+                  FeedReply[] =
+                  postReplyRows.map(
+                    (reply) => {
+                      const replyProfile =
+                        profiles.find(
+                          (item) =>
+                            item.user_id ===
+                            reply.user_id
+                        );
+
+                      return {
+                        id: reply.id,
+
+                        userId:
+                          reply.user_id,
+
+                        displayName:
+                          replyProfile?.display_name ||
+                          'Listener',
+
+                        username:
+                          replyProfile?.username ||
+                          'nowuser',
+
+                        body:
+                          reply.body,
+
+                        createdAt:
+                          reply.created_at,
+                      };
+                    }
+                  );
+
+                const latestReply =
+                  feedReplies.length >
                   0
-                    ? postReplies[
-                        postReplies.length -
+                    ? feedReplies[
+                        feedReplies.length -
                           1
                       ]
                     : null;
-
-                let latestReply:
-                  | ReplyPreview
-                  | null = null;
-
-                if (
-                  latestReplyRow
-                ) {
-                  const replyProfile =
-                    profiles.find(
-                      (item) =>
-                        item.user_id ===
-                        latestReplyRow.user_id
-                    );
-
-                  latestReply = {
-                    id:
-                      latestReplyRow.id,
-
-                    userId:
-                      latestReplyRow.user_id,
-
-                    displayName:
-                      replyProfile?.display_name ||
-                      'Listener',
-
-                    username:
-                      replyProfile?.username ||
-                      'nowuser',
-
-                    body:
-                      latestReplyRow.body,
-                  };
-                }
 
                 return {
                   ...post,
@@ -601,7 +893,10 @@ export default function NowScreen() {
                     ),
 
                   replyCount:
-                    postReplies.length,
+                    feedReplies.length,
+
+                  replies:
+                    feedReplies,
 
                   latestReply,
                 };
@@ -622,6 +917,7 @@ export default function NowScreen() {
       },
       [
         loadListeningPresence,
+        loadOrbitRecommendation,
       ]
     );
 
@@ -631,14 +927,135 @@ export default function NowScreen() {
     }, [loadFeed])
   );
 
-  const refresh =
-    async () => {
-      setRefreshing(true);
+  const feedItems =
+    useMemo<FeedItem[]>(() => {
+      const items:
+        FeedItem[] = [];
 
-      await loadFeed();
+      let postsSinceConversation = 0;
 
-      setRefreshing(false);
-    };
+      let orbitInserted = false;
+
+      const conversationCandidates =
+        posts
+          .filter(
+            (post) =>
+              post.replyCount > 0
+          )
+          .sort(
+            (a, b) => {
+              const aLatest =
+                a.latestReply
+                  ? new Date(
+                      a.latestReply.createdAt
+                    ).getTime()
+                  : 0;
+
+              const bLatest =
+                b.latestReply
+                  ? new Date(
+                      b.latestReply.createdAt
+                    ).getTime()
+                  : 0;
+
+              return (
+                bLatest -
+                aLatest
+              );
+            }
+          );
+
+      let conversationIndex = 0;
+
+      posts.forEach(
+        (post, index) => {
+          items.push({
+            type: 'post',
+            key: `post-${post.id}`,
+            post,
+          });
+
+          postsSinceConversation += 1;
+
+          if (
+            orbitPerson &&
+            !orbitInserted &&
+            index === 0
+          ) {
+            items.push({
+              type: 'orbit',
+              key: `orbit-${orbitPerson.userId}`,
+            });
+
+            orbitInserted = true;
+          }
+
+          const candidate =
+            conversationCandidates[
+              conversationIndex
+            ];
+
+          const shouldInsertConversation =
+            !!candidate &&
+            postsSinceConversation >=
+              2 &&
+            index <
+              posts.length - 1;
+
+          if (
+            shouldInsertConversation
+          ) {
+            items.push({
+              type: 'conversation',
+              key:
+                `conversation-${candidate.id}`,
+              post: candidate,
+            });
+
+            conversationIndex += 1;
+
+            postsSinceConversation = 0;
+          }
+        }
+      );
+
+      if (
+        orbitPerson &&
+        !orbitInserted
+      ) {
+        items.push({
+          type: 'orbit',
+          key: `orbit-${orbitPerson.userId}`,
+        });
+      }
+
+      if (
+        conversationIndex ===
+          0 &&
+        conversationCandidates.length >
+          0 &&
+        posts.length <= 2
+      ) {
+        items.push({
+          type: 'conversation',
+          key:
+            `conversation-${conversationCandidates[0].id}`,
+          post:
+            conversationCandidates[0],
+        });
+      }
+
+      return items;
+    }, [
+      posts,
+      orbitPerson,
+    ]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await loadFeed();
+    setRefreshing(false);
+  };
 
   const toggleLike =
     async (
@@ -672,9 +1089,7 @@ export default function NowScreen() {
         userError ||
         !user
       ) {
-        router.replace(
-          '/login'
-        );
+        router.replace('/login');
         return;
       }
 
@@ -716,38 +1131,30 @@ export default function NowScreen() {
 
       try {
         if (wasLiked) {
-          const {
-            error,
-          } = await supabase
-            .from(
-              'post_likes'
-            )
-            .delete()
-            .eq(
-              'post_id',
-              postId
-            )
-            .eq(
-              'user_id',
-              user.id
-            );
+          const { error } =
+            await supabase
+              .from('post_likes')
+              .delete()
+              .eq(
+                'post_id',
+                postId
+              )
+              .eq(
+                'user_id',
+                user.id
+              );
 
           if (error) {
             throw error;
           }
         } else {
-          const {
-            error,
-          } = await supabase
-            .from(
-              'post_likes'
-            )
-            .insert({
-              post_id:
-                postId,
-              user_id:
-                user.id,
-            });
+          const { error } =
+            await supabase
+              .from('post_likes')
+              .insert({
+                post_id: postId,
+                user_id: user.id,
+              });
 
           if (error) {
             throw error;
@@ -789,8 +1196,7 @@ export default function NowScreen() {
           (current) =>
             current.filter(
               (id) =>
-                id !==
-                postId
+                id !== postId
             )
         );
       }
@@ -802,16 +1208,12 @@ export default function NowScreen() {
         replyingPostId ===
         postId
       ) {
-        setReplyingPostId(
-          null
-        );
+        setReplyingPostId(null);
         setReplyBody('');
         return;
       }
 
-      setReplyingPostId(
-        postId
-      );
+      setReplyingPostId(postId);
       setReplyBody('');
     };
 
@@ -842,9 +1244,7 @@ export default function NowScreen() {
           userError ||
           !user
         ) {
-          router.replace(
-            '/login'
-          );
+          router.replace('/login');
           return;
         }
 
@@ -852,14 +1252,10 @@ export default function NowScreen() {
           data: insertedReply,
           error,
         } = await supabase
-          .from(
-            'post_replies'
-          )
+          .from('post_replies')
           .insert({
-            post_id:
-              postId,
-            user_id:
-              user.id,
+            post_id: postId,
+            user_id: user.id,
             body: trimmed,
           })
           .select(
@@ -901,9 +1297,10 @@ export default function NowScreen() {
         const reply =
           insertedReply as ReplyRow;
 
-        const newPreview:
-          ReplyPreview = {
+        const newReply:
+          FeedReply = {
           id: reply.id,
+
           userId:
             user.id,
 
@@ -916,6 +1313,9 @@ export default function NowScreen() {
             'nowuser',
 
           body: trimmed,
+
+          createdAt:
+            reply.created_at,
         };
 
         setPosts(
@@ -931,17 +1331,20 @@ export default function NowScreen() {
                         post.replyCount +
                         1,
 
+                      replies: [
+                        ...post.replies,
+                        newReply,
+                      ],
+
                       latestReply:
-                        newPreview,
+                        newReply,
                     }
                   : post
             )
         );
 
         setReplyBody('');
-        setReplyingPostId(
-          null
-        );
+        setReplyingPostId(null);
       } catch (error) {
         console.log(
           'Quick reply error:',
@@ -1094,9 +1497,7 @@ export default function NowScreen() {
       dateString: string
     ) => {
       const date =
-        new Date(
-          dateString
-        );
+        new Date(dateString);
 
       const now =
         new Date();
@@ -1107,8 +1508,7 @@ export default function NowScreen() {
 
       const minutes =
         Math.floor(
-          difference /
-            60000
+          difference / 60000
         );
 
       if (minutes < 1) {
@@ -1144,6 +1544,26 @@ export default function NowScreen() {
           day: 'numeric',
         }
       );
+    };
+
+  const getConversationPeople =
+    (
+      post: FeedPost
+    ) => {
+      const people =
+        new Set<string>();
+
+      people.add(post.user_id);
+
+      post.replies.forEach(
+        (reply) => {
+          people.add(
+            reply.userId
+          );
+        }
+      );
+
+      return people.size;
     };
 
   if (loading) {
@@ -1183,27 +1603,19 @@ export default function NowScreen() {
         }
       >
         <View
-          style={
-            styles.header
-          }
+          style={styles.header}
         >
           <View
-            style={
-              styles.brand
-            }
+            style={styles.brand}
           >
             <Text
-              style={
-                styles.logo
-              }
+              style={styles.logo}
             >
               NOW
             </Text>
 
             <View
-              style={
-                styles.liveDot
-              }
+              style={styles.liveDot}
             />
           </View>
 
@@ -1217,9 +1629,7 @@ export default function NowScreen() {
         </View>
 
         <ScrollView
-          style={
-            styles.scroll
-          }
+          style={styles.scroll}
           contentContainerStyle={
             styles.feed
           }
@@ -1232,9 +1642,7 @@ export default function NowScreen() {
               refreshing={
                 refreshing
               }
-              onRefresh={
-                refresh
-              }
+              onRefresh={refresh}
               tintColor="#ffffff"
             />
           }
@@ -1334,9 +1742,7 @@ export default function NowScreen() {
                     const initial =
                       person.displayName
                         .trim()
-                        .charAt(
-                          0
-                        )
+                        .charAt(0)
                         .toUpperCase() ||
                       '?';
 
@@ -1369,9 +1775,7 @@ export default function NowScreen() {
                                 styles.listenerAvatarText
                               }
                             >
-                              {
-                                initial
-                              }
+                              {initial}
                             </Text>
                           </View>
 
@@ -1561,26 +1965,41 @@ export default function NowScreen() {
           >
             <Text
               style={
+                styles.feedEyebrow
+              }
+            >
+              DISCOVER
+            </Text>
+
+            <Text
+              style={
                 styles.feedHeadingText
               }
             >
-              THE FEED
+              For You
+            </Text>
+
+            <Text
+              style={
+                styles.feedHeadingSubtext
+              }
+            >
+              Music, people and conversations
+              worth jumping into.
             </Text>
           </View>
 
-          {posts.length ===
-          0 ? (
+          {posts.length === 0 &&
+          !orbitPerson ? (
             <View
-              style={
-                styles.empty
-              }
+              style={styles.empty}
             >
               <Text
                 style={
                   styles.emptyEyebrow
                 }
               >
-                YOUR FEED
+                FOR YOU
               </Text>
 
               <Text
@@ -1588,8 +2007,7 @@ export default function NowScreen() {
                   styles.emptyTitle
                 }
               >
-                It's quiet in
-                here.
+                It's quiet in here.
               </Text>
 
               <Text
@@ -1597,9 +2015,8 @@ export default function NowScreen() {
                   styles.emptyText
                 }
               >
-                Post what you're
-                listening to and
-                start the
+                Post what you're listening
+                to and start the
                 conversation.
               </Text>
 
@@ -1623,8 +2040,664 @@ export default function NowScreen() {
               </Pressable>
             </View>
           ) : (
-            posts.map(
-              (post) => {
+            feedItems.map(
+              (item) => {
+                if (
+                  item.type ===
+                  'orbit'
+                ) {
+                  if (!orbitPerson) {
+                    return null;
+                  }
+
+                  const initial =
+                    orbitPerson.displayName
+                      .trim()
+                      .charAt(0)
+                      .toUpperCase() ||
+                    '?';
+
+                  const artistPreview =
+                    orbitPerson.sharedArtists
+                      .slice(0, 3);
+
+                  const trackPreview =
+                    orbitPerson.sharedTracks
+                      .slice(0, 2);
+
+                  return (
+                    <View
+                      key={item.key}
+                      style={
+                        styles.orbitWrap
+                      }
+                    >
+                      <View
+                        style={
+                          styles.orbitCard
+                        }
+                      >
+                        <View
+                          style={
+                            styles.orbitTop
+                          }
+                        >
+                          <View
+                            style={
+                              styles.orbitSignal
+                            }
+                          >
+                            <View
+                              style={
+                                styles.orbitSignalDot
+                              }
+                            />
+
+                            <Text
+                              style={
+                                styles.orbitEyebrow
+                              }
+                            >
+                              IN YOUR ORBIT
+                            </Text>
+                          </View>
+
+                          <Text
+                            style={
+                              styles.orbitReason
+                            }
+                          >
+                            MUSIC MATCH
+                          </Text>
+                        </View>
+
+                        <Pressable
+                          style={
+                            styles.orbitPersonRow
+                          }
+                          onPress={() =>
+                            openProfile(
+                              orbitPerson.userId
+                            )
+                          }
+                        >
+                          <View
+                            style={
+                              styles.orbitAvatar
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.orbitAvatarText
+                              }
+                            >
+                              {initial}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={
+                              styles.orbitIdentity
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.orbitName
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {
+                                orbitPerson.displayName
+                              }
+                            </Text>
+
+                            <Text
+                              style={
+                                styles.orbitUsername
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              @
+                              {
+                                orbitPerson.username
+                              }
+                            </Text>
+
+                            {!!orbitPerson.city && (
+                              <Text
+                                style={
+                                  styles.orbitCity
+                                }
+                                numberOfLines={
+                                  1
+                                }
+                              >
+                                {
+                                  orbitPerson.city
+                                }
+                              </Text>
+                            )}
+                          </View>
+
+                          <View
+                            style={
+                              styles.orbitArrowCircle
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.orbitArrow
+                              }
+                            >
+                              →
+                            </Text>
+                          </View>
+                        </Pressable>
+
+                        <View
+                          style={
+                            styles.orbitDivider
+                          }
+                        />
+
+                        <Text
+                          style={
+                            styles.orbitWhy
+                          }
+                        >
+                          YOU HAVE{' '}
+                          {
+                            orbitPerson.overlapCount
+                          }{' '}
+                          {orbitPerson.overlapCount ===
+                          1
+                            ? 'THING'
+                            : 'THINGS'}{' '}
+                          IN COMMON
+                        </Text>
+
+                        {artistPreview.length >
+                          0 && (
+                          <View
+                            style={
+                              styles.orbitMatchSection
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.orbitMatchLabel
+                              }
+                            >
+                              SHARED ARTISTS
+                            </Text>
+
+                            <View
+                              style={
+                                styles.orbitPills
+                              }
+                            >
+                              {artistPreview.map(
+                                (
+                                  artist
+                                ) => (
+                                  <View
+                                    key={
+                                      artist
+                                    }
+                                    style={
+                                      styles.orbitPill
+                                    }
+                                  >
+                                    <Text
+                                      style={
+                                        styles.orbitPillText
+                                      }
+                                      numberOfLines={
+                                        1
+                                      }
+                                    >
+                                      {
+                                        artist
+                                      }
+                                    </Text>
+                                  </View>
+                                )
+                              )}
+                            </View>
+                          </View>
+                        )}
+
+                        {trackPreview.length >
+                          0 && (
+                          <View
+                            style={
+                              styles.orbitTrackSection
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.orbitMatchLabel
+                              }
+                            >
+                              SAME ROTATION
+                            </Text>
+
+                            {trackPreview.map(
+                              (
+                                track
+                              ) => (
+                                <View
+                                  key={
+                                    songKey(
+                                      track
+                                    )
+                                  }
+                                  style={
+                                    styles.orbitTrack
+                                  }
+                                >
+                                  {track.artworkUrl ? (
+                                    <Image
+                                      source={{
+                                        uri:
+                                          track.artworkUrl,
+                                      }}
+                                      style={
+                                        styles.orbitTrackArtwork
+                                      }
+                                    />
+                                  ) : (
+                                    <View
+                                      style={
+                                        styles.orbitTrackArtworkPlaceholder
+                                      }
+                                    >
+                                      <Text
+                                        style={
+                                          styles.orbitTrackNote
+                                        }
+                                      >
+                                        ♪
+                                      </Text>
+                                    </View>
+                                  )}
+
+                                  <View
+                                    style={
+                                      styles.orbitTrackInfo
+                                    }
+                                  >
+                                    <Text
+                                      style={
+                                        styles.orbitTrackSong
+                                      }
+                                      numberOfLines={
+                                        1
+                                      }
+                                    >
+                                      {
+                                        track.song
+                                      }
+                                    </Text>
+
+                                    <Text
+                                      style={
+                                        styles.orbitTrackArtist
+                                      }
+                                      numberOfLines={
+                                        1
+                                      }
+                                    >
+                                      {
+                                        track.artist
+                                      }
+                                    </Text>
+                                  </View>
+                                </View>
+                              )
+                            )}
+                          </View>
+                        )}
+
+                        <Pressable
+                          style={({
+                            pressed,
+                          }) => [
+                            styles.orbitButton,
+
+                            pressed &&
+                              styles.orbitButtonPressed,
+                          ]}
+                          onPress={() =>
+                            openProfile(
+                              orbitPerson.userId
+                            )
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.orbitButtonText
+                            }
+                          >
+                            SEE WHY YOU MATCH
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.orbitButtonArrow
+                            }
+                          >
+                            →
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                }
+
+                const post =
+                  item.post;
+
+                if (
+                  item.type ===
+                  'conversation'
+                ) {
+                  const firstReply =
+                    post.replies.length >
+                    1
+                      ? post.replies[
+                          post.replies.length -
+                            2
+                        ]
+                      : post.replies[0];
+
+                  const latestReply =
+                    post.latestReply;
+
+                  const peopleCount =
+                    getConversationPeople(
+                      post
+                    );
+
+                  return (
+                    <Pressable
+                      key={item.key}
+                      style={({
+                        pressed,
+                      }) => [
+                        styles.conversationCard,
+
+                        pressed &&
+                          styles.conversationCardPressed,
+                      ]}
+                      onPress={() =>
+                        openPost(
+                          post.id
+                        )
+                      }
+                    >
+                      <View
+                        style={
+                          styles.conversationTop
+                        }
+                      >
+                        <View
+                          style={
+                            styles.conversationLiveMark
+                          }
+                        />
+
+                        <Text
+                          style={
+                            styles.conversationEyebrow
+                          }
+                        >
+                          PEOPLE ARE TALKING
+                        </Text>
+                      </View>
+
+                      <View
+                        style={
+                          styles.conversationMusic
+                        }
+                      >
+                        {post.artwork_url ? (
+                          <Image
+                            source={{
+                              uri:
+                                post.artwork_url,
+                            }}
+                            style={
+                              styles.conversationArtwork
+                            }
+                          />
+                        ) : (
+                          <View
+                            style={
+                              styles.conversationArtworkPlaceholder
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.conversationMusicNote
+                              }
+                            >
+                              ♪
+                            </Text>
+                          </View>
+                        )}
+
+                        <View
+                          style={
+                            styles.conversationMusicInfo
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.conversationSong
+                            }
+                            numberOfLines={
+                              1
+                            }
+                          >
+                            {
+                              post.song_title
+                            }
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.conversationArtist
+                            }
+                            numberOfLines={
+                              1
+                            }
+                          >
+                            {
+                              post.artist_name
+                            }
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={
+                          styles.conversationMessages
+                        }
+                      >
+                        {!!post.body && (
+                          <View
+                            style={
+                              styles.conversationMessage
+                            }
+                          >
+                            <Pressable
+                              onPress={() =>
+                                openProfile(
+                                  post.user_id
+                                )
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.conversationName
+                                }
+                              >
+                                {
+                                  post.displayName
+                                }
+                              </Text>
+                            </Pressable>
+
+                            <Text
+                              style={
+                                styles.conversationBody
+                              }
+                              numberOfLines={
+                                3
+                              }
+                            >
+                              {
+                                post.body
+                              }
+                            </Text>
+                          </View>
+                        )}
+
+                        {firstReply && (
+                          <View
+                            style={
+                              styles.conversationMessage
+                            }
+                          >
+                            <Pressable
+                              onPress={() =>
+                                openProfile(
+                                  firstReply.userId
+                                )
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.conversationName
+                                }
+                              >
+                                {
+                                  firstReply.displayName
+                                }
+                              </Text>
+                            </Pressable>
+
+                            <Text
+                              style={
+                                styles.conversationBody
+                              }
+                              numberOfLines={
+                                3
+                              }
+                            >
+                              {
+                                firstReply.body
+                              }
+                            </Text>
+                          </View>
+                        )}
+
+                        {latestReply &&
+                          latestReply.id !==
+                            firstReply?.id && (
+                            <View
+                              style={
+                                styles.conversationMessage
+                              }
+                            >
+                              <Pressable
+                                onPress={() =>
+                                  openProfile(
+                                    latestReply.userId
+                                  )
+                                }
+                              >
+                                <Text
+                                  style={
+                                    styles.conversationName
+                                  }
+                                >
+                                  {
+                                    latestReply.displayName
+                                  }
+                                </Text>
+                              </Pressable>
+
+                              <Text
+                                style={
+                                  styles.conversationBody
+                                }
+                                numberOfLines={
+                                  3
+                                }
+                              >
+                                {
+                                  latestReply.body
+                                }
+                              </Text>
+                            </View>
+                          )}
+                      </View>
+
+                      <View
+                        style={
+                          styles.conversationFooter
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.conversationPeople
+                          }
+                        >
+                          {peopleCount}{' '}
+                          {peopleCount ===
+                          1
+                            ? 'PERSON'
+                            : 'PEOPLE'}{' '}
+                          ·{' '}
+                          {post.replyCount}{' '}
+                          {post.replyCount ===
+                          1
+                            ? 'REPLY'
+                            : 'REPLIES'}
+                        </Text>
+
+                        <View
+                          style={
+                            styles.joinConversation
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.joinConversationText
+                            }
+                          >
+                            JOIN IN
+                          </Text>
+
+                          <Text
+                            style={
+                              styles.joinConversationArrow
+                            }
+                          >
+                            →
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                }
+
                 const initial =
                   post.displayName
                     .trim()
@@ -1643,12 +2716,8 @@ export default function NowScreen() {
 
                 return (
                   <View
-                    key={
-                      post.id
-                    }
-                    style={
-                      styles.post
-                    }
+                    key={item.key}
+                    style={styles.post}
                   >
                     <View
                       style={
@@ -1670,9 +2739,7 @@ export default function NowScreen() {
                             styles.avatarText
                           }
                         >
-                          {
-                            initial
-                          }
+                          {initial}
                         </Text>
                       </Pressable>
 
@@ -1743,9 +2810,7 @@ export default function NowScreen() {
                           styles.body
                         }
                       >
-                        {
-                          post.body
-                        }
+                        {post.body}
                       </Text>
                     )}
 
@@ -1987,9 +3052,7 @@ export default function NowScreen() {
                           >
                             {post.latestReply.displayName
                               .trim()
-                              .charAt(
-                                0
-                              )
+                              .charAt(0)
                               .toUpperCase() ||
                               '?'}
                           </Text>
@@ -2109,9 +3172,7 @@ export default function NowScreen() {
                           }
                           placeholder={`Reply to @${post.username}...`}
                           placeholderTextColor="#666666"
-                          maxLength={
-                            280
-                          }
+                          maxLength={280}
                           multiline
                           autoFocus
                         />
@@ -2499,15 +3560,277 @@ const styles =
 
     feedHeading: {
       paddingHorizontal: 20,
-      paddingTop: 22,
-      paddingBottom: 2,
+      paddingTop: 25,
+      paddingBottom: 9,
+    },
+
+    feedEyebrow: {
+      color: '#555555',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.8,
+      marginBottom: 5,
     },
 
     feedHeadingText: {
-      color: '#555555',
-      fontSize: 9,
+      color: '#ffffff',
+      fontSize: 25,
       fontWeight: '900',
-      letterSpacing: 1.8,
+      letterSpacing: -0.7,
+    },
+
+    feedHeadingSubtext: {
+      color: '#666666',
+      fontSize: 11,
+      lineHeight: 16,
+      marginTop: 5,
+      maxWidth: 285,
+    },
+
+    orbitWrap: {
+      paddingHorizontal: 14,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        '#1c1c1c',
+    },
+
+    orbitCard: {
+      borderWidth: 1,
+      borderColor: '#303030',
+      borderRadius: 22,
+      backgroundColor:
+        '#0d0d0d',
+      padding: 18,
+    },
+
+    orbitTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+      marginBottom: 20,
+    },
+
+    orbitSignal: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    orbitSignalDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor:
+        '#39E75F',
+      marginRight: 8,
+    },
+
+    orbitEyebrow: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.6,
+    },
+
+    orbitReason: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+    },
+
+    orbitPersonRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    orbitAvatar: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor:
+        '#1a1a1a',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginRight: 14,
+    },
+
+    orbitAvatarText: {
+      color: '#ffffff',
+      fontSize: 21,
+      fontWeight: '900',
+    },
+
+    orbitIdentity: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    orbitName: {
+      color: '#ffffff',
+      fontSize: 18,
+      fontWeight: '900',
+      letterSpacing: -0.3,
+    },
+
+    orbitUsername: {
+      color: '#888888',
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    orbitCity: {
+      color: '#555555',
+      fontSize: 10,
+      marginTop: 4,
+    },
+
+    orbitArrowCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: '#303030',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    orbitArrow: {
+      color: '#ffffff',
+      fontSize: 17,
+    },
+
+    orbitDivider: {
+      height: 1,
+      backgroundColor:
+        '#202020',
+      marginVertical: 18,
+    },
+
+    orbitWhy: {
+      color: '#777777',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.35,
+    },
+
+    orbitMatchSection: {
+      marginTop: 18,
+    },
+
+    orbitMatchLabel: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 1.4,
+      marginBottom: 9,
+    },
+
+    orbitPills: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 7,
+    },
+
+    orbitPill: {
+      borderWidth: 1,
+      borderColor: '#303030',
+      borderRadius: 100,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+      backgroundColor:
+        '#151515',
+      maxWidth: '100%',
+    },
+
+    orbitPillText: {
+      color: '#d7d7d7',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+
+    orbitTrackSection: {
+      marginTop: 18,
+    },
+
+    orbitTrack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+
+    orbitTrackArtwork: {
+      width: 42,
+      height: 42,
+      borderRadius: 6,
+      backgroundColor:
+        '#181818',
+    },
+
+    orbitTrackArtworkPlaceholder: {
+      width: 42,
+      height: 42,
+      borderRadius: 6,
+      backgroundColor:
+        '#181818',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    orbitTrackNote: {
+      color: '#666666',
+      fontSize: 16,
+    },
+
+    orbitTrackInfo: {
+      flex: 1,
+      marginLeft: 11,
+    },
+
+    orbitTrackSong: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    orbitTrackArtist: {
+      color: '#666666',
+      fontSize: 10,
+      marginTop: 3,
+    },
+
+    orbitButton: {
+      height: 43,
+      borderRadius: 100,
+      backgroundColor:
+        '#ffffff',
+      marginTop: 17,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+    },
+
+    orbitButtonPressed: {
+      opacity: 0.7,
+    },
+
+    orbitButtonText: {
+      color: '#000000',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    orbitButtonArrow: {
+      color: '#000000',
+      fontSize: 16,
+      fontWeight: '800',
     },
 
     post: {
@@ -2824,6 +4147,154 @@ const styles =
       fontSize: 8,
       fontWeight: '900',
       letterSpacing: 0.8,
+    },
+
+    conversationCard: {
+      marginHorizontal: 14,
+      marginTop: 16,
+      marginBottom: 4,
+      borderWidth: 1,
+      borderColor: '#292929',
+      borderRadius: 20,
+      backgroundColor:
+        '#0d0d0d',
+      padding: 17,
+    },
+
+    conversationCardPressed: {
+      opacity: 0.72,
+    },
+
+    conversationTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+
+    conversationLiveMark: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor:
+        '#39E75F',
+      marginRight: 8,
+    },
+
+    conversationEyebrow: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.5,
+    },
+
+    conversationMusic: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        '#202020',
+    },
+
+    conversationArtwork: {
+      width: 52,
+      height: 52,
+      borderRadius: 7,
+      backgroundColor:
+        '#171717',
+    },
+
+    conversationArtworkPlaceholder: {
+      width: 52,
+      height: 52,
+      borderRadius: 7,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    conversationMusicNote: {
+      color: '#666666',
+      fontSize: 19,
+    },
+
+    conversationMusicInfo: {
+      flex: 1,
+      marginLeft: 12,
+    },
+
+    conversationSong: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '900',
+    },
+
+    conversationArtist: {
+      color: '#777777',
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    conversationMessages: {
+      paddingTop: 4,
+    },
+
+    conversationMessage: {
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor:
+        '#191919',
+    },
+
+    conversationName: {
+      color: '#ffffff',
+      fontSize: 11,
+      fontWeight: '900',
+    },
+
+    conversationBody: {
+      color: '#c7c7c7',
+      fontSize: 14,
+      lineHeight: 20,
+      marginTop: 5,
+    },
+
+    conversationFooter: {
+      paddingTop: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+    },
+
+    conversationPeople: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 0.7,
+      flexShrink: 1,
+      marginRight: 12,
+    },
+
+    joinConversation: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    joinConversationText: {
+      color: '#ffffff',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    joinConversationArrow: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
+      marginLeft: 8,
     },
 
     empty: {
