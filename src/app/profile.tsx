@@ -1,14 +1,21 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  router,
+  useLocalSearchParams,
+} from 'expo-router';
+import {
+  useEffect,
+  useState,
+} from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import { supabase } from '../supabase';
@@ -22,23 +29,23 @@ type Profile = {
 
 type TopArtist = {
   name: string;
-  count: number;
-  artworkUrl: string;
+  count?: number;
+  artworkUrl?: string;
 };
 
 type TopSong = {
   id: string;
   song: string;
   artist: string;
-  count: number;
-  artworkUrl: string;
+  count?: number;
+  artworkUrl?: string;
 };
 
 type MusicTrack = {
   id: string;
   song: string;
   artist: string;
-  artworkUrl: string;
+  artworkUrl?: string;
 };
 
 type MusicDNARow = {
@@ -46,6 +53,51 @@ type MusicDNARow = {
   top_artists: TopArtist[] | null;
   top_songs: TopSong[] | null;
   recent_tracks: MusicTrack[] | null;
+};
+
+type PresenceRow = {
+  user_id: string;
+  song_title: string | null;
+  artist_name: string | null;
+  artwork_url: string | null;
+  apple_music_id: string | null;
+  last_active_at: string | null;
+  is_playing: boolean | null;
+  last_verified_playing_at: string | null;
+};
+
+type PostRow = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  body: string | null;
+  song_title: string;
+  artist_name: string;
+  album_name: string | null;
+  artwork_url: string | null;
+  apple_music_id: string | null;
+};
+
+type ConcertRow = {
+  id: string;
+  external_id: string | null;
+  artist_name: string;
+  event_name: string;
+  venue_name: string;
+  city: string;
+  region: string | null;
+  starts_at: string;
+  artwork_url: string | null;
+  ticket_url: string | null;
+};
+
+type AttendanceRow = {
+  concert_id: string;
+  status: string;
+  concerts:
+    | ConcertRow
+    | ConcertRow[]
+    | null;
 };
 
 type SharedArtist = {
@@ -60,189 +112,534 @@ type SharedTrack = {
   artworkUrl: string;
 };
 
+const ACTIVE_NOW_MS =
+  60 * 1000;
+
+const LIVE_FRESHNESS_MS =
+  60 * 1000;
+
+const normalize = (
+  value: string
+) =>
+  value
+    .trim()
+    .toLowerCase();
+
+const trackKey = (
+  track: {
+    song: string;
+    artist: string;
+  }
+) =>
+  `${normalize(
+    track.artist
+  )}::${normalize(
+    track.song
+  )}`;
+
 export default function ProfileScreen() {
-  const { userId } = useLocalSearchParams<{
-    userId?: string;
-  }>();
+  const { userId } =
+    useLocalSearchParams<{
+      userId?: string;
+    }>();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [
+    profile,
+    setProfile,
+  ] =
+    useState<Profile | null>(
+      null
+    );
 
-  const [sharedArtists, setSharedArtists] = useState<
-    SharedArtist[]
-  >([]);
+  const [
+    theirDNA,
+    setTheirDNA,
+  ] =
+    useState<MusicDNARow | null>(
+      null
+    );
 
-  const [sharedTracks, setSharedTracks] = useState<
-    SharedTrack[]
-  >([]);
+  const [
+    presence,
+    setPresence,
+  ] =
+    useState<PresenceRow | null>(
+      null
+    );
 
-  const [musicDataAvailable, setMusicDataAvailable] =
+  const [
+    posts,
+    setPosts,
+  ] =
+    useState<PostRow[]>([]);
+
+  const [
+    shows,
+    setShows,
+  ] =
+    useState<ConcertRow[]>([]);
+
+  const [
+    sharedArtists,
+    setSharedArtists,
+  ] =
+    useState<SharedArtist[]>([]);
+
+  const [
+    sharedTracks,
+    setSharedTracks,
+  ] =
+    useState<SharedTrack[]>([]);
+
+  const [
+    musicDataAvailable,
+    setMusicDataAvailable,
+  ] =
     useState(false);
 
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
   useEffect(() => {
-    loadProfileAndMatch();
+    loadProfile();
   }, [userId]);
 
-  const loadProfileAndMatch = async () => {
-    setLoading(true);
+  const loadProfile =
+    async () => {
+      setLoading(true);
 
-    try {
-      if (!userId) {
-        setProfile(null);
-        return;
-      }
+      try {
+        if (!userId) {
+          setProfile(null);
+          return;
+        }
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: userError,
+        } =
+          await supabase.auth.getUser();
 
-      if (userError || !user) {
-        router.replace('/login');
-        return;
-      }
+        if (
+          userError ||
+          !user
+        ) {
+          router.replace(
+            '/login'
+          );
+          return;
+        }
 
-      const { data: profileData, error: profileError } =
-        await supabase
-          .from('profiles')
-          .select('user_id, display_name, username, city')
-          .eq('user_id', userId)
-          .maybeSingle();
+        const [
+          profileResult,
+          myDNAResult,
+          theirDNAResult,
+          presenceResult,
+          postsResult,
+          attendanceResult,
+        ] =
+          await Promise.all([
+            supabase
+              .from('profiles')
+              .select(
+                'user_id, display_name, username, city'
+              )
+              .eq(
+                'user_id',
+                userId
+              )
+              .maybeSingle(),
 
-      if (profileError) {
-        console.log('Profile error:', profileError.message);
-        setProfile(null);
-        return;
-      }
+            supabase
+              .from(
+                'music_dna'
+              )
+              .select(
+                'user_id, top_artists, top_songs, recent_tracks'
+              )
+              .eq(
+                'user_id',
+                user.id
+              )
+              .maybeSingle(),
 
-      setProfile(profileData);
+            supabase
+              .from(
+                'music_dna'
+              )
+              .select(
+                'user_id, top_artists, top_songs, recent_tracks'
+              )
+              .eq(
+                'user_id',
+                userId
+              )
+              .maybeSingle(),
 
-      const { data: myDNA, error: myDNAError } =
-        await supabase
-          .from('music_dna')
-          .select(
-            'user_id, top_artists, top_songs, recent_tracks'
-          )
-          .eq('user_id', user.id)
-          .maybeSingle();
+            supabase
+              .from(
+                'listening_presence'
+              )
+              .select(
+                'user_id, song_title, artist_name, artwork_url, apple_music_id, last_active_at, is_playing, last_verified_playing_at'
+              )
+              .eq(
+                'user_id',
+                userId
+              )
+              .maybeSingle(),
 
-      const { data: theirDNA, error: theirDNAError } =
-        await supabase
-          .from('music_dna')
-          .select(
-            'user_id, top_artists, top_songs, recent_tracks'
-          )
-          .eq('user_id', userId)
-          .maybeSingle();
+            supabase
+              .from('posts')
+              .select(
+                'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+              )
+              .eq(
+                'user_id',
+                userId
+              )
+              .order(
+                'created_at',
+                {
+                  ascending:
+                    false,
+                }
+              )
+              .limit(8),
 
-      if (myDNAError) {
-        console.log(
-          'My Music DNA error:',
-          myDNAError.message
+            supabase
+              .from(
+                'concert_attendance'
+              )
+              .select(
+                `
+                concert_id,
+                status,
+                concerts (
+                  id,
+                  external_id,
+                  artist_name,
+                  event_name,
+                  venue_name,
+                  city,
+                  region,
+                  starts_at,
+                  artwork_url,
+                  ticket_url
+                )
+              `
+              )
+              .eq(
+                'user_id',
+                userId
+              )
+              .eq(
+                'status',
+                'going'
+              ),
+          ]);
+
+        if (
+          profileResult.error
+        ) {
+          console.log(
+            'Profile error:',
+            profileResult.error
+              .message
+          );
+
+          setProfile(null);
+          return;
+        }
+
+        setProfile(
+          profileResult.data
         );
-      }
 
-      if (theirDNAError) {
-        console.log(
-          'Their Music DNA error:',
-          theirDNAError.message
+        if (
+          presenceResult.error
+        ) {
+          console.log(
+            'Profile presence error:',
+            presenceResult.error
+              .message
+          );
+        }
+
+        setPresence(
+          (presenceResult.data as PresenceRow) ||
+            null
         );
-      }
 
-      if (!myDNA || !theirDNA) {
-        setMusicDataAvailable(false);
-        setSharedArtists([]);
-        setSharedTracks([]);
-        return;
-      }
+        if (
+          postsResult.error
+        ) {
+          console.log(
+            'Profile posts error:',
+            postsResult.error
+              .message
+          );
+        }
 
-      const myMusicDNA = myDNA as MusicDNARow;
-      const theirMusicDNA = theirDNA as MusicDNARow;
+        setPosts(
+          (postsResult.data as PostRow[]) ||
+            []
+        );
 
-      const myArtists = Array.isArray(
-        myMusicDNA.top_artists
-      )
-        ? myMusicDNA.top_artists
-        : [];
+        if (
+          attendanceResult.error
+        ) {
+          console.log(
+            'Profile attendance error:',
+            attendanceResult.error
+              .message
+          );
+        }
 
-      const theirArtists = Array.isArray(
-        theirMusicDNA.top_artists
-      )
-        ? theirMusicDNA.top_artists
-        : [];
+        const attendanceRows =
+          (attendanceResult.data ||
+            []) as AttendanceRow[];
 
-      const myTracks = Array.isArray(
-        myMusicDNA.recent_tracks
-      )
-        ? myMusicDNA.recent_tracks
-        : [];
+        const showRows:
+          ConcertRow[] = [];
 
-      const theirTracks = Array.isArray(
-        theirMusicDNA.recent_tracks
-      )
-        ? theirMusicDNA.recent_tracks
-        : [];
+        attendanceRows.forEach(
+          (attendance) => {
+            const concert =
+              Array.isArray(
+                attendance.concerts
+              )
+                ? attendance
+                    .concerts[0]
+                : attendance.concerts;
 
-      const myArtistNames = new Set(
-        myArtists.map((artist) =>
-          artist.name.trim().toLowerCase()
-        )
-      );
+            if (concert) {
+              showRows.push(
+                concert
+              );
+            }
+          }
+        );
 
-      const artistMatches: SharedArtist[] =
-        theirArtists
-          .filter((artist) =>
-            myArtistNames.has(
-              artist.name.trim().toLowerCase()
-            )
+        showRows.sort(
+          (a, b) =>
+            new Date(
+              a.starts_at
+            ).getTime() -
+            new Date(
+              b.starts_at
+            ).getTime()
+        );
+
+        setShows(showRows);
+
+        if (
+          theirDNAResult.error
+        ) {
+          console.log(
+            'Their Music DNA error:',
+            theirDNAResult.error
+              .message
+          );
+        }
+
+        const loadedTheirDNA =
+          (theirDNAResult.data as MusicDNARow) ||
+          null;
+
+        setTheirDNA(
+          loadedTheirDNA
+        );
+
+        if (
+          myDNAResult.error
+        ) {
+          console.log(
+            'My Music DNA error:',
+            myDNAResult.error
+              .message
+          );
+        }
+
+        const loadedMyDNA =
+          (myDNAResult.data as MusicDNARow) ||
+          null;
+
+        if (
+          !loadedMyDNA ||
+          !loadedTheirDNA
+        ) {
+          setMusicDataAvailable(
+            false
+          );
+
+          setSharedArtists(
+            []
+          );
+
+          setSharedTracks(
+            []
+          );
+
+          return;
+        }
+
+        const myArtists =
+          Array.isArray(
+            loadedMyDNA.top_artists
           )
-          .map((artist) => ({
-            name: artist.name,
-            artworkUrl: artist.artworkUrl || '',
-          }))
-          .slice(0, 3);
+            ? loadedMyDNA.top_artists
+            : [];
 
-      const myTrackKeys = new Set(
-        myTracks.map(
-          (track) =>
-            `${track.artist.trim().toLowerCase()}::${track.song
-              .trim()
-              .toLowerCase()}`
-        )
-      );
-
-      const trackMatches: SharedTrack[] =
-        theirTracks
-          .filter((track) =>
-            myTrackKeys.has(
-              `${track.artist
-                .trim()
-                .toLowerCase()}::${track.song
-                .trim()
-                .toLowerCase()}`
-            )
+        const theirArtists =
+          Array.isArray(
+            loadedTheirDNA.top_artists
           )
-          .map((track) => ({
-            id: track.id,
-            song: track.song,
-            artist: track.artist,
-            artworkUrl: track.artworkUrl || '',
-          }))
-          .slice(0, 5);
+            ? loadedTheirDNA.top_artists
+            : [];
 
-      setSharedArtists(artistMatches);
-      setSharedTracks(trackMatches);
-      setMusicDataAvailable(true);
-    } catch (error) {
-      console.log('Profile match error:', error);
+        const myRecent =
+          Array.isArray(
+            loadedMyDNA.recent_tracks
+          )
+            ? loadedMyDNA.recent_tracks
+            : [];
 
-      setSharedArtists([]);
-      setSharedTracks([]);
-      setMusicDataAvailable(false);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const theirRecent =
+          Array.isArray(
+            loadedTheirDNA.recent_tracks
+          )
+            ? loadedTheirDNA.recent_tracks
+            : [];
+
+        const myArtistNames =
+          new Set(
+            myArtists.map(
+              (artist) =>
+                normalize(
+                  artist.name
+                )
+            )
+          );
+
+        const artistMatches =
+          theirArtists
+            .filter(
+              (artist) =>
+                myArtistNames.has(
+                  normalize(
+                    artist.name
+                  )
+                )
+            )
+            .filter(
+              (
+                artist,
+                index,
+                array
+              ) =>
+                array.findIndex(
+                  (
+                    candidate
+                  ) =>
+                    normalize(
+                      candidate.name
+                    ) ===
+                    normalize(
+                      artist.name
+                    )
+                ) === index
+            )
+            .map(
+              (artist) => ({
+                name:
+                  artist.name,
+
+                artworkUrl:
+                  artist.artworkUrl ||
+                  '',
+              })
+            )
+            .slice(0, 5);
+
+        const myTrackKeys =
+          new Set(
+            myRecent.map(
+              trackKey
+            )
+          );
+
+        const trackMatches =
+          theirRecent
+            .filter(
+              (track) =>
+                myTrackKeys.has(
+                  trackKey(
+                    track
+                  )
+                )
+            )
+            .filter(
+              (
+                track,
+                index,
+                array
+              ) =>
+                array.findIndex(
+                  (
+                    candidate
+                  ) =>
+                    trackKey(
+                      candidate
+                    ) ===
+                    trackKey(
+                      track
+                    )
+                ) === index
+            )
+            .map(
+              (track) => ({
+                id:
+                  track.id,
+
+                song:
+                  track.song,
+
+                artist:
+                  track.artist,
+
+                artworkUrl:
+                  track.artworkUrl ||
+                  '',
+              })
+            )
+            .slice(0, 5);
+
+        setSharedArtists(
+          artistMatches
+        );
+
+        setSharedTracks(
+          trackMatches
+        );
+
+        setMusicDataAvailable(
+          true
+        );
+      } catch (error) {
+        console.log(
+          'Profile load error:',
+          error
+        );
+
+        setProfile(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
   const openChat = (
     song?: string,
@@ -254,35 +651,304 @@ export default function ProfileScreen() {
 
     router.push({
       pathname: '/chat',
+
       params: {
-        userId: profile.user_id,
-        name: profile.display_name || 'Listener',
-        ...(song ? { song } : {}),
-        ...(artist ? { artist } : {}),
+        userId:
+          profile.user_id,
+
+        name:
+          profile.display_name ||
+          'Listener',
+
+        ...(song
+          ? { song }
+          : {}),
+
+        ...(artist
+          ? { artist }
+          : {}),
       },
     });
   };
+
+  const openAppleMusic =
+    async (
+      song: string,
+      artist: string,
+      appleMusicId?: string | null
+    ) => {
+      try {
+        if (appleMusicId) {
+          try {
+            await Linking.openURL(
+              `https://music.apple.com/us/song/${encodeURIComponent(
+                appleMusicId
+              )}`
+            );
+
+            return;
+          } catch (error) {
+            console.log(
+              'Direct Apple Music URL failed:',
+              error
+            );
+          }
+        }
+
+        const search =
+          encodeURIComponent(
+            `${song} ${artist}`
+          );
+
+        await Linking.openURL(
+          `https://music.apple.com/us/search?term=${search}`
+        );
+      } catch (error) {
+        console.log(
+          'Apple Music open error:',
+          error
+        );
+      }
+    };
+
+  const openPost = (
+    postId: string
+  ) => {
+    router.push({
+      pathname: '/post',
+      params: {
+        postId,
+      },
+    });
+  };
+
+  const openConcert = (
+    concert: ConcertRow
+  ) => {
+    const startsAt =
+      new Date(
+        concert.starts_at
+      );
+
+    router.push({
+      pathname:
+        '/concert-detail',
+
+      params: {
+        externalId:
+          concert.external_id ||
+          concert.id,
+
+        name:
+          concert.event_name ||
+          concert.artist_name,
+
+        artist:
+          concert.artist_name,
+
+        venue:
+          concert.venue_name,
+
+        city:
+          concert.city,
+
+        region:
+          concert.region ||
+          '',
+
+        date:
+          startsAt
+            .toLocaleDateString(
+              'en-US',
+              {
+                month:
+                  'short',
+                day:
+                  'numeric',
+              }
+            )
+            .toUpperCase(),
+
+        time:
+          startsAt.toLocaleTimeString(
+            'en-US',
+            {
+              hour:
+                'numeric',
+              minute:
+                '2-digit',
+            }
+          ),
+
+        dateTime:
+          concert.starts_at,
+
+        artworkUrl:
+          concert.artwork_url ||
+          '',
+
+        ticketUrl:
+          concert.ticket_url ||
+          '',
+      },
+    });
+  };
+
+  const formatPostTime = (
+    value: string
+  ) => {
+    const date =
+      new Date(value);
+
+    const difference =
+      Date.now() -
+      date.getTime();
+
+    const minutes =
+      Math.floor(
+        difference /
+          60000
+      );
+
+    if (minutes < 1) {
+      return 'now';
+    }
+
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+
+    const hours =
+      Math.floor(
+        minutes / 60
+      );
+
+    if (hours < 24) {
+      return `${hours}h`;
+    }
+
+    const days =
+      Math.floor(
+        hours / 24
+      );
+
+    if (days < 7) {
+      return `${days}d`;
+    }
+
+    return date.toLocaleDateString(
+      'en-US',
+      {
+        month: 'short',
+        day: 'numeric',
+      }
+    );
+  };
+
+  const formatShowDate = (
+    value: string
+  ) => {
+    const date =
+      new Date(value);
+
+    return date
+      .toLocaleDateString(
+        'en-US',
+        {
+          month: 'short',
+          day: 'numeric',
+        }
+      )
+      .toUpperCase();
+  };
+
+  const topArtists =
+    Array.isArray(
+      theirDNA?.top_artists
+    )
+      ? theirDNA!.top_artists.slice(
+          0,
+          5
+        )
+      : [];
+
+  const topSongs =
+    Array.isArray(
+      theirDNA?.top_songs
+    )
+      ? theirDNA!.top_songs.slice(
+          0,
+          5
+        )
+      : [];
+
+  const recentTracks =
+    Array.isArray(
+      theirDNA?.recent_tracks
+    )
+      ? theirDNA!.recent_tracks.slice(
+          0,
+          5
+        )
+      : [];
+
+  const rotationTracks =
+    topSongs.length > 0
+      ? topSongs
+      : recentTracks;
+
+  const now =
+    Date.now();
+
+  const activeAt =
+    presence?.last_active_at
+      ? new Date(
+          presence.last_active_at
+        ).getTime()
+      : 0;
+
+  const verifiedAt =
+    presence?.last_verified_playing_at
+      ? new Date(
+          presence.last_verified_playing_at
+        ).getTime()
+      : 0;
+
+  const onNow =
+    activeAt > 0 &&
+    now - activeAt <=
+      ACTIVE_NOW_MS;
+
+  const listeningNow =
+    onNow &&
+    presence?.is_playing ===
+      true &&
+    verifiedAt > 0 &&
+    now - verifiedAt <=
+      LIVE_FRESHNESS_MS;
+
+  const hasPresenceSong =
+    !!presence?.song_title &&
+    !!presence?.artist_name;
+
+  const sharedCount =
+    sharedArtists.length +
+    sharedTracks.length;
 
   const initial =
     profile?.display_name
       ?.trim()
       .charAt(0)
-      .toUpperCase() || '?';
-
-  const hasArtistMatch = sharedArtists.length > 0;
-  const hasTrackMatch = sharedTracks.length > 0;
-  const hasAnyMatch = hasArtistMatch || hasTrackMatch;
-
-  const artistNames = sharedArtists
-    .map((artist) => artist.name)
-    .join(', ');
-
-  const conversationTrack =
-    sharedTracks.length > 0 ? sharedTracks[0] : null;
+      .toUpperCase() ||
+    '?';
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingScreen}>
+      <SafeAreaView
+        style={
+          styles.loadingScreen
+        }
+      >
         <ActivityIndicator
           size="large"
           color="#ffffff"
@@ -293,14 +959,32 @@ export default function ProfileScreen() {
 
   if (!profile) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.errorScreen}>
-          <Text style={styles.errorTitle}>
+      <SafeAreaView
+        style={styles.screen}
+      >
+        <View
+          style={
+            styles.errorScreen
+          }
+        >
+          <Text
+            style={
+              styles.errorTitle
+            }
+          >
             Profile not found.
           </Text>
 
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.errorBack}>
+          <Pressable
+            onPress={() =>
+              router.back()
+            }
+          >
+            <Text
+              style={
+                styles.errorBack
+              }
+            >
               ← Go back
             </Text>
           </Pressable>
@@ -310,777 +994,2166 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView
+      style={styles.screen}
+    >
       <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        <View style={styles.header}>
+        <View
+          style={
+            styles.header
+          }
+        >
           <Pressable
-            onPress={() => router.back()}
+            onPress={() =>
+              router.back()
+            }
             hitSlop={12}
           >
-            <Text style={styles.back}>←</Text>
+            <Text
+              style={
+                styles.back
+              }
+            >
+              ←
+            </Text>
           </Pressable>
 
-          <Text style={styles.logo}>NOW</Text>
+          <Text
+            style={
+              styles.logo
+            }
+          >
+            NOW
+          </Text>
 
-          <Text style={styles.more}>•••</Text>
+          <Text
+            style={
+              styles.more
+            }
+          >
+            •••
+          </Text>
         </View>
 
-        <View style={styles.profile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
+        <View
+          style={
+            styles.profile
+          }
+        >
+          <View
+            style={
+              styles.avatar
+            }
+          >
+            <Text
+              style={
+                styles.avatarText
+              }
+            >
               {initial}
             </Text>
           </View>
 
-          <Text style={styles.name}>
-            {profile.display_name || 'Listener'}
+          <Text
+            style={
+              styles.name
+            }
+          >
+            {profile.display_name ||
+              'Listener'}
           </Text>
 
-          <Text style={styles.username}>
-            @{profile.username || 'nowuser'}
+          <Text
+            style={
+              styles.username
+            }
+          >
+            @
+            {profile.username ||
+              'nowuser'}
           </Text>
 
           {!!profile.city && (
-            <Text style={styles.city}>
+            <Text
+              style={
+                styles.city
+              }
+            >
               {profile.city}
             </Text>
           )}
 
+          {onNow && (
+            <View
+              style={
+                styles.onlinePill
+              }
+            >
+              <View
+                style={
+                  styles.onlineDot
+                }
+              />
+
+              <Text
+                style={
+                  styles.onlineText
+                }
+              >
+                {listeningNow
+                  ? 'LISTENING NOW'
+                  : 'ON NOW'}
+              </Text>
+            </View>
+          )}
+
           <Pressable
-            style={({ pressed }) => [
+            style={({
+              pressed,
+            }) => [
               styles.messageButton,
-              pressed && styles.buttonPressed,
+
+              pressed &&
+                styles.buttonPressed,
             ]}
-            onPress={() => openChat()}
+            onPress={() =>
+              openChat()
+            }
           >
-            <Text style={styles.messageButtonText}>
-              Message {profile.display_name || 'Listener'}
+            <Text
+              style={
+                styles.messageButtonText
+              }
+            >
+              Message{' '}
+              {profile.display_name ||
+                'Listener'}
             </Text>
 
-            <Text style={styles.messageArrow}>→</Text>
+            <Text
+              style={
+                styles.messageArrow
+              }
+            >
+              →
+            </Text>
           </Pressable>
         </View>
 
-        {!musicDataAvailable ? (
-          <View style={styles.emptyMatchCard}>
-            <Text style={styles.matchLabel}>
-              MUSIC MATCH
-            </Text>
+        {hasPresenceSong && (
+          <View
+            style={
+              styles.nowSection
+            }
+          >
+            <View
+              style={
+                styles.sectionHeader
+              }
+            >
+              <View>
+                <Text
+                  style={[
+                    styles.sectionEyebrow,
 
-            <Text style={styles.emptyMatchTitle}>
-              Not enough music yet.
-            </Text>
+                    listeningNow &&
+                      styles.liveEyebrow,
+                  ]}
+                >
+                  {listeningNow
+                    ? 'PLAYING NOW'
+                    : 'LAST PLAYED'}
+                </Text>
 
-            <Text style={styles.emptyMatchText}>
-              Once both of you have Music DNA, NOW can
-              compare your listening.
-            </Text>
+                <Text
+                  style={
+                    styles.sectionTitle
+                  }
+                >
+                  Right now.
+                </Text>
+              </View>
+
+              {listeningNow && (
+                <View
+                  style={
+                    styles.liveIndicator
+                  }
+                >
+                  <View
+                    style={
+                      styles.liveDot
+                    }
+                  />
+
+                  <Text
+                    style={
+                      styles.liveText
+                    }
+                  >
+                    LIVE
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Pressable
+              style={({
+                pressed,
+              }) => [
+                styles.heroMusicCard,
+
+                pressed &&
+                  styles.cardPressed,
+              ]}
+              onPress={() =>
+                openAppleMusic(
+                  presence!
+                    .song_title!,
+                  presence!
+                    .artist_name!,
+                  presence!
+                    .apple_music_id
+                )
+              }
+            >
+              {presence?.artwork_url ? (
+                <Image
+                  source={{
+                    uri:
+                      presence.artwork_url,
+                  }}
+                  style={
+                    styles.heroArtwork
+                  }
+                />
+              ) : (
+                <View
+                  style={
+                    styles.heroArtworkPlaceholder
+                  }
+                >
+                  <Text
+                    style={
+                      styles.heroNote
+                    }
+                  >
+                    ♪
+                  </Text>
+                </View>
+              )}
+
+              <View
+                style={
+                  styles.heroMusicInfo
+                }
+              >
+                <Text
+                  style={
+                    styles.heroSong
+                  }
+                  numberOfLines={
+                    2
+                  }
+                >
+                  {
+                    presence
+                      ?.song_title
+                  }
+                </Text>
+
+                <Text
+                  style={
+                    styles.heroArtist
+                  }
+                  numberOfLines={
+                    1
+                  }
+                >
+                  {
+                    presence
+                      ?.artist_name
+                  }
+                </Text>
+
+                <Text
+                  style={
+                    styles.listenLabel
+                  }
+                >
+                  OPEN IN APPLE MUSIC
+                </Text>
+              </View>
+
+              <View
+                style={
+                  styles.playCircle
+                }
+              >
+                <Text
+                  style={
+                    styles.playIcon
+                  }
+                >
+                  ▶
+                </Text>
+              </View>
+            </Pressable>
           </View>
-        ) : (
-          <>
-            <View style={styles.matchCard}>
-              <View style={styles.matchTextWrap}>
-                <Text style={styles.matchLabel}>
-                  MUSIC MATCH
-                </Text>
+        )}
 
-                <Text style={styles.matchCopy}>
-                  {hasAnyMatch
-                    ? 'You have music in common.'
-                    : 'Your rotations are different right now.'}
-                </Text>
-              </View>
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                THEIR SOUND
+              </Text>
 
-              <View style={styles.matchCount}>
-                <Text style={styles.matchCountNumber}>
-                  {sharedArtists.length +
-                    sharedTracks.length}
-                </Text>
-
-                <Text style={styles.matchCountLabel}>
-                  SHARED
-                </Text>
-              </View>
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                In rotation.
+              </Text>
             </View>
+          </View>
 
-            <Text style={styles.sectionLabel}>
-              WHY YOU MATCH
-            </Text>
+          {topArtists.length >
+          0 ? (
+            <>
+              <Text
+                style={
+                  styles.miniLabel
+                }
+              >
+                TOP ARTISTS
+              </Text>
 
-            <View style={styles.reasonCard}>
-              <View style={styles.reasonRow}>
-                <Text style={styles.reasonNumber}>
-                  {String(sharedArtists.length).padStart(
-                    2,
-                    '0'
-                  )}
-                </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={
+                  false
+                }
+                contentContainerStyle={
+                  styles.artistRow
+                }
+              >
+                {topArtists.map(
+                  (
+                    artist,
+                    index
+                  ) => {
+                    const artistInitial =
+                      artist.name
+                        .trim()
+                        .charAt(
+                          0
+                        )
+                        .toUpperCase() ||
+                      '?';
 
-                <View style={styles.reasonInfo}>
-                  <Text style={styles.reasonTitle}>
-                    shared top artists
-                  </Text>
+                    return (
+                      <View
+                        key={`${artist.name}-${index}`}
+                        style={
+                          styles.artistItem
+                        }
+                      >
+                        {artist.artworkUrl ? (
+                          <Image
+                            source={{
+                              uri:
+                                artist.artworkUrl,
+                            }}
+                            style={
+                              styles.artistArtwork
+                            }
+                          />
+                        ) : (
+                          <View
+                            style={
+                              styles.artistPlaceholder
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.artistInitial
+                              }
+                            >
+                              {
+                                artistInitial
+                              }
+                            </Text>
+                          </View>
+                        )}
 
-                  <Text style={styles.reasonText}>
-                    {hasArtistMatch
-                      ? artistNames
-                      : 'No shared top artists yet'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.reasonDivider} />
-
-              <View style={styles.reasonRow}>
-                <Text style={styles.reasonNumber}>
-                  {String(sharedTracks.length).padStart(
-                    2,
-                    '0'
-                  )}
-                </Text>
-
-                <View style={styles.reasonInfo}>
-                  <Text style={styles.reasonTitle}>
-                    shared tracks
-                  </Text>
-
-                  <Text style={styles.reasonText}>
-                    {hasTrackMatch
-                      ? 'Songs appearing in both recent rotations'
-                      : 'No shared recent tracks yet'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.reasonDivider} />
-
-              <View style={styles.reasonRow}>
-                <Text style={styles.reasonSymbol}>
-                  ≈
-                </Text>
-
-                <View style={styles.reasonInfo}>
-                  <Text style={styles.reasonTitle}>
-                    listening overlap
-                  </Text>
-
-                  <Text style={styles.reasonText}>
-                    {hasAnyMatch
-                      ? 'Built from your real Apple Music activity'
-                      : 'NOW will keep learning as you both listen'}
-                  </Text>
-                </View>
-              </View>
+                        <Text
+                          style={
+                            styles.artistName
+                          }
+                          numberOfLines={
+                            2
+                          }
+                        >
+                          {
+                            artist.name
+                          }
+                        </Text>
+                      </View>
+                    );
+                  }
+                )}
+              </ScrollView>
+            </>
+          ) : (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                Their rotation is still
+                taking shape.
+              </Text>
             </View>
+          )}
 
-            <Text style={styles.sectionLabel}>
-              YOU BOTH LISTEN TO
-            </Text>
+          {rotationTracks.length >
+            0 && (
+            <>
+              <Text
+                style={[
+                  styles.miniLabel,
+                  styles.rotationLabel,
+                ]}
+              >
+                HEAVY ROTATION
+              </Text>
 
-            {sharedArtists.length > 0 ? (
-              <View style={styles.artistRow}>
-                {sharedArtists.map((artist) => {
-                  const artistInitial =
-                    artist.name
-                      .trim()
-                      .charAt(0)
-                      .toUpperCase() || '?';
+              <View
+                style={
+                  styles.trackList
+                }
+              >
+                {rotationTracks.map(
+                  (
+                    track,
+                    index
+                  ) => (
+                    <Pressable
+                      key={`${track.id}-${index}`}
+                      style={[
+                        styles.trackRow,
 
-                  return (
-                    <View
-                      key={artist.name}
-                      style={styles.artist}
+                        index !==
+                          rotationTracks.length -
+                            1 &&
+                          styles.trackBorder,
+                      ]}
+                      onPress={() =>
+                        openAppleMusic(
+                          track.song,
+                          track.artist,
+                          track.id
+                        )
+                      }
                     >
-                      {artist.artworkUrl ? (
+                      {track.artworkUrl ? (
                         <Image
                           source={{
-                            uri: artist.artworkUrl,
+                            uri:
+                              track.artworkUrl,
                           }}
-                          style={styles.artistArtwork}
+                          style={
+                            styles.trackArtwork
+                          }
                         />
                       ) : (
-                        <View style={styles.artistCircle}>
+                        <View
+                          style={
+                            styles.trackArtworkPlaceholder
+                          }
+                        >
                           <Text
-                            style={styles.artistInitial}
+                            style={
+                              styles.trackNote
+                            }
                           >
-                            {artistInitial}
+                            ♪
                           </Text>
                         </View>
                       )}
 
-                      <Text
-                        style={styles.artistName}
-                        numberOfLines={2}
+                      <View
+                        style={
+                          styles.trackInfo
+                        }
                       >
-                        {artist.name}
+                        <Text
+                          style={
+                            styles.trackName
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            track.song
+                          }
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.trackArtist
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            track.artist
+                          }
+                        </Text>
+                      </View>
+
+                      <Text
+                        style={
+                          styles.trackArrow
+                        }
+                      >
+                        →
                       </Text>
-                    </View>
-                  );
-                })}
+                    </Pressable>
+                  )
+                )}
               </View>
-            ) : (
-              <View style={styles.emptySection}>
-                <Text style={styles.emptySectionText}>
-                  No shared top artists yet.
+            </>
+          )}
+        </View>
+
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                YOU TWO
+              </Text>
+
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                {sharedCount >
+                0
+                  ? 'There’s overlap.'
+                  : 'Different lanes.'}
+              </Text>
+            </View>
+
+            {musicDataAvailable && (
+              <View
+                style={
+                  styles.sharedCount
+                }
+              >
+                <Text
+                  style={
+                    styles.sharedCountNumber
+                  }
+                >
+                  {
+                    sharedCount
+                  }
+                </Text>
+
+                <Text
+                  style={
+                    styles.sharedCountLabel
+                  }
+                >
+                  SHARED
                 </Text>
               </View>
             )}
+          </View>
 
-            <Text style={styles.sectionLabel}>
-              SHARED ROTATION
-            </Text>
+          {!musicDataAvailable ? (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionTitle
+                }
+              >
+                Still learning.
+              </Text>
 
-            {sharedTracks.length > 0 ? (
-              <View style={styles.trackCard}>
-                {sharedTracks.map((track, index) => (
-                  <View
-                    key={`${track.id}-${index}`}
-                    style={[
-                      styles.trackRow,
-                      index !==
-                        sharedTracks.length - 1 &&
-                        styles.trackBorder,
-                    ]}
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                Once both of you have
+                enough listening data,
+                NOW can show what
+                connects your taste.
+              </Text>
+            </View>
+          ) : sharedCount ===
+            0 ? (
+            <View
+              style={
+                styles.overlapCard
+              }
+            >
+              <Text
+                style={
+                  styles.overlapCopy
+                }
+              >
+                Nothing is overlapping
+                right now. That can
+                change as both of your
+                rotations move.
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={
+                styles.overlapCard
+              }
+            >
+              {sharedArtists.length >
+                0 && (
+                <View
+                  style={
+                    styles.overlapBlock
+                  }
+                >
+                  <Text
+                    style={
+                      styles.overlapLabel
+                    }
                   >
-                    {track.artworkUrl ? (
+                    YOU BOTH LISTEN TO
+                  </Text>
+
+                  <View
+                    style={
+                      styles.sharedArtistWrap
+                    }
+                  >
+                    {sharedArtists.map(
+                      (
+                        artist
+                      ) => (
+                        <View
+                          key={
+                            artist.name
+                          }
+                          style={
+                            styles.sharedArtistPill
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.sharedArtistText
+                            }
+                          >
+                            {
+                              artist.name
+                            }
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {sharedTracks.length >
+                0 && (
+                <View
+                  style={[
+                    styles.overlapBlock,
+
+                    sharedArtists.length >
+                      0 &&
+                      styles.overlapBlockBorder,
+                  ]}
+                >
+                  <Text
+                    style={
+                      styles.overlapLabel
+                    }
+                  >
+                    IN BOTH ROTATIONS
+                  </Text>
+
+                  {sharedTracks
+                    .slice(0, 3)
+                    .map(
+                      (
+                        track,
+                        index
+                      ) => (
+                        <Pressable
+                          key={`${track.id}-${index}`}
+                          style={
+                            styles.sharedTrack
+                          }
+                          onPress={() =>
+                            openAppleMusic(
+                              track.song,
+                              track.artist,
+                              track.id
+                            )
+                          }
+                        >
+                          {track.artworkUrl ? (
+                            <Image
+                              source={{
+                                uri:
+                                  track.artworkUrl,
+                              }}
+                              style={
+                                styles.sharedTrackArtwork
+                              }
+                            />
+                          ) : (
+                            <View
+                              style={
+                                styles.sharedTrackPlaceholder
+                              }
+                            >
+                              <Text
+                                style={
+                                  styles.sharedTrackNote
+                                }
+                              >
+                                ♪
+                              </Text>
+                            </View>
+                          )}
+
+                          <View
+                            style={
+                              styles.sharedTrackInfo
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.sharedTrackName
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {
+                                track.song
+                              }
+                            </Text>
+
+                            <Text
+                              style={
+                                styles.sharedTrackArtist
+                              }
+                              numberOfLines={
+                                1
+                              }
+                            >
+                              {
+                                track.artist
+                              }
+                            </Text>
+                          </View>
+
+                          <Text
+                            style={
+                              styles.bothLabel
+                            }
+                          >
+                            BOTH
+                          </Text>
+                        </Pressable>
+                      )
+                    )}
+                </View>
+              )}
+
+              <Pressable
+                style={({
+                  pressed,
+                }) => [
+                  styles.overlapMessageButton,
+
+                  pressed &&
+                    styles.buttonPressed,
+                ]}
+                onPress={() => {
+                  const track =
+                    sharedTracks[0];
+
+                  openChat(
+                    track?.song,
+                    track?.artist
+                  );
+                }}
+              >
+                <Text
+                  style={
+                    styles.overlapMessageText
+                  }
+                >
+                  SAY SOMETHING
+                </Text>
+
+                <Text
+                  style={
+                    styles.overlapMessageArrow
+                  }
+                >
+                  →
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                LIVE
+              </Text>
+
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Going.
+              </Text>
+            </View>
+
+            {shows.length >
+              0 && (
+              <Text
+                style={
+                  styles.sectionCount
+                }
+              >
+                {shows.length}{' '}
+                {shows.length ===
+                1
+                  ? 'SHOW'
+                  : 'SHOWS'}
+              </Text>
+            )}
+          </View>
+
+          {shows.length ===
+          0 ? (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                No upcoming shows on
+                their profile yet.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={
+                false
+              }
+              contentContainerStyle={
+                styles.showRow
+              }
+            >
+              {shows.map(
+                (concert) => (
+                  <Pressable
+                    key={
+                      concert.id
+                    }
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.showCard,
+
+                      pressed &&
+                        styles.cardPressed,
+                    ]}
+                    onPress={() =>
+                      openConcert(
+                        concert
+                      )
+                    }
+                  >
+                    {concert.artwork_url ? (
                       <Image
                         source={{
-                          uri: track.artworkUrl,
+                          uri:
+                            concert.artwork_url,
                         }}
-                        style={styles.albumArtwork}
+                        style={
+                          styles.showArtwork
+                        }
                       />
                     ) : (
-                      <View style={styles.album}>
-                        <Text style={styles.note}>
+                      <View
+                        style={
+                          styles.showArtworkPlaceholder
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.showNote
+                          }
+                        >
                           ♪
                         </Text>
                       </View>
                     )}
 
-                    <View style={styles.trackInfo}>
+                    <View
+                      style={
+                        styles.showInfo
+                      }
+                    >
                       <Text
-                        style={styles.trackName}
-                        numberOfLines={1}
+                        style={
+                          styles.showDate
+                        }
                       >
-                        {track.song}
+                        {formatShowDate(
+                          concert.starts_at
+                        )}
                       </Text>
 
                       <Text
-                        style={styles.trackArtist}
-                        numberOfLines={1}
+                        style={
+                          styles.showArtist
+                        }
+                        numberOfLines={
+                          1
+                        }
                       >
-                        {track.artist}
+                        {
+                          concert.artist_name
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.showVenue
+                        }
+                        numberOfLines={
+                          1
+                        }
+                      >
+                        {
+                          concert.venue_name
+                        }
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.showLocation
+                        }
+                        numberOfLines={
+                          1
+                        }
+                      >
+                        {[
+                          concert.city,
+                          concert.region,
+                        ]
+                          .filter(
+                            Boolean
+                          )
+                          .join(
+                            ', '
+                          )}
                       </Text>
                     </View>
+                  </Pressable>
+                )
+              )}
+            </ScrollView>
+          )}
+        </View>
 
-                    <Text style={styles.shared}>
-                      BOTH
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptySection}>
-                <Text style={styles.emptySectionText}>
-                  Nothing in both recent rotations yet.
-                </Text>
-              </View>
-            )}
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                FROM{' '}
+                {(
+                  profile.display_name ||
+                  'THEM'
+                ).toUpperCase()}
+              </Text>
 
-            {conversationTrack && (
-              <>
-                <Text style={styles.sectionLabel}>
-                  START A CONVERSATION
-                </Text>
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                On NOW.
+              </Text>
+            </View>
+          </View>
 
-                <View style={styles.nowCard}>
-                  <Text style={styles.conversationEyebrow}>
-                    YOU BOTH PLAYED
-                  </Text>
-
-                  <Text style={styles.nowSong}>
-                    {conversationTrack.song}
-                  </Text>
-
-                  <Text style={styles.nowArtist}>
-                    {conversationTrack.artist}
-                  </Text>
-
-                  <Text style={styles.nowThought}>
-                    You already have something to talk
-                    about.
-                  </Text>
-
+          {posts.length ===
+          0 ? (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                They haven't posted
+                anything yet.
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={
+                styles.postList
+              }
+            >
+              {posts.map(
+                (post) => (
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.talkButton,
-                      pressed && styles.buttonPressed,
+                    key={
+                      post.id
+                    }
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.postCard,
+
+                      pressed &&
+                        styles.cardPressed,
                     ]}
                     onPress={() =>
-                      openChat(
-                        conversationTrack.song,
-                        conversationTrack.artist
+                      openPost(
+                        post.id
                       )
                     }
                   >
-                    <Text style={styles.talkButtonText}>
-                      Talk about {conversationTrack.song} →
-                    </Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </>
-        )}
+                    <View
+                      style={
+                        styles.postMeta
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.postTime
+                        }
+                      >
+                        {formatPostTime(
+                          post.created_at
+                        )}
+                      </Text>
 
-        <Text style={styles.footer}>
-          YOUR MUSIC. YOUR PEOPLE. RIGHT NOW.
+                      <Text
+                        style={
+                          styles.postArrow
+                        }
+                      >
+                        →
+                      </Text>
+                    </View>
+
+                    {!!post.body && (
+                      <Text
+                        style={
+                          styles.postBody
+                        }
+                        numberOfLines={
+                          4
+                        }
+                      >
+                        {
+                          post.body
+                        }
+                      </Text>
+                    )}
+
+                    <View
+                      style={
+                        styles.postMusic
+                      }
+                    >
+                      {post.artwork_url ? (
+                        <Image
+                          source={{
+                            uri:
+                              post.artwork_url,
+                          }}
+                          style={
+                            styles.postArtwork
+                          }
+                        />
+                      ) : (
+                        <View
+                          style={
+                            styles.postArtworkPlaceholder
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.postNote
+                            }
+                          >
+                            ♪
+                          </Text>
+                        </View>
+                      )}
+
+                      <View
+                        style={
+                          styles.postMusicInfo
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.postSong
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.song_title
+                          }
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.postArtist
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.artist_name
+                          }
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                )
+              )}
+            </View>
+          )}
+        </View>
+
+        <View
+          style={
+            styles.eraTeaser
+          }
+        >
+          <Text
+            style={
+              styles.eraEyebrow
+            }
+          >
+            ERAS
+          </Text>
+
+          <Text
+            style={
+              styles.eraTitle
+            }
+          >
+            Their sound changes.
+            NOW remembers it.
+          </Text>
+
+          <Text
+            style={
+              styles.eraText
+            }
+          >
+            Your listening history
+            will eventually live here
+            in chapters.
+          </Text>
+
+          <View
+            style={
+              styles.eraPreview
+            }
+          >
+            <Text
+              style={
+                styles.eraSeason
+              }
+            >
+              FALL '26
+            </Text>
+
+            <Text
+              style={
+                styles.eraComing
+              }
+            >
+              COMING SOON
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={
+            styles.footer
+          }
+        >
+          YOUR MUSIC. YOUR PEOPLE.
+          RIGHT NOW.
         </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#050505',
-  },
-
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: '#050505',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  errorScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-
-  errorTitle: {
-    color: '#ffffff',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-
-  errorBack: {
-    color: '#888888',
-    fontSize: 14,
-  },
-
-  content: {
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 50,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-  },
-
-  back: {
-    color: '#ffffff',
-    fontSize: 25,
-  },
-
-  logo: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-
-  more: {
-    color: '#777777',
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-
-  profile: {
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 30,
-  },
-
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 17,
-  },
-
-  avatarText: {
-    color: '#ffffff',
-    fontSize: 36,
-    fontWeight: '800',
-  },
-
-  name: {
-    color: '#ffffff',
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-
-  username: {
-    color: '#8a8a8a',
-    fontSize: 14,
-    marginTop: 5,
-  },
-
-  city: {
-    color: '#555555',
-    fontSize: 12,
-    marginTop: 7,
-  },
-
-  messageButton: {
-    width: '100%',
-    minHeight: 52,
-    backgroundColor: '#ffffff',
-    borderRadius: 100,
-    marginTop: 24,
-    paddingHorizontal: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  messageButtonText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  messageArrow: {
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-
-  buttonPressed: {
-    opacity: 0.7,
-  },
-
-  matchCard: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#242424',
-    paddingVertical: 23,
-    marginBottom: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  matchTextWrap: {
-    flex: 1,
-    paddingRight: 20,
-  },
-
-  matchLabel: {
-    color: '#777777',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.8,
-  },
-
-  matchCopy: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '600',
-    marginTop: 7,
-  },
-
-  matchCount: {
-    alignItems: 'center',
-  },
-
-  matchCountNumber: {
-    color: '#ffffff',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: -1.5,
-  },
-
-  matchCountLabel: {
-    color: '#666666',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 1.3,
-    marginTop: 2,
-  },
-
-  emptyMatchCard: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#242424',
-    paddingVertical: 25,
-    marginBottom: 36,
-  },
-
-  emptyMatchTitle: {
-    color: '#ffffff',
-    fontSize: 19,
-    fontWeight: '700',
-    marginTop: 9,
-  },
-
-  emptyMatchText: {
-    color: '#707070',
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 8,
-  },
-
-  sectionLabel: {
-    color: '#777777',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.8,
-    marginBottom: 16,
-  },
-
-  reasonCard: {
-    borderWidth: 1,
-    borderColor: '#202020',
-    borderRadius: 17,
-    paddingHorizontal: 18,
-    marginBottom: 38,
-  },
-
-  reasonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 18,
-  },
-
-  reasonInfo: {
-    flex: 1,
-  },
-
-  reasonNumber: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '800',
-    width: 48,
-  },
-
-  reasonSymbol: {
-    color: '#ffffff',
-    fontSize: 25,
-    width: 48,
-  },
-
-  reasonTitle: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  reasonText: {
-    color: '#6e6e6e',
-    fontSize: 12,
-    marginTop: 5,
-    lineHeight: 17,
-  },
-
-  reasonDivider: {
-    height: 1,
-    backgroundColor: '#1d1d1d',
-  },
-
-  artistRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 10,
-    marginBottom: 40,
-  },
-
-  artist: {
-    width: '31%',
-    alignItems: 'center',
-  },
-
-  artistCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-
-  artistArtwork: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#171717',
-    marginBottom: 10,
-  },
-
-  artistInitial: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-
-  artistName: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-
-  emptySection: {
-    borderWidth: 1,
-    borderColor: '#202020',
-    borderRadius: 16,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
-    marginBottom: 38,
-  },
-
-  emptySectionText: {
-    color: '#666666',
-    fontSize: 13,
-  },
-
-  trackCard: {
-    borderWidth: 1,
-    borderColor: '#202020',
-    borderRadius: 16,
-    paddingHorizontal: 15,
-    marginBottom: 38,
-  },
-
-  trackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-
-  trackBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#1b1b1b',
-  },
-
-  album: {
-    width: 48,
-    height: 48,
-    borderRadius: 5,
-    backgroundColor: '#171717',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-
-  albumArtwork: {
-    width: 48,
-    height: 48,
-    borderRadius: 5,
-    backgroundColor: '#171717',
-    marginRight: 13,
-  },
-
-  note: {
-    color: '#777777',
-    fontSize: 19,
-  },
-
-  trackInfo: {
-    flex: 1,
-  },
-
-  trackName: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-
-  trackArtist: {
-    color: '#777777',
-    fontSize: 12,
-    marginTop: 4,
-  },
-
-  shared: {
-    color: '#777777',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-  },
-
-  nowCard: {
-    backgroundColor: '#111111',
-    borderRadius: 20,
-    padding: 22,
-    marginBottom: 38,
-  },
-
-  conversationEyebrow: {
-    color: '#777777',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1.7,
-    marginBottom: 18,
-  },
-
-  nowSong: {
-    color: '#ffffff',
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-  },
-
-  nowArtist: {
-    color: '#888888',
-    fontSize: 14,
-    marginTop: 5,
-  },
-
-  nowThought: {
-    color: '#666666',
-    fontSize: 13,
-    marginTop: 18,
-    marginBottom: 22,
-  },
-
-  talkButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 100,
-    paddingVertical: 16,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-  },
-
-  talkButtonText: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-
-  footer: {
-    color: '#444444',
-    textAlign: 'center',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-});
+const styles =
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor:
+        '#050505',
+    },
+
+    loadingScreen: {
+      flex: 1,
+      backgroundColor:
+        '#050505',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    errorScreen: {
+      flex: 1,
+      justifyContent:
+        'center',
+      alignItems: 'center',
+      paddingHorizontal: 30,
+    },
+
+    errorTitle: {
+      color: '#ffffff',
+      fontSize: 22,
+      fontWeight: '700',
+      marginBottom: 20,
+    },
+
+    errorBack: {
+      color: '#888888',
+      fontSize: 14,
+    },
+
+    content: {
+      paddingHorizontal: 22,
+      paddingTop: 10,
+      paddingBottom: 55,
+    },
+
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+      minHeight: 55,
+      marginBottom: 22,
+    },
+
+    back: {
+      color: '#ffffff',
+      fontSize: 27,
+    },
+
+    logo: {
+      color: '#ffffff',
+      fontSize: 20,
+      fontWeight: '900',
+      letterSpacing: -1,
+    },
+
+    more: {
+      color: '#777777',
+      fontSize: 14,
+      letterSpacing: 1,
+    },
+
+    profile: {
+      alignItems: 'center',
+      paddingTop: 10,
+      paddingBottom: 36,
+    },
+
+    avatar: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginBottom: 18,
+    },
+
+    avatarText: {
+      color: '#ffffff',
+      fontSize: 39,
+      fontWeight: '900',
+    },
+
+    name: {
+      color: '#ffffff',
+      fontSize: 32,
+      fontWeight: '900',
+      letterSpacing: -0.9,
+    },
+
+    username: {
+      color: '#8a8a8a',
+      fontSize: 14,
+      marginTop: 5,
+    },
+
+    city: {
+      color: '#555555',
+      fontSize: 12,
+      marginTop: 7,
+    },
+
+    onlinePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#242424',
+      borderRadius: 100,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      marginTop: 14,
+    },
+
+    onlineDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor:
+        '#39E75F',
+      marginRight: 7,
+    },
+
+    onlineText: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+    },
+
+    messageButton: {
+      width: '100%',
+      minHeight: 54,
+      backgroundColor:
+        '#ffffff',
+      borderRadius: 100,
+      marginTop: 25,
+      paddingHorizontal: 22,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+    },
+
+    messageButtonText: {
+      color: '#000000',
+      fontSize: 14,
+      fontWeight: '900',
+    },
+
+    messageArrow: {
+      color: '#000000',
+      fontSize: 21,
+      fontWeight: '800',
+    },
+
+    buttonPressed: {
+      opacity: 0.7,
+    },
+
+    section: {
+      borderTopWidth: 1,
+      borderTopColor:
+        '#222222',
+      paddingTop: 31,
+      paddingBottom: 37,
+    },
+
+    nowSection: {
+      borderTopWidth: 1,
+      borderTopColor:
+        '#222222',
+      paddingTop: 31,
+      paddingBottom: 37,
+    },
+
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent:
+        'space-between',
+      marginBottom: 21,
+    },
+
+    sectionEyebrow: {
+      color: '#666666',
+      fontSize: 9,
+      fontWeight: '900',
+      letterSpacing: 1.8,
+      marginBottom: 7,
+    },
+
+    liveEyebrow: {
+      color: '#39E75F',
+    },
+
+    sectionTitle: {
+      color: '#ffffff',
+      fontSize: 26,
+      fontWeight: '900',
+      letterSpacing: -0.7,
+    },
+
+    liveIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingBottom: 4,
+    },
+
+    liveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor:
+        '#39E75F',
+      marginRight: 6,
+    },
+
+    liveText: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+    },
+
+    heroMusicCard: {
+      borderWidth: 1,
+      borderColor: '#272727',
+      borderRadius: 19,
+      backgroundColor:
+        '#0d0d0d',
+      padding: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    heroArtwork: {
+      width: 86,
+      height: 86,
+      borderRadius: 10,
+      backgroundColor:
+        '#171717',
+    },
+
+    heroArtworkPlaceholder: {
+      width: 86,
+      height: 86,
+      borderRadius: 10,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    heroNote: {
+      color: '#555555',
+      fontSize: 32,
+    },
+
+    heroMusicInfo: {
+      flex: 1,
+      marginLeft: 14,
+      paddingRight: 8,
+    },
+
+    heroSong: {
+      color: '#ffffff',
+      fontSize: 17,
+      fontWeight: '900',
+      lineHeight: 21,
+    },
+
+    heroArtist: {
+      color: '#888888',
+      fontSize: 13,
+      marginTop: 5,
+    },
+
+    listenLabel: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 0.8,
+      marginTop: 12,
+    },
+
+    playCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: '#3a3a3a',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    playIcon: {
+      color: '#ffffff',
+      fontSize: 11,
+      marginLeft: 2,
+    },
+
+    cardPressed: {
+      opacity: 0.7,
+    },
+
+    miniLabel: {
+      color: '#555555',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.5,
+      marginBottom: 14,
+    },
+
+    rotationLabel: {
+      marginTop: 27,
+    },
+
+    artistRow: {
+      paddingRight: 10,
+    },
+
+    artistItem: {
+      width: 82,
+      marginRight: 14,
+      alignItems: 'center',
+    },
+
+    artistArtwork: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor:
+        '#171717',
+      marginBottom: 9,
+    },
+
+    artistPlaceholder: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginBottom: 9,
+    },
+
+    artistInitial: {
+      color: '#ffffff',
+      fontSize: 23,
+      fontWeight: '800',
+    },
+
+    artistName: {
+      color: '#dcdcdc',
+      fontSize: 10,
+      fontWeight: '700',
+      textAlign: 'center',
+      lineHeight: 14,
+    },
+
+    trackList: {
+      borderWidth: 1,
+      borderColor: '#202020',
+      borderRadius: 17,
+      paddingHorizontal: 14,
+      overflow: 'hidden',
+    },
+
+    trackRow: {
+      minHeight: 70,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 11,
+    },
+
+    trackBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor:
+        '#1b1b1b',
+    },
+
+    trackArtwork: {
+      width: 48,
+      height: 48,
+      borderRadius: 6,
+      backgroundColor:
+        '#171717',
+      marginRight: 12,
+    },
+
+    trackArtworkPlaceholder: {
+      width: 48,
+      height: 48,
+      borderRadius: 6,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginRight: 12,
+    },
+
+    trackNote: {
+      color: '#666666',
+      fontSize: 18,
+    },
+
+    trackInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    trackName: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+
+    trackArtist: {
+      color: '#777777',
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    trackArrow: {
+      color: '#555555',
+      fontSize: 17,
+      marginLeft: 10,
+    },
+
+    sharedCount: {
+      alignItems: 'center',
+      paddingBottom: 1,
+    },
+
+    sharedCountNumber: {
+      color: '#ffffff',
+      fontSize: 31,
+      fontWeight: '900',
+      letterSpacing: -1,
+    },
+
+    sharedCountLabel: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 1,
+      marginTop: 1,
+    },
+
+    overlapCard: {
+      borderWidth: 1,
+      borderColor: '#222222',
+      borderRadius: 18,
+      padding: 18,
+      backgroundColor:
+        '#090909',
+    },
+
+    overlapCopy: {
+      color: '#777777',
+      fontSize: 13,
+      lineHeight: 20,
+    },
+
+    overlapBlock: {
+      paddingBottom: 18,
+    },
+
+    overlapBlockBorder: {
+      borderTopWidth: 1,
+      borderTopColor:
+        '#1d1d1d',
+      paddingTop: 18,
+    },
+
+    overlapLabel: {
+      color: '#666666',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.5,
+      marginBottom: 13,
+    },
+
+    sharedArtistWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+
+    sharedArtistPill: {
+      borderWidth: 1,
+      borderColor: '#333333',
+      borderRadius: 100,
+      paddingHorizontal: 13,
+      paddingVertical: 9,
+      backgroundColor:
+        '#111111',
+    },
+
+    sharedArtistText: {
+      color: '#ffffff',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+
+    sharedTrack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 11,
+    },
+
+    sharedTrackArtwork: {
+      width: 42,
+      height: 42,
+      borderRadius: 5,
+      backgroundColor:
+        '#171717',
+      marginRight: 11,
+    },
+
+    sharedTrackPlaceholder: {
+      width: 42,
+      height: 42,
+      borderRadius: 5,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginRight: 11,
+    },
+
+    sharedTrackNote: {
+      color: '#666666',
+      fontSize: 16,
+    },
+
+    sharedTrackInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    sharedTrackName: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    sharedTrackArtist: {
+      color: '#707070',
+      fontSize: 10,
+      marginTop: 3,
+    },
+
+    bothLabel: {
+      color: '#555555',
+      fontSize: 7,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    overlapMessageButton: {
+      minHeight: 45,
+      borderRadius: 100,
+      backgroundColor:
+        '#ffffff',
+      marginTop: 5,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+    },
+
+    overlapMessageText: {
+      color: '#000000',
+      fontSize: 9,
+      fontWeight: '900',
+      letterSpacing: 1.1,
+    },
+
+    overlapMessageArrow: {
+      color: '#000000',
+      fontSize: 18,
+      fontWeight: '800',
+    },
+
+    sectionCount: {
+      color: '#555555',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.1,
+      paddingBottom: 5,
+    },
+
+    showRow: {
+      paddingRight: 10,
+    },
+
+    showCard: {
+      width: 235,
+      borderWidth: 1,
+      borderColor: '#222222',
+      borderRadius: 18,
+      overflow: 'hidden',
+      backgroundColor:
+        '#0a0a0a',
+      marginRight: 13,
+    },
+
+    showArtwork: {
+      width: '100%',
+      height: 125,
+      backgroundColor:
+        '#171717',
+    },
+
+    showArtworkPlaceholder: {
+      width: '100%',
+      height: 125,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+    },
+
+    showNote: {
+      color: '#555555',
+      fontSize: 31,
+    },
+
+    showInfo: {
+      padding: 14,
+    },
+
+    showDate: {
+      color: '#39E75F',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+      marginBottom: 7,
+    },
+
+    showArtist: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: '900',
+    },
+
+    showVenue: {
+      color: '#8a8a8a',
+      fontSize: 11,
+      marginTop: 6,
+    },
+
+    showLocation: {
+      color: '#555555',
+      fontSize: 10,
+      marginTop: 3,
+    },
+
+    emptySection: {
+      borderWidth: 1,
+      borderColor: '#202020',
+      borderRadius: 17,
+      padding: 19,
+      backgroundColor:
+        '#090909',
+    },
+
+    emptySectionTitle: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
+      marginBottom: 6,
+    },
+
+    emptySectionText: {
+      color: '#666666',
+      fontSize: 12,
+      lineHeight: 18,
+    },
+
+    postList: {
+      gap: 12,
+    },
+
+    postCard: {
+      borderWidth: 1,
+      borderColor: '#222222',
+      borderRadius: 18,
+      backgroundColor:
+        '#090909',
+      padding: 16,
+    },
+
+    postMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+      marginBottom: 12,
+    },
+
+    postTime: {
+      color: '#555555',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+
+    postArrow: {
+      color: '#555555',
+      fontSize: 16,
+    },
+
+    postBody: {
+      color: '#f0f0f0',
+      fontSize: 16,
+      lineHeight: 22,
+      marginBottom: 15,
+    },
+
+    postMusic: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor:
+        '#1c1c1c',
+      paddingTop: 13,
+    },
+
+    postArtwork: {
+      width: 50,
+      height: 50,
+      borderRadius: 6,
+      backgroundColor:
+        '#171717',
+      marginRight: 12,
+    },
+
+    postArtworkPlaceholder: {
+      width: 50,
+      height: 50,
+      borderRadius: 6,
+      backgroundColor:
+        '#171717',
+      alignItems: 'center',
+      justifyContent:
+        'center',
+      marginRight: 12,
+    },
+
+    postNote: {
+      color: '#666666',
+      fontSize: 18,
+    },
+
+    postMusicInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    postSong: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+
+    postArtist: {
+      color: '#777777',
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    eraTeaser: {
+      borderTopWidth: 1,
+      borderTopColor:
+        '#222222',
+      paddingTop: 32,
+      paddingBottom: 40,
+    },
+
+    eraEyebrow: {
+      color: '#555555',
+      fontSize: 9,
+      fontWeight: '900',
+      letterSpacing: 1.8,
+    },
+
+    eraTitle: {
+      color: '#ffffff',
+      fontSize: 24,
+      lineHeight: 29,
+      fontWeight: '900',
+      letterSpacing: -0.6,
+      marginTop: 8,
+      maxWidth: 300,
+    },
+
+    eraText: {
+      color: '#666666',
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 9,
+      maxWidth: 310,
+    },
+
+    eraPreview: {
+      borderWidth: 1,
+      borderColor: '#202020',
+      borderRadius: 17,
+      minHeight: 78,
+      marginTop: 20,
+      paddingHorizontal: 17,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent:
+        'space-between',
+      backgroundColor:
+        '#090909',
+    },
+
+    eraSeason: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '900',
+      letterSpacing: 1,
+    },
+
+    eraComing: {
+      color: '#4f4f4f',
+      fontSize: 8,
+      fontWeight: '900',
+      letterSpacing: 1.2,
+    },
+
+    footer: {
+      color: '#3f3f3f',
+      textAlign: 'center',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+    },
+  });
