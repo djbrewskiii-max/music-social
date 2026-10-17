@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -19,12 +20,16 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import CoreFourSection from '../components/CoreFourSection';
 
 type Profile = {
   user_id: string | null;
   display_name: string | null;
   username: string | null;
   city: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  header_url: string | null;
 };
 
 type TopArtist = {
@@ -143,6 +148,15 @@ export default function ProfileScreen() {
       userId?: string;
     }>();
 
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedByOther, setBlockedByOther] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [relationshipBusy, setRelationshipBusy] = useState(false);
+
   const [
     profile,
     setProfile,
@@ -233,6 +247,8 @@ export default function ProfileScreen() {
           return;
         }
 
+        setViewerId(user.id);
+
         const [
           profileResult,
           myDNAResult,
@@ -245,7 +261,7 @@ export default function ProfileScreen() {
             supabase
               .from('profiles')
               .select(
-                'user_id, display_name, username, city'
+                'user_id, display_name, username, city, bio, avatar_url, header_url'
               )
               .eq(
                 'user_id',
@@ -358,6 +374,8 @@ export default function ProfileScreen() {
         setProfile(
           profileResult.data
         );
+
+        await refreshRelationships(user.id, userId);
 
         if (
           presenceResult.error
@@ -641,11 +659,75 @@ export default function ProfileScreen() {
       }
     };
 
+
+  const refreshRelationships = async (me: string, them: string) => {
+    const [followers, following, myFollow, myMute, myBlock, theirBlock] = await Promise.all([
+      supabase.from('user_follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', them),
+      supabase.from('user_follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', them),
+      supabase.from('user_follows').select('follower_id').eq('follower_id', me).eq('following_id', them).maybeSingle(),
+      supabase.from('user_mutes').select('muter_id').eq('muter_id', me).eq('muted_id', them).maybeSingle(),
+      supabase.from('user_blocks').select('blocker_id').eq('blocker_id', me).eq('blocked_id', them).maybeSingle(),
+      supabase.from('user_blocks').select('blocker_id').eq('blocker_id', them).eq('blocked_id', me).maybeSingle(),
+    ]);
+    for (const result of [followers, following, myFollow, myMute, myBlock, theirBlock]) {
+      if (result.error) console.log('Social relationship load:', result.error.message);
+    }
+    setFollowerCount(followers.count ?? 0);
+    setFollowingCount(following.count ?? 0);
+    setIsFollowing(!!myFollow.data);
+    setIsMuted(!!myMute.data);
+    setIsBlocked(!!myBlock.data);
+    // The current block RLS only exposes your own blocks; this may be unknown.
+    setBlockedByOther(!!theirBlock.data);
+  };
+
+  const changeRelationship = async (kind: 'follow' | 'mute' | 'block') => {
+    if (!viewerId || !userId || viewerId === userId || relationshipBusy) return;
+    const table = kind === 'follow' ? 'user_follows' : kind === 'mute' ? 'user_mutes' : 'user_blocks';
+    const source = kind === 'follow' ? 'follower_id' : kind === 'mute' ? 'muter_id' : 'blocker_id';
+    const target = kind === 'follow' ? 'following_id' : kind === 'mute' ? 'muted_id' : 'blocked_id';
+    const active = kind === 'follow' ? isFollowing : kind === 'mute' ? isMuted : isBlocked;
+    setRelationshipBusy(true);
+    try {
+      const result = active
+        ? await supabase.from(table).delete().eq(source, viewerId).eq(target, userId)
+        : await supabase.from(table).insert({ [source]: viewerId, [target]: userId });
+      if (result.error) throw result.error;
+      await refreshRelationships(viewerId, userId);
+    } catch (error: any) {
+      Alert.alert('Could not update', error?.message || 'Please try again.');
+    } finally {
+      setRelationshipBusy(false);
+    }
+  };
+
+  const confirmBlock = () => {
+    if (isBlocked) {
+      Alert.alert('Unblock this user?', 'They may be able to follow or contact you again.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Unblock', onPress: () => changeRelationship('block') },
+      ]);
+    } else {
+      Alert.alert('Block this user?', 'This removes follows between you. Their content and messages will need to be filtered throughout NOW as we finish the safety system.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Block', style: 'destructive', onPress: () => changeRelationship('block') },
+      ]);
+    }
+  };
+
+  const showMoreOptions = () => {
+    Alert.alert('Profile options', undefined, [
+      { text: isMuted ? 'Unmute' : 'Mute', onPress: () => changeRelationship('mute') },
+      { text: isBlocked ? 'Unblock' : 'Block', onPress: confirmBlock, style: isBlocked ? 'default' : 'destructive' },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const openChat = (
     song?: string,
     artist?: string
   ) => {
-    if (!profile?.user_id) {
+    if (!profile?.user_id || isBlocked || blockedByOther) {
       return;
     }
 
@@ -1033,13 +1115,9 @@ export default function ProfileScreen() {
             NOW
           </Text>
 
-          <Text
-            style={
-              styles.more
-            }
-          >
-            •••
-          </Text>
+          <Pressable onPress={showMoreOptions} hitSlop={15} disabled={relationshipBusy || viewerId === userId}>
+            <Text style={styles.more}>•••</Text>
+          </Pressable>
         </View>
 
         <View
@@ -1047,18 +1125,15 @@ export default function ProfileScreen() {
             styles.profile
           }
         >
-          <View
-            style={
-              styles.avatar
-            }
-          >
-            <Text
-              style={
-                styles.avatarText
-              }
-            >
-              {initial}
-            </Text>
+          {profile.header_url ? (
+            <Image source={{ uri: profile.header_url }} style={styles.profileHeaderImage} />
+          ) : null}
+          <View style={styles.avatar}>
+            {profile.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.profileAvatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initial}</Text>
+            )}
           </View>
 
           <Text
@@ -1114,7 +1189,27 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <Pressable
+          {!!profile.bio && <Text style={styles.profileBio}>{profile.bio}</Text>}
+          <View style={styles.socialCounts}>
+            <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'followers', name: profile.display_name || 'Listener' } })} hitSlop={10}>
+              <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followerCount}</Text> followers</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'following', name: profile.display_name || 'Listener' } })} hitSlop={10}>
+              <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followingCount}</Text> following</Text>
+            </Pressable>
+          </View>
+          {viewerId !== userId && (
+            <Pressable
+              style={[styles.followButton, isFollowing && styles.followingButton]}
+              disabled={relationshipBusy || isBlocked || blockedByOther}
+              onPress={() => changeRelationship('follow')}
+            >
+              <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
+                {isBlocked ? 'BLOCKED' : blockedByOther ? 'UNAVAILABLE' : isFollowing ? 'FOLLOWING ✓' : '+ FOLLOW'}
+              </Text>
+            </Pressable>
+          )}
+          {!isBlocked && !blockedByOther && viewerId !== userId && <Pressable
             style={({
               pressed,
             }) => [
@@ -1144,10 +1239,11 @@ export default function ProfileScreen() {
             >
               →
             </Text>
-          </Pressable>
+          </Pressable>}
+          {isBlocked && <Text style={styles.blockNotice}>You've blocked this account.</Text>}
         </View>
 
-        {hasPresenceSong && (
+        {!isBlocked && !blockedByOther && hasPresenceSong && (
           <View
             style={
               styles.nowSection
@@ -1177,7 +1273,7 @@ export default function ProfileScreen() {
                     styles.sectionTitle
                   }
                 >
-                  Right now.
+                  {listeningNow ? 'Right now.' : 'Last Played'}
                 </Text>
               </View>
 
@@ -1309,7 +1405,9 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View
+        {!isBlocked && !blockedByOther && <CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
+
+        {!isBlocked && !blockedByOther && <><View
           style={
             styles.section
           }
@@ -2280,16 +2378,16 @@ export default function ProfileScreen() {
               COMING SOON
             </Text>
           </View>
-        </View>
+        </View></>}
 
-        <Text
+        {!isBlocked && !blockedByOther && <Text
           style={
             styles.footer
           }
         >
           YOUR MUSIC. YOUR PEOPLE.
           RIGHT NOW.
-        </Text>
+        </Text>}
       </ScrollView>
     </SafeAreaView>
   );
@@ -2365,6 +2463,17 @@ const styles =
       letterSpacing: 1,
     },
 
+    profileHeaderImage: { width: '100%', height: 145, borderRadius: 16, marginBottom: -38 },
+    profileAvatarImage: { width: 100, height: 100, borderRadius: 50 },
+    profileBio: { color: '#dddddd', fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 14, paddingHorizontal: 14 },
+    socialCounts: { flexDirection: 'row', gap: 24, marginTop: 19 },
+    socialCountText: { color: '#888888', fontSize: 13 },
+    socialCountNumber: { color: '#ffffff', fontWeight: '900' },
+    followButton: { width: '100%', marginTop: 24, backgroundColor: '#39E75F', minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+    followingButton: { backgroundColor: '#171717', borderWidth: 1, borderColor: '#444444' },
+    followButtonText: { color: '#050505', fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
+    followingButtonText: { color: '#ffffff' },
+    blockNotice: { color: '#aaaaaa', marginTop: 22, fontSize: 13 },
     profile: {
       alignItems: 'center',
       paddingTop: 10,

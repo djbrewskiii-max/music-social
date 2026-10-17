@@ -10,6 +10,7 @@ type BottomNavProps = {
   active:
     | 'now'
     | 'discover'
+    | 'radar'
     | 'messages'
     | 'profile';
 };
@@ -20,7 +21,7 @@ export default function BottomNav({
   const goTo = (
     destination:
       | '/now'
-      | '/listeners'
+      | '/concerts'
       | '/messages'
       | '/my-profile'
   ) => {
@@ -54,24 +55,24 @@ export default function BottomNav({
 
       <Pressable
         style={styles.item}
-        onPress={() => goTo('/listeners')}
+        onPress={() => goTo('/concerts')}
       >
         <Text
           style={[
             styles.icon,
-            active === 'discover' && styles.active,
+            (active === 'radar' || active === 'discover') && styles.active,
           ]}
         >
-          ◌
+          ◎
         </Text>
 
         <Text
           style={[
             styles.label,
-            active === 'discover' && styles.active,
+            (active === 'radar' || active === 'discover') && styles.active,
           ]}
         >
-          DISCOVER
+          RADAR
         </Text>
       </Pressable>
 

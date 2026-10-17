@@ -10,6 +10,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Linking,
@@ -44,6 +45,7 @@ type ProfileRow = {
   display_name: string | null;
   username: string | null;
   city?: string | null;
+  avatar_url?: string | null;
 };
 
 type LikeRow = {
@@ -71,6 +73,7 @@ type FeedReply = {
 type FeedPost = PostRow & {
   displayName: string;
   username: string;
+  avatarUrl: string | null;
   likeCount: number;
   likedByMe: boolean;
   replyCount: number;
@@ -93,6 +96,7 @@ type PresenceRow = {
 type ListeningPerson = PresenceRow & {
   displayName: string;
   username: string;
+  avatarUrl: string | null;
   listeningNow: boolean;
 };
 
@@ -121,9 +125,12 @@ type OrbitPerson = {
   displayName: string;
   username: string;
   city: string | null;
+  avatarUrl: string | null;
   sharedArtists: string[];
   sharedTracks: MusicTrack[];
   overlapCount: number;
+  mutualCount: number;
+  mutualNames: string[];
 };
 
 type PostFeedItem = {
@@ -171,6 +178,10 @@ export default function NowScreen() {
     orbitPerson,
     setOrbitPerson,
   ] = useState<OrbitPerson | null>(null);
+
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const [followingOrbit, setFollowingOrbit] = useState(false);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -284,184 +295,99 @@ export default function NowScreen() {
     };
   };
 
-  const loadOrbitRecommendation =
-    useCallback(
-      async (currentUserId: string) => {
-        try {
-          const {
-            data: myDNAData,
-            error: myDNAError,
-          } = await supabase
-            .from('music_dna')
-            .select(
-              'user_id, top_artists, top_songs, recent_tracks'
-            )
-            .eq(
-              'user_id',
-              currentUserId
-            )
-            .maybeSingle();
+  // One relationship snapshot powers feed filtering and Orbit recommendations.
+  const loadRelationships = useCallback(async (currentUserId: string) => {
+    const [followResult, muteResult, myBlocksResult, blockedMeResult] = await Promise.all([
+      supabase.from('user_follows').select('following_id').eq('follower_id', currentUserId),
+      supabase.from('user_mutes').select('muted_id').eq('muter_id', currentUserId),
+      supabase.from('user_blocks').select('blocked_id').eq('blocker_id', currentUserId),
+      supabase.from('user_blocks').select('blocker_id').eq('blocked_id', currentUserId),
+    ]);
+    for (const result of [followResult, muteResult, myBlocksResult, blockedMeResult]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+    const following = (followResult.data || []).map((row) => row.following_id as string);
+    const hidden = new Set<string>([
+      ...(muteResult.data || []).map((row) => row.muted_id as string),
+      ...(myBlocksResult.data || []).map((row) => row.blocked_id as string),
+      ...(blockedMeResult.data || []).map((row) => row.blocker_id as string),
+    ]);
+    setFollowingIds(following);
+    setHiddenIds([...hidden]);
+    return { following, hidden };
+  }, []);
 
-          if (myDNAError) {
-            console.log(
-              'Orbit Music DNA error:',
-              myDNAError.message
-            );
-            setOrbitPerson(null);
-            return;
-          }
-
-          if (!myDNAData) {
-            setOrbitPerson(null);
-            return;
-          }
-
-          const {
-            data: profileData,
-            error: profileError,
-          } = await supabase
-            .from('profiles')
-            .select(
-              'user_id, display_name, username, city'
-            )
-            .neq(
-              'user_id',
-              currentUserId
-            );
-
-          if (profileError) {
-            console.log(
-              'Orbit profiles error:',
-              profileError.message
-            );
-            setOrbitPerson(null);
-            return;
-          }
-
-          const profiles =
-            (profileData as ProfileRow[]) ||
-            [];
-
-          const otherUserIds =
-            profiles
-              .map(
-                (profile) =>
-                  profile.user_id
-              )
-              .filter(
-                (id): id is string =>
-                  !!id
-              );
-
-          if (
-            otherUserIds.length === 0
-          ) {
-            setOrbitPerson(null);
-            return;
-          }
-
-          const {
-            data: dnaData,
-            error: dnaError,
-          } = await supabase
-            .from('music_dna')
-            .select(
-              'user_id, top_artists, top_songs, recent_tracks'
-            )
-            .in(
-              'user_id',
-              otherUserIds
-            );
-
-          if (dnaError) {
-            console.log(
-              'Orbit candidates error:',
-              dnaError.message
-            );
-            setOrbitPerson(null);
-            return;
-          }
-
-          const dnaRows =
-            (dnaData as MusicDNA[]) ||
-            [];
-
-          const dnaByUser =
-            new Map<string, MusicDNA>();
-
-          dnaRows.forEach((dna) => {
-            dnaByUser.set(
-              dna.user_id,
-              dna
-            );
-          });
-
-          const candidates =
-            profiles
-              .filter(
-                (
-                  profile
-                ): profile is ProfileRow & {
-                  user_id: string;
-                } =>
-                  !!profile.user_id
-              )
-              .map((profile) => {
-                const theirDNA =
-                  dnaByUser.get(
-                    profile.user_id
-                  ) || null;
-
-                const comparison =
-                  compareMusicDNA(
-                    myDNAData as MusicDNA,
-                    theirDNA
-                  );
-
-                return {
-                  userId:
-                    profile.user_id,
-
-                  displayName:
-                    profile.display_name ||
-                    'Listener',
-
-                  username:
-                    profile.username ||
-                    'nowuser',
-
-                  city:
-                    profile.city ||
-                    null,
-
-                  ...comparison,
-                };
-              })
-              .filter(
-                (candidate) =>
-                  candidate.overlapCount >
-                  0
-              )
-              .sort(
-                (a, b) =>
-                  b.overlapCount -
-                  a.overlapCount
-              );
-
-          setOrbitPerson(
-            candidates[0] || null
-          );
-        } catch (error) {
-          console.log(
-            'Orbit recommendation error:',
-            error
-          );
-
-          setOrbitPerson(null);
-        }
-      },
-      []
-    );
+  const loadOrbitRecommendation = useCallback(async (
+    currentUserId: string,
+    following: string[],
+    hidden: Set<string>
+  ) => {
+    try {
+      const [myDNAResult, profileResult, networkResult] = await Promise.all([
+        supabase.from('music_dna')
+          .select('user_id, top_artists, top_songs, recent_tracks')
+          .eq('user_id', currentUserId).maybeSingle(),
+        supabase.from('profiles')
+          .select('user_id, display_name, username, city, avatar_url')
+          .neq('user_id', currentUserId),
+        following.length
+          ? supabase.from('user_follows')
+              .select('follower_id, following_id')
+              .in('follower_id', following)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (myDNAResult.error || profileResult.error || networkResult.error) {
+        throw new Error(myDNAResult.error?.message || profileResult.error?.message || networkResult.error?.message);
+      }
+      const profiles = (profileResult.data || []) as ProfileRow[];
+      const excluded = new Set([currentUserId, ...following, ...hidden]);
+      const eligible = profiles.filter((p): p is ProfileRow & { user_id: string } =>
+        !!p.user_id && !excluded.has(p.user_id));
+      if (!eligible.length) {
+        setOrbitPerson(null);
+        return;
+      }
+      const dnaResult = await supabase.from('music_dna')
+        .select('user_id, top_artists, top_songs, recent_tracks')
+        .in('user_id', eligible.map((p) => p.user_id));
+      if (dnaResult.error) throw new Error(dnaResult.error.message);
+      const dnaByUser = new Map<string, MusicDNA>(
+        ((dnaResult.data || []) as MusicDNA[]).map((row) => [row.user_id, row])
+      );
+      const profilesById = new Map(profiles.filter((p) => p.user_id).map((p) => [p.user_id!, p]));
+      const mutualsById = new Map<string, Set<string>>();
+      for (const edge of networkResult.data || []) {
+        if (excluded.has(edge.following_id)) continue;
+        const set = mutualsById.get(edge.following_id) || new Set<string>();
+        set.add(edge.follower_id);
+        mutualsById.set(edge.following_id, set);
+      }
+      const candidates: OrbitPerson[] = eligible.map((profile) => {
+        const comparison = compareMusicDNA(
+          (myDNAResult.data as MusicDNA | null) || null,
+          dnaByUser.get(profile.user_id) || null
+        );
+        const mutualIds = [...(mutualsById.get(profile.user_id) || new Set<string>())];
+        return {
+          userId: profile.user_id,
+          displayName: profile.display_name || 'Listener',
+          username: profile.username || 'nowuser',
+          city: profile.city || null,
+          avatarUrl: profile.avatar_url || null,
+          ...comparison,
+          mutualCount: mutualIds.length,
+          mutualNames: mutualIds.slice(0, 2).map((id) =>
+            profilesById.get(id)?.display_name || 'Someone you follow'),
+        };
+      }).filter((person) => person.overlapCount > 0 || person.mutualCount > 0);
+      candidates.sort((a, b) =>
+        (b.mutualCount * 3 + b.overlapCount) - (a.mutualCount * 3 + a.overlapCount));
+      setOrbitPerson(candidates[0] || null);
+    } catch (error) {
+      console.log('Orbit recommendation error:', error);
+      setOrbitPerson(null);
+    }
+  }, []);
 
   const loadListeningPresence =
     useCallback(async () => {
@@ -533,7 +459,7 @@ export default function NowScreen() {
         } = await supabase
           .from('profiles')
           .select(
-            'user_id, display_name, username'
+            'user_id, display_name, username, avatar_url'
           )
           .in(
             'user_id',
@@ -589,6 +515,8 @@ export default function NowScreen() {
                 username:
                   profile?.username ||
                   'nowuser',
+
+                avatarUrl: profile?.avatar_url || null,
 
                 listeningNow,
               };
@@ -659,11 +587,10 @@ export default function NowScreen() {
             return;
           }
 
+          const relationships = await loadRelationships(user.id);
           await Promise.all([
             loadListeningPresence(),
-            loadOrbitRecommendation(
-              user.id
-            ),
+            loadOrbitRecommendation(user.id, relationships.following, relationships.hidden),
           ]);
 
           const {
@@ -690,9 +617,9 @@ export default function NowScreen() {
             return;
           }
 
-          const postRows =
-            (postData as PostRow[]) ||
-            [];
+          const postRows = ((postData as PostRow[]) || []).filter(
+            (post) => !relationships.hidden.has(post.user_id)
+          );
 
           if (
             postRows.length === 0
@@ -759,9 +686,9 @@ export default function NowScreen() {
             (likeResult.data as LikeRow[]) ||
             [];
 
-          const replies =
-            (replyResult.data as ReplyRow[]) ||
-            [];
+          const replies = ((replyResult.data as ReplyRow[]) || []).filter(
+            (reply) => !relationships.hidden.has(reply.user_id)
+          );
 
           const allUserIds =
             Array.from(
@@ -783,7 +710,7 @@ export default function NowScreen() {
           } = await supabase
             .from('profiles')
             .select(
-              'user_id, display_name, username'
+              'user_id, display_name, username, avatar_url'
             )
             .in(
               'user_id',
@@ -882,6 +809,8 @@ export default function NowScreen() {
                     profile?.username ||
                     'nowuser',
 
+                  avatarUrl: profile?.avatar_url || null,
+
                   likeCount:
                     postLikes.length,
 
@@ -903,7 +832,43 @@ export default function NowScreen() {
               }
             );
 
-          setPosts(feedPosts);
+          // For You: balance fresh posts, followed voices, and active discussions.
+          // Replies from other people count more than the author's own replies.
+          const followed = new Set(relationships.following);
+          const nowMs = Date.now();
+          const rankedPosts = feedPosts.map((post, index) => {
+            const ageHours = Math.max(0, (nowMs - new Date(post.created_at).getTime()) / 3600000);
+            const uniqueParticipants = new Set(
+              post.replies.filter(reply => reply.userId !== post.user_id).map(reply => reply.userId)
+            ).size;
+            const latestActivityMs = post.latestReply
+              ? new Date(post.latestReply.createdAt).getTime()
+              : new Date(post.created_at).getTime();
+            const activityAgeHours = Math.max(0, (nowMs - latestActivityMs) / 3600000);
+            const score =
+              (followed.has(post.user_id) ? 2.4 : 0) +
+              (post.user_id === user.id ? 0.35 : 0) +
+              Math.min(uniqueParticipants, 4) * 0.65 +
+              Math.min(post.likeCount, 12) * 0.10 +
+              (post.likedByMe ? 0.3 : 0) +
+              (post.body?.trim() ? 0.35 : 0) +
+              2.2 * Math.exp(-ageHours / 36) +
+              (uniqueParticipants > 0 ? 1.1 * Math.exp(-activityAgeHours / 24) : 0) -
+              index * 0.018;
+            return { post, score };
+          });
+          rankedPosts.sort((a, b) => b.score - a.score);
+          // Don't let a single author occupy the entire first screen.
+          const ordered: FeedPost[] = [];
+          const remaining = rankedPosts.map(item => item.post);
+          while (remaining.length) {
+            const lastTwo = ordered.slice(-2).map(post => post.user_id);
+            const candidateIndex = remaining.findIndex(post =>
+              lastTwo.filter(id => id === post.user_id).length < 2
+            );
+            ordered.push(remaining.splice(candidateIndex < 0 ? 0 : candidateIndex, 1)[0]);
+          }
+          setPosts(ordered);
         } catch (error) {
           console.log(
             'Feed error:',
@@ -918,6 +883,7 @@ export default function NowScreen() {
       [
         loadListeningPresence,
         loadOrbitRecommendation,
+        loadRelationships,
       ]
     );
 
@@ -1055,6 +1021,28 @@ export default function NowScreen() {
     setRefreshing(true);
     await loadFeed();
     setRefreshing(false);
+  };
+
+  const followFromOrbit = async (userId: string) => {
+    if (followingOrbit) return;
+    setFollowingOrbit(true);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('Please sign in to follow people.');
+      const { error } = await supabase.from('user_follows').insert({
+        follower_id: user.id,
+        following_id: userId,
+      });
+      if (error && error.code !== '23505') throw error;
+      setFollowingIds((current) => current.includes(userId) ? current : [...current, userId]);
+      setOrbitPerson((current) => current?.userId === userId ? null : current);
+      await loadFeed();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not follow this person.';
+      Alert.alert('Follow failed', message);
+    } finally {
+      setFollowingOrbit(false);
+    }
   };
 
   const toggleLike =
@@ -1277,7 +1265,7 @@ export default function NowScreen() {
         } = await supabase
           .from('profiles')
           .select(
-            'user_id, display_name, username'
+            'user_id, display_name, username, avatar_url'
           )
           .eq(
             'user_id',
@@ -1747,210 +1735,42 @@ export default function NowScreen() {
                       '?';
 
                     return (
-                      <View
-                        key={
-                          person.user_id
-                        }
-                        style={
-                          styles.listeningCard
-                        }
+                      <Pressable
+                        key={person.user_id}
+                        style={styles.listeningCard}
+                        onPress={() => openProfile(person.user_id)}
                       >
-                        <Pressable
-                          style={
-                            styles.listenerHeader
-                          }
-                          onPress={() =>
-                            openProfile(
-                              person.user_id
-                            )
-                          }
-                        >
-                          <View
-                            style={
-                              styles.listenerAvatar
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.listenerAvatarText
-                              }
-                            >
-                              {initial}
-                            </Text>
+                        <View style={styles.compactListenerTop}>
+                          <View style={styles.listenerAvatar}>
+                            {person.avatarUrl ? (
+                              <Image source={{ uri: person.avatarUrl }} style={styles.listenerAvatarImage} />
+                            ) : (
+                              <Text style={styles.listenerAvatarText}>{initial}</Text>
+                            )}
                           </View>
-
-                          <View
-                            style={
-                              styles.listenerIdentity
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.listenerName
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {
-                                person.displayName
-                              }
-                            </Text>
-
-                            <Text
-                              style={
-                                styles.listenerUsername
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              @
-                              {
-                                person.username
-                              }
-                            </Text>
+                          <View style={styles.listenerIdentity}>
+                            <Text style={styles.listenerName} numberOfLines={1}>{person.displayName}</Text>
+                            <Text style={styles.listenerUsername} numberOfLines={1}>@{person.username}</Text>
                           </View>
-
-                          <View
-                            style={
-                              styles.onlineIndicator
-                            }
-                          />
-                        </Pressable>
-
-                        <Pressable
-                          style={
-                            styles.presenceMusic
-                          }
-                          onPress={() =>
-                            openPresenceMusic(
-                              person
-                            )
-                          }
-                        >
+                          <View style={styles.onlineIndicator} />
+                        </View>
+                        <View style={styles.compactListenerTrack}>
                           {person.artwork_url ? (
-                            <Image
-                              source={{
-                                uri:
-                                  person.artwork_url,
-                              }}
-                              style={
-                                styles.presenceArtwork
-                              }
-                            />
+                            <Image source={{ uri: person.artwork_url }} style={styles.compactArtwork} />
                           ) : (
-                            <View
-                              style={
-                                styles.presenceArtworkPlaceholder
-                              }
-                            >
-                              <Text
-                                style={
-                                  styles.presenceMusicNote
-                                }
-                              >
-                                ♪
-                              </Text>
+                            <View style={[styles.compactArtwork, styles.presenceArtworkPlaceholder]}>
+                              <Text style={styles.presenceMusicNote}>♪</Text>
                             </View>
                           )}
-
-                          <View
-                            style={
-                              styles.presenceMusicText
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.presenceSong
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {person.song_title ||
-                                'No recent song'}
-                            </Text>
-
-                            <Text
-                              style={
-                                styles.presenceArtist
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {person.artist_name ||
-                                'On NOW'}
+                          <View style={styles.compactTrackInfo}>
+                            <Text style={styles.presenceSong} numberOfLines={1}>{person.song_title || 'No recent song'}</Text>
+                            <Text style={styles.presenceArtist} numberOfLines={1}>{person.artist_name || 'On NOW'}</Text>
+                            <Text style={[styles.presenceStatusText, person.listeningNow ? styles.presenceStatusLive : styles.presenceStatusOnline]} numberOfLines={1}>
+                              {person.listeningNow ? '● LISTENING NOW' : '● LAST PLAYED'}
                             </Text>
                           </View>
-                        </Pressable>
-
-                        <View
-                          style={
-                            styles.presenceStatus
-                          }
-                        >
-                          <View
-                            style={[
-                              styles.presenceDot,
-
-                              person.listeningNow
-                                ? styles.presenceDotLive
-                                : styles.presenceDotOnline,
-                            ]}
-                          />
-
-                          <Text
-                            style={[
-                              styles.presenceStatusText,
-
-                              person.listeningNow
-                                ? styles.presenceStatusLive
-                                : styles.presenceStatusOnline,
-                            ]}
-                            numberOfLines={
-                              1
-                            }
-                          >
-                            {person.listeningNow
-                              ? 'LISTENING NOW'
-                              : 'ON NOW · LAST PLAYED'}
-                          </Text>
                         </View>
-
-                        <Pressable
-                          style={({
-                            pressed,
-                          }) => [
-                            styles.saySomethingButton,
-
-                            pressed &&
-                              styles.saySomethingButtonPressed,
-                          ]}
-                          onPress={() =>
-                            openPresenceChat(
-                              person
-                            )
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.saySomethingText
-                            }
-                          >
-                            SAY SOMETHING
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.saySomethingArrow
-                            }
-                          >
-                            →
-                          </Text>
-                        </Pressable>
-                      </View>
+                      </Pressable>
                     );
                   }
                 )}
@@ -1988,6 +1808,21 @@ export default function NowScreen() {
               worth jumping into.
             </Text>
           </View>
+
+          <Pressable
+            style={styles.feedComposer}
+            onPress={() => router.push('/create-post')}
+            accessibilityRole="button"
+            accessibilityLabel="Create a music post"
+          >
+            <View style={styles.feedComposerIcon}>
+              <Text style={styles.feedComposerNote}>♫</Text>
+            </View>
+            <View style={styles.feedComposerCopy}>
+              <Text style={styles.feedComposerTitle}>Share something...</Text>
+            </View>
+            <View style={styles.feedComposerPlus}><Text style={styles.feedComposerPlusText}>+</Text></View>
+          </Pressable>
 
           {posts.length === 0 &&
           !orbitPerson ? (
@@ -2107,7 +1942,9 @@ export default function NowScreen() {
                               styles.orbitReason
                             }
                           >
-                            MUSIC MATCH
+                            {orbitPerson.mutualCount > 0
+                              ? 'THROUGH YOUR PEOPLE'
+                              : 'THROUGH YOUR MUSIC'}
                           </Text>
                         </View>
 
@@ -2126,13 +1963,11 @@ export default function NowScreen() {
                               styles.orbitAvatar
                             }
                           >
-                            <Text
-                              style={
-                                styles.orbitAvatarText
-                              }
-                            >
-                              {initial}
-                            </Text>
+                            {orbitPerson.avatarUrl ? (
+                              <Image source={{ uri: orbitPerson.avatarUrl }} style={styles.orbitAvatarImage} />
+                            ) : (
+                              <Text style={styles.orbitAvatarText}>{initial}</Text>
+                            )}
                           </View>
 
                           <View
@@ -2198,6 +2033,18 @@ export default function NowScreen() {
                           </View>
                         </Pressable>
 
+                        <Pressable
+                          style={styles.orbitFollowButton}
+                          disabled={followingOrbit}
+                          onPress={() => followFromOrbit(orbitPerson.userId)}
+                        >
+                          {followingOrbit ? (
+                            <ActivityIndicator color="#000000" size="small" />
+                          ) : (
+                            <Text style={styles.orbitFollowText}>+ FOLLOW</Text>
+                          )}
+                        </Pressable>
+
                         <View
                           style={
                             styles.orbitDivider
@@ -2209,15 +2056,9 @@ export default function NowScreen() {
                             styles.orbitWhy
                           }
                         >
-                          YOU HAVE{' '}
-                          {
-                            orbitPerson.overlapCount
-                          }{' '}
-                          {orbitPerson.overlapCount ===
-                          1
-                            ? 'THING'
-                            : 'THINGS'}{' '}
-                          IN COMMON
+                          {orbitPerson.mutualCount > 0
+                            ? `${orbitPerson.mutualNames.join(' & ')}${orbitPerson.mutualCount > 2 ? ` +${orbitPerson.mutualCount - 2}` : ''} ${orbitPerson.mutualCount === 1 ? 'FOLLOWS' : 'FOLLOW'} THEM`
+                            : `${orbitPerson.overlapCount} ${orbitPerson.overlapCount === 1 ? 'THING' : 'THINGS'} IN COMMON`}
                         </Text>
 
                         {artistPreview.length >
@@ -2383,7 +2224,7 @@ export default function NowScreen() {
                               styles.orbitButtonText
                             }
                           >
-                            SEE WHY YOU MATCH
+                            VIEW PROFILE
                           </Text>
 
                           <Text
@@ -2734,13 +2575,11 @@ export default function NowScreen() {
                           styles.avatar
                         }
                       >
-                        <Text
-                          style={
-                            styles.avatarText
-                          }
-                        >
-                          {initial}
-                        </Text>
+                        {post.avatarUrl ? (
+                          <Image source={{ uri: post.avatarUrl }} style={styles.postAvatarImage} />
+                        ) : (
+                          <Text style={styles.avatarText}>{initial}</Text>
+                        )}
                       </Pressable>
 
                       <Pressable
@@ -3300,6 +3139,35 @@ const styles =
       paddingBottom: 25,
     },
 
+    feedComposer: {
+      marginHorizontal: 20,
+      marginBottom: 22,
+      paddingVertical: 10,
+      paddingHorizontal: 13,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: '#292929',
+      backgroundColor: '#101010',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    feedComposerIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      backgroundColor: '#202020',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    feedComposerNote: { color: '#39E75F', fontSize: 23, fontWeight: '700' },
+    feedComposerCopy: { flex: 1 },
+    feedComposerTitle: { color: '#BFBFBF', fontSize: 15, fontWeight: '500' },
+    feedComposerPlus: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#39E75F', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
+    feedComposerPlusText: { color: '#080808', fontSize: 26, fontWeight: '600', lineHeight: 30 },
+    feedComposerSubtitle: { color: '#858585', fontSize: 12, marginTop: 4 },
+    feedComposerArrow: { color: '#39E75F', fontSize: 26, marginLeft: 8 },
+
     listeningSection: {
       paddingTop: 23,
       paddingBottom: 25,
@@ -3360,7 +3228,7 @@ const styles =
     },
 
     listeningCard: {
-      width: 178,
+      width: 252,
       borderWidth: 1,
       borderColor: '#242424',
       borderRadius: 17,
@@ -3368,6 +3236,29 @@ const styles =
         '#0d0d0d',
       padding: 12,
       marginRight: 11,
+    },
+
+    compactListenerTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    compactListenerTrack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    compactArtwork: {
+      width: 54,
+      height: 54,
+      borderRadius: 8,
+      backgroundColor: '#181818',
+      marginRight: 10,
+    },
+    compactTrackInfo: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: 'center',
+      gap: 5,
     },
 
     listenerHeader: {
@@ -4344,4 +4235,34 @@ const styles =
       fontSize: 13,
       fontWeight: '800',
     },
+    orbitAvatarImage: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+    },
+    orbitFollowButton: {
+      backgroundColor: '#39E75F',
+      borderRadius: 100,
+      marginTop: 16,
+      minHeight: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    orbitFollowText: {
+      color: '#000000',
+      fontSize: 11,
+      fontWeight: '900',
+      letterSpacing: 1.3,
+    },
+    listenerAvatarImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 100,
+    },
+    postAvatarImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 100,
+    },
+
   });

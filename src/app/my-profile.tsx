@@ -1,7 +1,7 @@
 import {
   Auth,
-  AuthStatus,
   History,
+  Library,
 } from '@wwdrew/expo-apple-music';
 import {
   router,
@@ -25,6 +25,7 @@ import {
 import BottomNav from '../components/BottomNav';
 import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
+import CoreFourSection from '../components/CoreFourSection';
 
 type Profile = {
   display_name: string | null;
@@ -486,9 +487,7 @@ export default function MyProfileScreen() {
         );
 
         if (refreshMusic) {
-          await connectAndRefreshMusic(
-            user.id
-          );
+          // Sync only when the user taps Refresh Apple Music.
         }
       } catch (error) {
         console.log(
@@ -661,196 +660,91 @@ export default function MyProfileScreen() {
       return true;
     };
 
-  const connectAndRefreshMusic =
-    async (
-      userId?: string
-    ) => {
-      setMusicLoading(true);
-
-      setStatusText(
-        'Checking Apple Music...'
-      );
-
-      try {
-        let resolvedUserId =
-          userId;
-
-        if (
-          !resolvedUserId
-        ) {
-          const {
-            data: { user },
-          } =
-            await supabase.auth.getUser();
-
-          if (!user) {
-            router.replace(
-              '/login'
-            );
-            return;
-          }
-
-          resolvedUserId =
-            user.id;
-        }
-
-        const developerToken =
-          process.env
-            .EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN;
-
-        if (
-          !developerToken
-        ) {
-          setStatusText(
-            'Apple Music developer token is missing.'
-          );
-          return;
-        }
-
-        const authResult =
-          await Auth.authorize(
-            developerToken
-          );
-
-        if (
-          authResult.status !==
-            AuthStatus.authorized ||
-          !authResult.musicUserToken
-        ) {
-          if (
-            musicDNA
-              .recentTracks
-              .length === 0
-          ) {
-            setMusicConnected(
-              false
-            );
-
-            setStatusText(
-              'Apple Music is not connected.'
-            );
-          } else {
-            setMusicConnected(
-              true
-            );
-
-            setStatusText(
-              'Your saved Apple Music data is available.'
-            );
-          }
-
-          return;
-        }
-
-        setMusicConnected(
-          true
-        );
-
-        setStatusText(
-          'Reading your recent music...'
-        );
-
-        const history =
-          await History.getRecentlyPlayedTracks(
-            authResult.musicUserToken,
-            {
-              limit: 30,
-            }
-          );
-
-        const tracks:
-          MusicTrack[] =
-          history.songs
-            .map(
-              (song) => {
-                if (
-                  !song.title ||
-                  !song.artistName
-                ) {
-                  return null;
-                }
-
-                return {
-                  id:
-                    song.id,
-                  song:
-                    song.title,
-                  artist:
-                    song.artistName,
-                  artworkUrl:
-                    formatArtworkUrl(
-                      song.artworkUrl ||
-                        ''
-                    ),
-                };
-              }
-            )
-            .filter(
-              (
-                track
-              ): track is MusicTrack =>
-                track !== null
-            );
-
-        if (
-          tracks.length ===
-          0
-        ) {
-          setStatusText(
-            'Apple Music is connected, but no recent plays were found yet.'
-          );
-          return;
-        }
-
-        const dna =
-          buildMusicDNA(
-            tracks
-          );
-
-        setMusicDNA(dna);
-
-        const saved =
-          await saveMusicDNA(
-            resolvedUserId,
-            dna
-          );
-
-        if (saved) {
-          await refreshPresence();
-        }
-      } catch (error) {
-        console.log(
-          'Apple Music error:',
-          error
-        );
-
-        if (
-          musicDNA
-            .recentTracks
-            .length > 0
-        ) {
-          setMusicConnected(
-            true
-          );
-
-          setStatusText(
-            'Your saved Apple Music data is available. NOW could not refresh it right now.'
-          );
-        } else {
-          setMusicConnected(
-            false
-          );
-
-          setStatusText(
-            'NOW could not connect to Apple Music right now.'
-          );
-        }
-      } finally {
-        setMusicLoading(
-          false
-        );
-      }
-    };
+   // Incremental artist-only sync. No saved-song enumeration and no changes to presence.
+   const connectAndRefreshMusic = async (_userId?: string) => {
+     if (musicLoading) return;
+     setMusicLoading(true);
+     setStatusText('Connecting to Apple Music…');
+     const timed = async <T,>(label: string, task: PromiseLike<T>, ms = 10000): Promise<T> => {
+       let timer: ReturnType<typeof setTimeout> | undefined;
+       try {
+         return await Promise.race([
+           Promise.resolve(task),
+           new Promise<T>((_, reject) => {
+             timer = setTimeout(() => reject(new Error(label + ' timed out')), ms);
+           }),
+         ]);
+       } finally { if (timer) clearTimeout(timer); }
+     };
+     const errorText = (error: any) => String(error?.message || error || 'Unknown error').slice(0, 180);
+     try {
+       const userId = _userId || (await timed('User', supabase.auth.getUser(), 10000)).data.user?.id;
+       if (!userId) { router.replace('/login'); return; }
+       const developerToken = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN;
+       if (!developerToken) throw new Error('Missing Apple Music developer token');
+       const auth: any = await timed('Apple Music authorization', Auth.authorize(developerToken), 12000);
+       if (String(auth?.status) !== 'authorized' || typeof auth?.musicUserToken !== 'string' || !auth.musicUserToken) {
+         throw new Error('Apple Music authorization unavailable');
+       }
+       setMusicConnected(true);
+       const token: string = auth.musicUserToken;
+       const { data: previous, error: readError } = await timed('Reading saved progress',
+         supabase.from('music_library_sync').select('artists,artists_offset,artists_complete')
+           .eq('user_id', userId).maybeSingle(), 10000);
+       if (readError) throw new Error('Supabase progress: ' + readError.message);
+       const names = new Map<string, string>();
+       const add = (name: unknown) => {
+         if (typeof name !== 'string') return;
+         const trimmed = name.trim();
+         if (trimmed) names.set(trimmed.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), trimmed);
+       };
+       (Array.isArray(previous?.artists) ? previous.artists : []).forEach(add);
+       let offset = Math.max(0, Number(previous?.artists_offset || 0));
+       let complete = previous?.artists_complete === true;
+       let pages = 0;
+       let fetched = 0;
+       const start = Date.now();
+       const headers = { Authorization: `Bearer ${developerToken}`, 'Music-User-Token': token };
+       // Smaller pages avoid unusually large Apple Music responses on iOS.
+       // Continue from the saved offset rather than restarting the scan each time.
+       while (!complete && pages < 12 && Date.now() - start < 30000) {
+         setStatusText(`Reading saved artists… ${offset} scanned · ${names.size} unique artists`);
+         const url = `https://api.music.apple.com/v1/me/library/artists?limit=50&offset=${offset}`;
+         const response = await timed('Artist page', fetch(url, { headers }), 10000);
+         if (!response.ok) {
+           let detail = '';
+           try { const body: any = await timed('Apple error details', response.json(), 3000); detail = String(body?.errors?.[0]?.detail || body?.errors?.[0]?.title || ''); } catch {}
+           throw new Error(`Apple Music HTTP ${response.status}${detail ? ': ' + detail : ''}`);
+         }
+         const payload: any = await timed('Artist page JSON', response.json(), 8000);
+         if (!Array.isArray(payload?.data)) throw new Error('Apple Music artist response has no data array');
+         const batch: any[] = payload.data;
+         batch.forEach(item => add(item?.attributes?.name));
+         fetched += batch.length;
+         pages++;
+         offset += batch.length;
+         complete = !payload.next || batch.length === 0;
+         const { error: saveError } = await timed('Saving artist progress',
+           supabase.from('music_library_sync').upsert({
+             user_id: userId,
+             artists: Array.from(names.values()),
+             artists_offset: offset,
+             artists_complete: complete,
+             synced_at: new Date().toISOString(),
+           }, { onConflict: 'user_id' }), 10000);
+         if (saveError) throw new Error('Supabase save: ' + saveError.message);
+       }
+       if (complete) {
+         setStatusText(`Apple Music library synced · ${names.size} artists · Radar can use your saved artists.`);
+       } else {
+         setStatusText(`Partial sync: ${names.size} artists saved · ${offset} scanned · tap Refresh Apple Music again to continue.`);
+       }
+       console.log('NOW artist sync:', { pages, fetched, offset, count: names.size, complete });
+     } catch (error: any) {
+       console.log('NOW artist sync failed:', errorText(error));
+       setStatusText('Artist sync paused: ' + errorText(error) + '. Previously saved artists preserved.');
+     } finally { setMusicLoading(false); }
+   };
 
   const signOut =
     async () => {
@@ -1373,6 +1267,8 @@ export default function MyProfileScreen() {
               </View>
             </View>
           )}
+
+          <CoreFourSection owner />
 
           <View
             style={

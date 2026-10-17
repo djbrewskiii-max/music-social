@@ -46,9 +46,6 @@ export default function CreatePostScreen() {
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
-  const [posted, setPosted] =
-    useState(false);
-
   useEffect(() => {
     loadRecentMusic();
   }, []);
@@ -170,10 +167,7 @@ export default function CreatePostScreen() {
         .from('posts')
         .insert({
           user_id: user.id,
-          body:
-            body.trim().length > 0
-              ? body.trim()
-              : null,
+          body: body.trim(),
           song_title:
             selectedTrack.song,
           artist_name:
@@ -199,7 +193,8 @@ export default function CreatePostScreen() {
         return;
       }
 
-      setPosted(true);
+      // Return directly to For You; its focus listener refreshes the posts.
+      router.replace('/now');
     } catch (error) {
       console.log(
         'Create post error:',
@@ -213,150 +208,6 @@ export default function CreatePostScreen() {
       setPosting(false);
     }
   };
-
-  if (posted) {
-    return (
-      <SafeAreaView
-        style={styles.screen}
-      >
-        <View
-          style={
-            styles.successScreen
-          }
-        >
-          <View
-            style={styles.brand}
-          >
-            <Text
-              style={styles.logo}
-            >
-              NOW
-            </Text>
-
-            <View
-              style={styles.liveDot}
-            />
-          </View>
-
-          <View
-            style={
-              styles.successContent
-            }
-          >
-            <Text
-              style={
-                styles.successEyebrow
-              }
-            >
-              POSTED
-            </Text>
-
-            <Text
-              style={
-                styles.successTitle
-              }
-            >
-              Your music is on NOW.
-            </Text>
-
-            <Text
-              style={
-                styles.successText
-              }
-            >
-              You're officially part of
-              what's playing right now.
-            </Text>
-
-            {selectedTrack && (
-              <View
-                style={
-                  styles.successTrack
-                }
-              >
-                {selectedTrack.artworkUrl ? (
-                  <Image
-                    source={{
-                      uri:
-                        selectedTrack.artworkUrl,
-                    }}
-                    style={
-                      styles.successArtwork
-                    }
-                  />
-                ) : (
-                  <View
-                    style={
-                      styles.successArtworkPlaceholder
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.musicNote
-                      }
-                    >
-                      ♪
-                    </Text>
-                  </View>
-                )}
-
-                <View
-                  style={
-                    styles.successTrackInfo
-                  }
-                >
-                  <Text
-                    style={
-                      styles.selectedSong
-                    }
-                    numberOfLines={1}
-                  >
-                    {
-                      selectedTrack.song
-                    }
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.selectedArtist
-                    }
-                    numberOfLines={1}
-                  >
-                    {
-                      selectedTrack.artist
-                    }
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            <Pressable
-              style={
-                styles.seePostButton
-              }
-              onPress={() =>
-                router.replace('/now')
-              }
-            >
-              <Text
-                style={
-                  styles.seePostButtonText
-                }
-              >
-                See it on NOW →
-              </Text>
-            </Pressable>
-          </View>
-
-          <Text
-            style={styles.footer}
-          >
-            MUSIC IS THE POST.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView

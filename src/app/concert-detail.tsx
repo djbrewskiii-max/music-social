@@ -823,6 +823,17 @@ export default function ConcertDetailScreen() {
           )}
         </View>
 
+        <Pressable
+          style={{ marginHorizontal: 22, marginTop: 12, padding: 18, borderRadius: 16, backgroundColor: '#19281D', borderWidth: 1, borderColor: '#285D35', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          onPress={() => router.push({ pathname: '/show-chat', params: { externalId, name, artist, venue, city, region, date, time, dateTime, artworkUrl, ticketUrl } })}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>JOIN THE SHOW CHAT</Text>
+            
+          </View>
+          <Text style={{ color: '#39E75F', fontSize: 22 }}>→</Text>
+        </Pressable>
+
         {!!errorMessage && (
           <View
             style={
