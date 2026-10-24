@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 
+import { refreshUnreadCounts, setOpenConversation } from '../notifications';
 import { supabase } from '../supabase';
 
 type Message = {
@@ -33,7 +34,7 @@ export default function ChatScreen() {
   }>();
 
   const otherUserId = params.userId || '';
-  const otherName = params.name || 'Listener';
+  const [otherName, setOtherName] = useState(params.name || 'Listener');
   const song = params.song || 'Your shared music';
   const artist = params.artist || '';
 
@@ -45,6 +46,40 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
+
+  // Opened from a push notification: look up the name we weren't given.
+  useEffect(() => {
+    if (params.name || !otherUserId) return;
+    supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('user_id', otherUserId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const name = data?.display_name?.trim() || data?.username?.trim();
+        if (name) setOtherName(name);
+      });
+  }, [otherUserId, params.name]);
+
+  // While this chat is open, its messages count as read and don't buzz.
+  useEffect(() => {
+    if (!conversationId) return;
+    setOpenConversation(conversationId);
+    return () => {
+      setOpenConversation(null);
+      refreshUnreadCounts();
+    };
+  }, [conversationId]);
+
+  const markRead = async (id: string) => {
+    if (!id) return;
+    const { error } = await supabase.rpc('mark_conversation_read', { p_conversation: id });
+    if (error) {
+      console.log('Mark read:', error.message);
+      return;
+    }
+    refreshUnreadCounts();
+  };
 
   useEffect(() => {
     initializeChat();
@@ -67,6 +102,7 @@ export default function ChatScreen() {
         },
         (payload) => {
           const incomingMessage = payload.new as Message;
+          markRead(incomingMessage.conversation_id);
 
           setMessages((currentMessages) => {
             const alreadyExists = currentMessages.some(
@@ -190,6 +226,7 @@ export default function ChatScreen() {
     }
 
     setConversationId(activeConversationId);
+    markRead(activeConversationId);
 
     const { data: existingMessages, error: messagesError } =
       await supabase

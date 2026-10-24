@@ -151,6 +151,7 @@ export default function ProfileScreen() {
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followsMe, setFollowsMe] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockedByOther, setBlockedByOther] = useState(false);
@@ -663,23 +664,24 @@ export default function ProfileScreen() {
 
 
   const refreshRelationships = async (me: string, them: string) => {
-    const [followers, following, myFollow, myMute, myBlock, theirBlock] = await Promise.all([
+    const [followers, following, myFollow, myMute, myBlock, theirBlock, theirFollow] = await Promise.all([
       supabase.from('user_follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', them),
       supabase.from('user_follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', them),
       supabase.from('user_follows').select('follower_id').eq('follower_id', me).eq('following_id', them).maybeSingle(),
       supabase.from('user_mutes').select('muter_id').eq('muter_id', me).eq('muted_id', them).maybeSingle(),
       supabase.from('user_blocks').select('blocker_id').eq('blocker_id', me).eq('blocked_id', them).maybeSingle(),
       supabase.from('user_blocks').select('blocker_id').eq('blocker_id', them).eq('blocked_id', me).maybeSingle(),
+      supabase.from('user_follows').select('follower_id').eq('follower_id', them).eq('following_id', me).maybeSingle(),
     ]);
-    for (const result of [followers, following, myFollow, myMute, myBlock, theirBlock]) {
+    for (const result of [followers, following, myFollow, myMute, myBlock, theirBlock, theirFollow]) {
       if (result.error) console.log('Social relationship load:', result.error.message);
     }
     setFollowerCount(followers.count ?? 0);
     setFollowingCount(following.count ?? 0);
     setIsFollowing(!!myFollow.data);
+    setFollowsMe(!!theirFollow.data);
     setIsMuted(!!myMute.data);
     setIsBlocked(!!myBlock.data);
-    // The current block RLS only exposes your own blocks; this may be unknown.
     setBlockedByOther(!!theirBlock.data);
   };
 
@@ -1207,9 +1209,22 @@ export default function ProfileScreen() {
               onPress={() => changeRelationship('follow')}
             >
               <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-                {isBlocked ? 'BLOCKED' : blockedByOther ? 'UNAVAILABLE' : isFollowing ? 'FOLLOWING ✓' : '+ FOLLOW'}
+                {isBlocked
+                  ? 'BLOCKED'
+                  : blockedByOther
+                    ? 'UNAVAILABLE'
+                    : isFollowing && followsMe
+                      ? 'MUTUALS ✓'
+                      : isFollowing
+                        ? 'FOLLOWING ✓'
+                        : followsMe
+                          ? '+ FOLLOW BACK'
+                          : '+ FOLLOW'}
               </Text>
             </Pressable>
+          )}
+          {viewerId !== userId && !isBlocked && !blockedByOther && followsMe && !isFollowing && (
+            <Text style={styles.followsYou}>Follows you</Text>
           )}
           {!isBlocked && !blockedByOther && viewerId !== userId && <Pressable
             style={({
@@ -2365,7 +2380,9 @@ const styles =
     socialCountNumber: { color: '#ffffff', fontWeight: '900' },
     followButton: { width: '100%', marginTop: 24, backgroundColor: '#39E75F', minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
     followingButton: { backgroundColor: '#171717', borderWidth: 1, borderColor: '#444444' },
-    followButtonText: { color: '#050505', fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
+    followsYou: { color: '#888888', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 8 },
+
+  followButtonText: { color: '#050505', fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
     followingButtonText: { color: '#ffffff' },
     blockNotice: { color: '#aaaaaa', marginTop: 22, fontSize: 13 },
     profile: {

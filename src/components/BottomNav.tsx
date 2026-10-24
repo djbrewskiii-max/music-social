@@ -1,10 +1,13 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
+import { subscribeToUnreadCounts } from '../notifications';
 
 type BottomNavProps = {
   active:
@@ -18,6 +21,13 @@ type BottomNavProps = {
 export default function BottomNav({
   active,
 }: BottomNavProps) {
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(
+    () => subscribeToUnreadCounts((counts) => setUnreadMessages(counts.messages)),
+    []
+  );
+
   const goTo = (
     destination:
       | '/now'
@@ -96,14 +106,23 @@ export default function BottomNav({
         style={styles.item}
         onPress={() => goTo('/messages')}
       >
-        <Text
-          style={[
-            styles.icon,
-            active === 'messages' && styles.active,
-          ]}
-        >
-          ◫
-        </Text>
+        <View>
+          <Text
+            style={[
+              styles.icon,
+              active === 'messages' && styles.active,
+            ]}
+          >
+            ◫
+          </Text>
+          {unreadMessages > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadMessages > 99 ? '99+' : unreadMessages}
+              </Text>
+            </View>
+          )}
+        </View>
 
         <Text
           style={[
@@ -153,6 +172,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingTop: 8,
     paddingBottom: 5,
+  },
+
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -12,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#39E75F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  badgeText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: '900',
   },
 
   item: {

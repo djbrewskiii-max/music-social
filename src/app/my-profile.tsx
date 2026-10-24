@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
+import { unregisterPushNotifications } from '../notifications';
 import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
@@ -752,6 +753,7 @@ export default function MyProfileScreen() {
 
   const signOut =
     async () => {
+      await unregisterPushNotifications();
       await supabase.auth.signOut();
 
       router.replace(

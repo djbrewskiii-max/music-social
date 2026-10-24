@@ -28,6 +28,7 @@ import {
   View,
 } from 'react-native';
 
+import ActivityBell from '../components/ActivityBell';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
@@ -1753,13 +1754,16 @@ export default function NowScreen() {
             />
           </View>
 
-          <Text
-            style={
-              styles.headerLabel
-            }
-          >
-            HOME
-          </Text>
+          <View style={styles.headerRight}>
+            <Text
+              style={
+                styles.headerLabel
+              }
+            >
+              HOME
+            </Text>
+            <ActivityBell />
+          </View>
         </View>
 
         <View style={styles.recognitionArea}>
@@ -3298,6 +3302,11 @@ const styles =
       backgroundColor:
         '#39E75F',
       marginLeft: 8,
+    },
+
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
 
     headerLabel: {

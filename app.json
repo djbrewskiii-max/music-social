@@ -55,6 +55,12 @@
             "deploymentTarget": "17.0"
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#39E75F"
+        }
       ]
     ],
     "experiments": {

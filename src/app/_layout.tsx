@@ -2,6 +2,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { startNotifications } from '../notifications';
 import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
@@ -10,6 +11,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     return startPresenceTracking();
+  }, []);
+
+  useEffect(() => {
+    return startNotifications();
   }, []);
 
   return (
@@ -36,6 +41,8 @@ export default function RootLayout() {
         <Stack.Screen name="chat" />
         <Stack.Screen name="create-post" />
         <Stack.Screen name="post" />
+        <Stack.Screen name="activity" />
+        <Stack.Screen name="notification-settings" />
       </Stack>
       {pathname === '/now' && (
         <Pressable

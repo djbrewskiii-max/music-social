@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { unregisterPushNotifications } from '../notifications';
 import { supabase } from '../supabase';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -19,6 +20,14 @@ export default function SettingsScreen() {
           <Text style={s.chevron}>›</Text>
         </Pressable>
         <Text style={s.note}>Your posts, replies, and connections stay the same when you switch music services.</Text>
+        <Text style={[s.label, { marginTop: 36 }]}>NOTIFICATIONS</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/notification-settings')} style={s.row}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowTitle}>Push notifications</Text>
+            <Text style={s.rowSub}>Likes, replies, new followers and messages</Text>
+          </View>
+          <Text style={s.chevron}>›</Text>
+        </Pressable>
         <Text style={[s.label, { marginTop: 36 }]}>EXPERIMENTS</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push('/shazam-lab')} style={s.row}>
           <View style={{ flex: 1 }}>
@@ -27,7 +36,7 @@ export default function SettingsScreen() {
           </View>
           <Text style={s.chevron}>›</Text>
         </Pressable>
-        <Pressable style={{ marginTop: 45, paddingVertical: 18 }} onPress={async () => { await supabase.auth.signOut(); router.replace('/login'); }}>
+        <Pressable style={{ marginTop: 45, paddingVertical: 18 }} onPress={async () => { await unregisterPushNotifications(); await supabase.auth.signOut(); router.replace('/login'); }}>
           <Text style={{ color: '#999999', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 }}>SIGN OUT</Text>
         </Pressable>
       </ScrollView>

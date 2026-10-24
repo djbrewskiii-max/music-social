@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
+import { refreshUnreadCounts } from '../notifications';
 import { supabase } from '../supabase';
 
 type ConversationRow = {
@@ -53,6 +54,7 @@ export default function MessagesScreen() {
     InboxConversation[]
   >([]);
 
+  const [unreadById, setUnreadById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] =
     useState(false);
@@ -208,10 +210,29 @@ export default function MessagesScreen() {
       );
 
       setConversations(inboxRows);
+
+      const { data: unreadData, error: unreadError } = await supabase.rpc('conversation_unread');
+      if (unreadError) {
+        console.log('Inbox unread error:', unreadError.message);
+      } else {
+        const map: Record<string, number> = {};
+        for (const row of (unreadData as { conversation_id: string; unread: number }[]) || []) {
+          map[row.conversation_id] = Number(row.unread) || 0;
+        }
+        setUnreadById(map);
+      }
+      refreshUnreadCounts();
     } catch (error) {
       console.log('Inbox error:', error);
     }
   }, []);
+
+  // Coming back from a chat: refresh so read conversations lose their dot.
+  useFocusEffect(
+    useCallback(() => {
+      loadInbox();
+    }, [loadInbox])
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -429,6 +450,9 @@ export default function MessagesScreen() {
                   conversation.lastSenderId ===
                   currentUserId;
 
+                const unread =
+                  unreadById[conversation.id] || 0;
+
                 return (
                   <Pressable
                     key={
@@ -479,9 +503,11 @@ export default function MessagesScreen() {
                         }
                       >
                         <Text
-                          style={
-                            styles.name
-                          }
+                          style={[
+                            styles.name,
+                            unread > 0 &&
+                              styles.nameUnread,
+                          ]}
                           numberOfLines={
                             1
                           }
@@ -514,9 +540,11 @@ export default function MessagesScreen() {
                       </Text>
 
                       <Text
-                        style={
-                          styles.preview
-                        }
+                        style={[
+                          styles.preview,
+                          unread > 0 &&
+                            styles.previewUnread,
+                        ]}
                         numberOfLines={1}
                       >
                         {sentByMe
@@ -528,11 +556,19 @@ export default function MessagesScreen() {
                       </Text>
                     </View>
 
-                    <Text
-                      style={styles.arrow}
-                    >
-                      ›
-                    </Text>
+                    {unread > 0 ? (
+                      <View
+                        style={
+                          styles.unreadDot
+                        }
+                      />
+                    ) : (
+                      <Text
+                        style={styles.arrow}
+                      >
+                        ›
+                      </Text>
+                    )}
                   </Pressable>
                 );
               }
@@ -689,6 +725,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 8,
     paddingRight: 5,
+  },
+
+  nameUnread: {
+    fontWeight: '900',
+  },
+
+  previewUnread: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#39E75F',
+    marginLeft: 12,
   },
 
   arrow: {
