@@ -308,64 +308,59 @@ export default function ConcertDetailScreen() {
         dateTime ||
         new Date().toISOString();
 
+      // Save this Ticketmaster event the first time anyone opens it.
+      // If someone else already saved it, use their copy instead of
+      // overwriting it (saved concerts can't be edited by users).
       const {
-        data,
-        error,
+        data: inserted,
+        error: insertError,
       } = await supabase
         .from('concerts')
-        .upsert(
-          {
-            external_id:
-              externalId,
-
-            artist_name:
-              artist ||
-              name ||
-              'Artist',
-
-            event_name:
-              name ||
-              artist ||
-              'Concert',
-
-            venue_name:
-              venue ||
-              'Venue TBA',
-
-            city:
-              city ||
-              'City TBA',
-
-            region:
-              region ||
-              null,
-
-            starts_at:
-              startsAt,
-
-            artwork_url:
-              artworkUrl ||
-              null,
-
-            ticket_url:
-              ticketUrl ||
-              null,
-          },
-          {
-            onConflict:
-              'external_id',
-          }
-        )
+        .insert({
+          external_id: externalId,
+          artist_name: artist || name || 'Artist',
+          event_name: name || artist || 'Concert',
+          venue_name: venue || 'Venue TBA',
+          city: city || 'City TBA',
+          region: region || null,
+          starts_at: startsAt,
+          artwork_url: artworkUrl || null,
+          ticket_url: ticketUrl || null,
+        })
         .select('id')
         .single();
 
-      if (error) {
-        throw error;
+      let savedId: string | null = inserted?.id ?? null;
+
+      if (insertError) {
+        // 23505 = this concert was already saved (unique external_id).
+        if (insertError.code !== '23505') {
+          throw insertError;
+        }
+
+        const {
+          data: existing,
+          error: lookupError,
+        } = await supabase
+          .from('concerts')
+          .select('id')
+          .eq('external_id', externalId)
+          .single();
+
+        if (lookupError || !existing) {
+          throw lookupError ?? new Error('Concert not found.');
+        }
+
+        savedId = existing.id;
       }
 
-      setConcertId(data.id);
+      if (!savedId) {
+        throw new Error('Could not save concert.');
+      }
 
-      return data.id;
+      setConcertId(savedId);
+
+      return savedId;
     };
 
   const markGoing = async () => {

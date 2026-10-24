@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -172,6 +173,16 @@ export default function ChatScreen() {
           createError?.message
         );
         setLoading(false);
+        // 42501 = blocked by a database rule (one of you blocked the other).
+        Alert.alert(
+          createError?.code === '42501'
+            ? 'Messaging unavailable'
+            : 'Could not open chat',
+          createError?.code === '42501'
+            ? "You can't message this account."
+            : 'Something went wrong. Please try again.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
         return;
       }
 
@@ -243,6 +254,15 @@ export default function ChatScreen() {
 
       setMessage(cleanMessage);
       setSending(false);
+      // 42501 = blocked by a database rule (one of you blocked the other).
+      Alert.alert(
+        error.code === '42501'
+          ? 'Messaging unavailable'
+          : "Message didn't send",
+        error.code === '42501'
+          ? "You can't message this account."
+          : 'Check your connection and try again.'
+      );
       return;
     }
 
