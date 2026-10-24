@@ -1,4 +1,4 @@
-import Catalog from '@wwdrew/expo-apple-music/build/modules/catalog';
+import { Catalog } from '@wwdrew/expo-apple-music';
 import { requireNativeModule } from 'expo-modules-core';
 import { useState } from 'react';
 import {

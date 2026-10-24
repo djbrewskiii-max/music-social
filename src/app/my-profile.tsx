@@ -26,6 +26,7 @@ import BottomNav from '../components/BottomNav';
 import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
+import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
   display_name: string | null;
@@ -80,6 +81,8 @@ type PostRow = {
   song_title: string;
   artist_name: string;
   artwork_url: string | null;
+  photo_url: string | null;
+  music_items: { id?: string; song: string; artist: string; artworkUrl?: string }[] | null;
 };
 
 type ConcertRow = {
@@ -166,6 +169,7 @@ export default function MyProfileScreen() {
     useState<PresenceRow | null>(
       null
     );
+
 
   const [
     posts,
@@ -290,7 +294,7 @@ export default function MyProfileScreen() {
             supabase
               .from('posts')
               .select(
-                'id, created_at, body, song_title, artist_name, artwork_url'
+                'id, created_at, body, song_title, artist_name, artwork_url, photo_url, music_items'
               )
               .eq(
                 'user_id',
@@ -945,19 +949,16 @@ export default function MyProfileScreen() {
             </View>
 
             <Pressable
-              onPress={
-                signOut
-              }
-              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              onPress={() => router.push('/settings')}
+              hitSlop={14}
+              style={{ padding: 10, marginRight: -10 }}
             >
-              <Text
-                style={
-                  styles.signOut
-                }
-              >
-                SIGN OUT
-              </Text>
+              <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '600' }}>⚙</Text>
             </Pressable>
+
+
           </View>
 
           <View
@@ -1410,103 +1411,9 @@ export default function MyProfileScreen() {
               </View>
             )}
 
-            {rotationTracks.length >
-              0 && (
-              <>
-                <Text
-                  style={[
-                    styles.miniLabel,
-                    styles.rotationLabel,
-                  ]}
-                >
-                  HEAVY ROTATION
-                </Text>
+            <UnifiedRotation owner fallbackTracks={rotationTracks} hideHeading />
 
-                <View
-                  style={
-                    styles.trackList
-                  }
-                >
-                  {rotationTracks.map(
-                    (
-                      track,
-                      index
-                    ) => (
-                      <View
-                        key={`${track.id || track.song}-${index}`}
-                        style={[
-                          styles.trackRow,
-                          index !==
-                            rotationTracks.length -
-                              1 &&
-                            styles.trackBorder,
-                        ]}
-                      >
-                        {track.artworkUrl ? (
-                          <Image
-                            source={{
-                              uri:
-                                track.artworkUrl,
-                            }}
-                            style={
-                              styles.trackArtwork
-                            }
-                          />
-                        ) : (
-                          <View
-                            style={
-                              styles.trackArtworkPlaceholder
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.trackNote
-                              }
-                            >
-                              ♪
-                            </Text>
-                          </View>
-                        )}
-
-                        <View
-                          style={
-                            styles.trackInfo
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.trackName
-                            }
-                            numberOfLines={
-                              1
-                            }
-                          >
-                            {
-                              track.song
-                            }
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.trackArtist
-                            }
-                            numberOfLines={
-                              1
-                            }
-                          >
-                            {
-                              track.artist
-                            }
-                          </Text>
-                        </View>
-                      </View>
-                    )
-                  )}
-                </View>
-              </>
-            )}
-
-            {!!statusText && (
+                        {!!statusText && (
               <Text
                 style={
                   styles.status
@@ -1835,6 +1742,7 @@ export default function MyProfileScreen() {
               </Pressable>
             </View>
 
+
             {posts.length ===
             0 ? (
               <View
@@ -1920,6 +1828,12 @@ export default function MyProfileScreen() {
                         </Text>
                       )}
 
+                      {!!post.photo_url && <Image source={{ uri: post.photo_url }}
+                        style={{ width: '100%', height: 220, borderRadius: 12, marginVertical: 10 }} resizeMode="cover" />}
+                      {Array.isArray(post.music_items) && post.music_items.length > 1 &&
+                        <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
+                          COLLECTION · {post.music_items.length} TRACKS
+                        </Text>}
                       <View
                         style={
                           styles.postMusic
@@ -1988,6 +1902,7 @@ export default function MyProfileScreen() {
                 )}
               </View>
             )}
+
           </View>
 
           <View

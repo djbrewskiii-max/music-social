@@ -21,6 +21,7 @@ import {
 
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
+import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
   user_id: string | null;
@@ -181,6 +182,7 @@ export default function ProfileScreen() {
       null
     );
 
+
   const [
     posts,
     setPosts,
@@ -324,7 +326,7 @@ export default function ProfileScreen() {
                     false,
                 }
               )
-              .limit(8),
+              .limit(5),
 
             supabase
               .from(
@@ -691,7 +693,7 @@ export default function ProfileScreen() {
     try {
       const result = active
         ? await supabase.from(table).delete().eq(source, viewerId).eq(target, userId)
-        : await supabase.from(table).insert({ [source]: viewerId, [target]: userId });
+        : await (supabase.from(table) as any).insert({ [source]: viewerId, [target]: userId });
       if (result.error) throw result.error;
       await refreshRelationships(viewerId, userId);
     } catch (error: any) {
@@ -1540,118 +1542,8 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {rotationTracks.length >
-            0 && (
-            <>
-              <Text
-                style={[
-                  styles.miniLabel,
-                  styles.rotationLabel,
-                ]}
-              >
-                HEAVY ROTATION
-              </Text>
-
-              <View
-                style={
-                  styles.trackList
-                }
-              >
-                {rotationTracks.map(
-                  (
-                    track,
-                    index
-                  ) => (
-                    <Pressable
-                      key={`${track.id}-${index}`}
-                      style={[
-                        styles.trackRow,
-
-                        index !==
-                          rotationTracks.length -
-                            1 &&
-                          styles.trackBorder,
-                      ]}
-                      onPress={() =>
-                        openAppleMusic(
-                          track.song,
-                          track.artist,
-                          track.id
-                        )
-                      }
-                    >
-                      {track.artworkUrl ? (
-                        <Image
-                          source={{
-                            uri:
-                              track.artworkUrl,
-                          }}
-                          style={
-                            styles.trackArtwork
-                          }
-                        />
-                      ) : (
-                        <View
-                          style={
-                            styles.trackArtworkPlaceholder
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.trackNote
-                            }
-                          >
-                            ♪
-                          </Text>
-                        </View>
-                      )}
-
-                      <View
-                        style={
-                          styles.trackInfo
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.trackName
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            track.song
-                          }
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.trackArtist
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            track.artist
-                          }
-                        </Text>
-                      </View>
-
-                      <Text
-                        style={
-                          styles.trackArrow
-                        }
-                      >
-                        →
-                      </Text>
-                    </Pressable>
-                  )
-                )}
-              </View>
-            </>
-          )}
-        </View>
+          <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
+                  </View>
 
         <View
           style={
@@ -2174,6 +2066,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+
           {posts.length ===
           0 ? (
             <View
@@ -2323,6 +2216,7 @@ export default function ProfileScreen() {
               )}
             </View>
           )}
+
         </View>
 
         <View

@@ -1,4 +1,4 @@
-import Catalog from '@wwdrew/expo-apple-music/build/modules/catalog';
+import { Catalog } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';

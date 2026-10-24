@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import {
   router,
   useFocusEffect,
@@ -12,8 +13,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Dimensions,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -27,6 +30,19 @@ import {
 
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
+import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
+import { publishRecognizedSong } from '../presence';
+
+type ShazamMatch = { title: string; artist: string; appleMusicId?: string; isrc?: string };
+type ShazamSubscription = { remove: () => void };
+type ShazamModule = {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  addListener(event: 'onMatch', listener: (item: ShazamMatch) => void): ShazamSubscription;
+  addListener(event: 'onError', listener: (error: { message: string }) => void): ShazamSubscription;
+};
+
+const nativeShazam = requireOptionalNativeModule<ShazamModule>('NowShazam');
 
 type PostRow = {
   id: string;
@@ -38,6 +54,9 @@ type PostRow = {
   album_name: string | null;
   artwork_url: string | null;
   apple_music_id: string | null;
+  photo_url: string | null;
+  photo_urls: string[] | null;
+  music_items: { id?: string; song: string; artist: string; artworkUrl?: string }[] | null;
 };
 
 type ProfileRow = {
@@ -66,6 +85,7 @@ type FeedReply = {
   userId: string;
   displayName: string;
   username: string;
+  avatarUrl: string | null;
   body: string;
   createdAt: string;
 };
@@ -91,6 +111,7 @@ type PresenceRow = {
   updated_at: string;
   is_playing: boolean | null;
   last_verified_playing_at: string | null;
+  recognition_source?: string | null;
 };
 
 type ListeningPerson = PresenceRow & {
@@ -166,6 +187,83 @@ const songKey = (track: MusicTrack) =>
   `${normalize(track.artist)}::${normalize(track.song)}`;
 
 export default function NowScreen() {
+  const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
+  useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
+  const [shazamListening, setShazamListening] = useState(false);
+  const [shazamStarting, setShazamStarting] = useState(false);
+  const [shazamMatch, setShazamMatch] = useState<ShazamMatch | null>(null);
+  const [shazamMessage, setShazamMessage] = useState('');
+
+  useEffect(() => {
+    if (!nativeShazam) return;
+    const found = nativeShazam.addListener('onMatch', (item) => {
+      setShazamMatch(item);
+      setShazamMessage('Song identified');
+      publishRecognizedSong(item).then(() => {
+        getMusicProvider().then(provider => {
+          if (provider === 'spotify') {
+            setShazamMessage('Recently recognized · Shared on NOW');
+          }
+        });
+      }).catch(error => {
+        setShazamMessage('Recognized, but sharing failed');
+        Alert.alert('NOW presence', error instanceof Error ? error.message : String(error));
+      });
+      setShazamListening(false);
+      setShazamStarting(false);
+      nativeShazam.stop().catch(() => {});
+    });
+    const failed = nativeShazam.addListener('onError', (event) => {
+      setShazamMessage(event.message || 'Recognition failed');
+      setShazamListening(false);
+      setShazamStarting(false);
+      nativeShazam.stop().catch(() => {});
+    });
+    return () => {
+      found.remove();
+      failed.remove();
+      nativeShazam.stop().catch(() => {});
+    };
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    return () => {
+      nativeShazam?.stop().catch(() => {});
+      setShazamListening(false);
+      setShazamStarting(false);
+    };
+  }, []));
+
+  const toggleShazam = async () => {
+    if (!nativeShazam) {
+      Alert.alert('Recognition unavailable', 'This iPhone build does not include ShazamKit.');
+      return;
+    }
+    if (shazamStarting) return;
+    if (shazamListening) {
+      try { await nativeShazam.stop(); } catch (error) { console.log('Shazam stop error:', error); }
+      setShazamListening(false);
+      setShazamMessage('Recognition stopped');
+      return;
+    }
+    setShazamStarting(true);
+    setShazamMatch(null);
+    setShazamMessage('Starting recognition…');
+    try {
+      await nativeShazam.start();
+      setShazamListening(true);
+      setShazamMessage('Listening for music…');
+    } catch (error) {
+      setShazamListening(false);
+      setShazamMessage('Could not start recognition');
+      Alert.alert('Music recognition', error instanceof Error ? error.message : String(error));
+    } finally {
+      setShazamStarting(false);
+    }
+  };
+
+  const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number } | null>(null);
+  const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
 
@@ -398,7 +496,7 @@ export default function NowScreen() {
         } = await supabase
           .from('listening_presence')
           .select(
-            'user_id, song_title, artist_name, artwork_url, apple_music_id, last_active_at, updated_at, is_playing, last_verified_playing_at'
+            'user_id, song_title, artist_name, artwork_url, apple_music_id, last_active_at, updated_at, is_playing, last_verified_playing_at, recognition_source'
           )
           .order(
             'last_active_at',
@@ -599,7 +697,7 @@ export default function NowScreen() {
           } = await supabase
             .from('posts')
             .select(
-              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items'
             )
             .order(
               'created_at',
@@ -779,6 +877,8 @@ export default function NowScreen() {
                         username:
                           replyProfile?.username ||
                           'nowuser',
+
+                        avatarUrl: replyProfile?.avatar_url || null,
 
                         body:
                           reply.body,
@@ -1300,6 +1400,8 @@ export default function NowScreen() {
             profileData?.username ||
             'nowuser',
 
+          avatarUrl: profileData?.avatar_url || null,
+
           body: trimmed,
 
           createdAt:
@@ -1343,14 +1445,13 @@ export default function NowScreen() {
       }
     };
 
-  const openProfile =
-    (userId: string) => {
-      router.push({
-        pathname: '/profile',
-        params: {
-          userId,
-        },
-      });
+  const openProfile = async (userId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id === userId) {
+        router.push('/my-profile');
+      } else {
+        router.push({ pathname: '/profile', params: { userId } });
+      }
     };
 
   const openPost =
@@ -1401,6 +1502,7 @@ export default function NowScreen() {
         ListeningPerson
     ) => {
       try {
+        if (musicProvider === 'spotify') { await Linking.openURL(trackLink('spotify', person.song_title || '', person.artist_name || '')); return; }
         if (
           person.apple_music_id
         ) {
@@ -1438,11 +1540,24 @@ export default function NowScreen() {
       }
     };
 
+  // Each song in a collection is independently selectable; the first is not privileged.
+  const openCollectionTrack = async (track: { id?: string; song: string; artist: string }) => {
+    try {
+      const url = track.id
+        ? trackLink(musicProvider, track.song, track.artist, track.id)
+        : trackLink(musicProvider, track.song, track.artist);
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('Collection track link error:', error);
+    }
+  };
+
   const openAppleMusic =
     async (
       post: FeedPost
     ) => {
       try {
+        if (musicProvider === 'spotify') { await Linking.openURL(await resolveTrackLink('spotify', post.song_title, post.artist_name, post.apple_music_id)); return; }
         if (
           post.apple_music_id
         ) {
@@ -1581,6 +1696,37 @@ export default function NowScreen() {
     <SafeAreaView
       style={styles.screen}
     >
+      <Modal visible={!!photoViewer} transparent={false} animationType="fade"
+        statusBarTranslucent onRequestClose={() => setPhotoViewer(null)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
+          <View style={{ position: 'absolute', top: 52, left: 20, right: 20, zIndex: 2,
+            flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>
+              {photoViewer ? `${photoViewer.index + 1} / ${photoViewer.urls.length}` : ''}
+            </Text>
+            <Pressable onPress={() => setPhotoViewer(null)} hitSlop={15}>
+              <Text style={{ color: '#fff', fontSize: 32 }}>×</Text>
+            </Pressable>
+          </View>
+          {photoViewer && (
+            <ScrollView key={photoViewer.urls.join('|')} horizontal pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentOffset={{ x: Dimensions.get('window').width * photoViewer.index, y: 0 }}
+              onMomentumScrollEnd={(event) => {
+                const next = Math.round(event.nativeEvent.contentOffset.x / Dimensions.get('window').width);
+                setPhotoViewer(prev => prev ? { ...prev, index: next } : null);
+              }}>
+              {photoViewer.urls.map((url, index) => (
+                <View key={`${index}-${url}`} style={{ width: Dimensions.get('window').width,
+                  justifyContent: 'center' }}>
+                  <Image source={{ uri: url }} resizeMode="contain"
+                    style={{ width: '100%', height: '85%' }} />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
       <KeyboardAvoidingView
         style={styles.page}
         behavior={
@@ -1614,6 +1760,43 @@ export default function NowScreen() {
           >
             HOME
           </Text>
+        </View>
+
+        <View style={styles.recognitionArea}>
+          <Pressable
+            onPress={toggleShazam}
+            disabled={shazamStarting}
+            style={[styles.recognitionButton, shazamListening && styles.recognitionButtonActive]}
+            accessibilityRole="button"
+            accessibilityLabel={shazamListening ? 'Stop recognizing music' : 'Recognize music'}
+          >
+            <Text style={styles.recognitionIcon}>{shazamListening ? '◉' : '♫'}</Text>
+            <Text style={styles.recognitionButtonText}>
+              {shazamStarting ? 'STARTING…' : shazamListening ? 'STOP RECOGNITION' : 'RECOGNIZE MUSIC'}
+            </Text>
+          </Pressable>
+          {!!shazamMessage && (
+            <Text style={styles.recognitionStatus}>{shazamMessage}</Text>
+          )}
+          {shazamMatch && (
+            <View style={styles.recognitionResult}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.recognitionSong} numberOfLines={1}>{shazamMatch.title}</Text>
+                <Text style={styles.recognitionArtist} numberOfLines={1}>{shazamMatch.artist}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open recognized song"
+                onPress={() => Linking.openURL(
+                  shazamMatch.appleMusicId
+                    ? trackLink(musicProvider, shazamMatch.title, shazamMatch.artist, shazamMatch.appleMusicId)
+                    : trackLink(musicProvider, shazamMatch.title, shazamMatch.artist)
+                ).catch(() => Alert.alert('Unable to open music', 'Please try again.'))}
+              >
+                <Text style={styles.recognitionOpen}>OPEN ↗</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <ScrollView
@@ -1766,7 +1949,7 @@ export default function NowScreen() {
                             <Text style={styles.presenceSong} numberOfLines={1}>{person.song_title || 'No recent song'}</Text>
                             <Text style={styles.presenceArtist} numberOfLines={1}>{person.artist_name || 'On NOW'}</Text>
                             <Text style={[styles.presenceStatusText, person.listeningNow ? styles.presenceStatusLive : styles.presenceStatusOnline]} numberOfLines={1}>
-                              {person.listeningNow ? '● LISTENING NOW' : '● LAST PLAYED'}
+                              {person.listeningNow ? '● LISTENING NOW' : person.recognition_source === 'shazam' ? '● RECENTLY RECOGNIZED' : '● LAST PLAYED'}
                             </Text>
                           </View>
                         </View>
@@ -2653,108 +2836,96 @@ export default function NowScreen() {
                       </Text>
                     )}
 
-                    <Pressable
-                      style={({
-                        pressed,
-                      }) => [
-                        styles.musicCard,
-
-                        pressed &&
-                          styles.musicCardPressed,
-                      ]}
-                      onPress={() =>
-                        openAppleMusic(
-                          post
-                        )
-                      }
-                    >
-                      {post.artwork_url ? (
-                        <Image
-                          source={{
-                            uri:
-                              post.artwork_url,
-                          }}
-                          style={
-                            styles.artwork
-                          }
-                        />
-                      ) : (
-                        <View
-                          style={
-                            styles.artworkPlaceholder
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.musicNote
-                            }
-                          >
-                            ♪
-                          </Text>
+                    {(() => {
+                      const gallery = Array.isArray(post.photo_urls)
+                        ? post.photo_urls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+                        : [];
+                      const photos = gallery.length ? gallery : (post.photo_url ? [post.photo_url] : []);
+                      if (!photos.length) return null;
+                      const galleryWidth = Dimensions.get('window').width - 40;
+                      const cardWidth = photos.length > 1 ? galleryWidth - 42 : galleryWidth;
+                      return (
+                        <View style={{ marginVertical: 12 }}>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                            snapToInterval={cardWidth + (photos.length > 1 ? 10 : 0)}
+                            decelerationRate="fast"
+                            onMomentumScrollEnd={(event) => {
+                              const step = cardWidth + 10;
+                              const next = Math.max(0, Math.min(photos.length - 1,
+                                Math.round(event.nativeEvent.contentOffset.x / step)));
+                              setGalleryIndexes(previous => ({ ...previous, [post.id]: next }));
+                            }}
+                            style={{ width: galleryWidth, borderRadius: 16 }}
+                            contentContainerStyle={{ gap: photos.length > 1 ? 10 : 0 }}>
+                            {photos.map((url, photoIndex) => (
+                              <Pressable key={`${post.id}-photo-${photoIndex}`}
+                                onPress={() => setPhotoViewer({ urls: photos, index: photoIndex })}>
+                                <Image source={{ uri: url }}
+                                  style={{ width: cardWidth, height: 320, borderRadius: 16 }}
+                                  resizeMode="cover" />
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                          {photos.length > 1 && (
+                            <View pointerEvents="none" style={{ position: 'absolute', top: 12, right: 56,
+                              backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 14,
+                              paddingHorizontal: 10, paddingVertical: 5 }}>
+                              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                                {(galleryIndexes[post.id] || 0) + 1}/{photos.length}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                      )}
-
-                      <View
-                        style={
-                          styles.musicInfo
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.song
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            post.song_title
-                          }
+                      );
+                    })()}
+                    {Array.isArray(post.music_items) && post.music_items.length > 1 ? (
+                      <View style={styles.collectionContainer}>
+                        <Text style={styles.collectionHeading}>
+                          COLLECTION · {post.music_items.length} TRACKS
                         </Text>
-
-                        <Text
-                          style={
-                            styles.artist
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            post.artist_name
-                          }
-                        </Text>
-
-                        {!!post.album_name && (
-                          <Text
-                            style={
-                              styles.album
-                            }
-                            numberOfLines={
-                              1
-                            }
+                        {post.music_items.map((track, index) => (
+                          <Pressable
+                            key={`${post.id}-collection-${index}`}
+                            style={[styles.collectionTrack, index > 0 && styles.collectionTrackDivider]}
+                            onPress={() => openCollectionTrack(track)}
                           >
-                            {
-                              post.album_name
-                            }
-                          </Text>
-                        )}
+                            {track.artworkUrl ? (
+                              <Image source={{ uri: track.artworkUrl }} style={styles.collectionArtwork} />
+                            ) : (
+                              <View style={[styles.collectionArtwork, styles.collectionArtworkEmpty]}>
+                                <Text style={styles.musicNote}>♪</Text>
+                              </View>
+                            )}
+                            <View style={styles.collectionTrackInfo}>
+                              <Text style={styles.collectionSong} numberOfLines={1}>{track.song}</Text>
+                              <Text style={styles.collectionArtist} numberOfLines={1}>{track.artist}</Text>
+                            </View>
+                            <View style={styles.collectionPlayCircle}>
+                              <Text style={styles.collectionPlayIcon}>▶</Text>
+                            </View>
+                          </Pressable>
+                        ))}
                       </View>
-
-                      <View
-                        style={
-                          styles.playCircle
-                        }
+                    ) : (
+                      <Pressable
+                        style={({ pressed }) => [styles.musicCard, pressed && styles.musicCardPressed]}
+                        onPress={() => openAppleMusic(post)}
                       >
-                        <Text
-                          style={
-                            styles.play
-                          }
-                        >
-                          ▶
-                        </Text>
-                      </View>
-                    </Pressable>
+                        {post.artwork_url ? (
+                          <Image source={{ uri: post.artwork_url }} style={styles.artwork} />
+                        ) : (
+                          <View style={styles.artworkPlaceholder}>
+                            <Text style={styles.musicNote}>♪</Text>
+                          </View>
+                        )}
+                        <View style={styles.musicInfo}>
+                          <Text style={styles.song} numberOfLines={1}>{post.song_title}</Text>
+                          <Text style={styles.artist} numberOfLines={1}>{post.artist_name}</Text>
+                          {!!post.album_name && <Text style={styles.album} numberOfLines={1}>{post.album_name}</Text>}
+                        </View>
+                        <View style={styles.playCircle}><Text style={styles.play}>▶</Text></View>
+                      </Pressable>
+                    )}
 
                     <View
                       style={
@@ -2884,6 +3055,10 @@ export default function NowScreen() {
                             )
                           }
                         >
+                          {post.latestReply.avatarUrl ? (
+                            <Image source={{ uri: post.latestReply.avatarUrl }}
+                              style={{ width: '100%', height: '100%', borderRadius: 100 }} />
+                          ) : (
                           <Text
                             style={
                               styles.replyAvatarText
@@ -2895,6 +3070,7 @@ export default function NowScreen() {
                               .toUpperCase() ||
                               '?'}
                           </Text>
+                          )}
                         </Pressable>
 
                         <View
@@ -3130,6 +3306,33 @@ const styles =
       fontWeight: '800',
       letterSpacing: 1.5,
     },
+
+    recognitionArea: {
+      paddingHorizontal: 20,
+      paddingTop: 10,
+      paddingBottom: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: '#1c1c1c',
+    },
+    recognitionButton: {
+      borderWidth: 1,
+      borderColor: '#343434',
+      backgroundColor: '#131313',
+      borderRadius: 12,
+      paddingVertical: 11,
+      paddingHorizontal: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    recognitionButtonActive: { borderColor: '#39E75F' },
+    recognitionIcon: { color: '#39E75F', fontSize: 19, marginRight: 9 },
+    recognitionButtonText: { color: '#ffffff', fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },
+    recognitionStatus: { color: '#999999', fontSize: 12, marginTop: 8 },
+    recognitionResult: { flexDirection: 'row', alignItems: 'center', paddingTop: 9 },
+    recognitionSong: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+    recognitionArtist: { color: '#999999', fontSize: 12, marginTop: 3 },
+    recognitionOpen: { color: '#39E75F', fontSize: 11, fontWeight: '800', marginLeft: 12 },
 
     scroll: {
       flex: 1,
@@ -3796,6 +3999,72 @@ const styles =
       lineHeight: 25,
       marginTop: 18,
       marginBottom: 17,
+    },
+
+    collectionContainer: {
+      borderWidth: 1,
+      borderColor: '#292929',
+      borderRadius: 16,
+      backgroundColor: '#0d0d0d',
+      marginTop: 17,
+      paddingHorizontal: 14,
+      paddingTop: 14,
+      paddingBottom: 3,
+    },
+    collectionHeading: {
+      color: '#39E75F',
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+      marginBottom: 6,
+    },
+    collectionTrack: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      minHeight: 80,
+    },
+    collectionTrackDivider: {
+      borderTopWidth: 1,
+      borderTopColor: '#242424',
+    },
+    collectionArtwork: {
+      width: 56,
+      height: 56,
+      borderRadius: 7,
+      backgroundColor: '#1a1a1a',
+    },
+    collectionArtworkEmpty: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    collectionTrackInfo: {
+      flex: 1,
+      marginLeft: 13,
+      paddingRight: 8,
+    },
+    collectionSong: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    collectionArtist: {
+      color: '#999',
+      fontSize: 13,
+      marginTop: 5,
+    },
+    collectionPlayCircle: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: '#494949',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    collectionPlayIcon: {
+      color: '#fff',
+      fontSize: 12,
     },
 
     musicCard: {

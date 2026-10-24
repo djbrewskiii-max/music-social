@@ -42,3 +42,7 @@ example
 /ios
 /android
 generate-apple-token.mjs
+
+.env
+.env*.local
+*.p8

@@ -1,0 +1,100 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+
+type Match = { title: string; artist: string; appleMusicId?: string; isrc?: string };
+type Subscription = { remove: () => void };
+type ShazamModule = {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  addListener(event: 'onMatch', listener: (item: Match) => void): Subscription;
+  addListener(event: 'onError', listener: (event: { message: string }) => void): Subscription;
+};
+
+// Unlike the local now-shazam wrapper, this returns null instead of crashing
+// when the installed iPhone development build does not contain the native module.
+const nativeShazam = requireOptionalNativeModule<ShazamModule>('NowShazam');
+
+export default function ShazamLab() {
+  const [active, setActive] = useState(false);
+  const [message, setMessage] = useState(
+    nativeShazam
+      ? 'Ready to identify music playing nearby.'
+      : 'ShazamKit is not installed in this iPhone build yet. You can continue using NOW normally; Shazam Lab will be available after a new development build.'
+  );
+  const [match, setMatch] = useState<Match | null>(null);
+
+  useEffect(() => {
+    if (!nativeShazam) return;
+    const found = nativeShazam.addListener('onMatch', (item) => {
+      setMatch(item);
+      setMessage('Match found');
+      nativeShazam.stop().finally(() => setActive(false));
+    });
+    const failed = nativeShazam.addListener('onError', (event) => setMessage(event.message));
+    return () => {
+      found.remove();
+      failed.remove();
+      nativeShazam.stop().catch(() => {});
+    };
+  }, []);
+
+  const toggle = async () => {
+    if (!nativeShazam) {
+      Alert.alert('Shazam Lab unavailable', 'Install a new iOS development build containing NowShazam to test recognition.');
+      return;
+    }
+    try {
+      if (active) {
+        await nativeShazam.stop();
+        setActive(false);
+        setMessage('Stopped');
+      } else {
+        setMatch(null);
+        await nativeShazam.start();
+        setActive(true);
+        setMessage('Listening through your microphone… Play music from another device.');
+      }
+    } catch (e: any) {
+      setActive(false);
+      Alert.alert('Shazam Lab', String(e?.message || e));
+    }
+  };
+
+  return <SafeAreaView style={s.page}>
+    <Pressable onPress={() => router.back()}><Text style={s.back}>‹ Back</Text></Pressable>
+    <Text style={s.eyebrow}>NOW LAB</Text>
+    <Text style={s.title}>Recognize music.</Text>
+    <Text style={s.note}>Experimental, opt-in microphone recognition. This does not read Spotify listening history, capture headphone audio, or publish your listening status.</Text>
+    <View style={s.panel}>
+      <Text style={s.status}>{message}</Text>
+      {match && <>
+        <Text style={s.song}>{match.title}</Text>
+        <Text style={s.artist}>{match.artist}</Text>
+        {!!match.isrc && <Text style={s.code}>ISRC: {match.isrc}</Text>}
+        {!!match.appleMusicId && <Text style={s.code}>Apple Music ID: {match.appleMusicId}</Text>}
+      </>}
+    </View>
+    <Pressable onPress={toggle} disabled={!nativeShazam} style={[s.button, !nativeShazam && s.disabled]}>
+      <Text style={s.buttonText}>{!nativeShazam ? 'REQUIRES NEW IPHONE BUILD' : active ? 'STOP LISTENING' : 'START RECOGNITION'}</Text>
+    </Pressable>
+    <Text style={s.note}>Test 1: Play music from another phone or speaker. Test 2: Try Spotify on this phone. Test 3: Try headphones. Results may differ; iOS does not grant access to other apps’ internal audio.</Text>
+  </SafeAreaView>;
+}
+
+const s = StyleSheet.create({
+  page:{flex:1,backgroundColor:'#050505',padding:24},
+  back:{color:'#aaa',fontSize:16,marginBottom:35},
+  eyebrow:{color:'#39E75F',fontWeight:'800',letterSpacing:2,fontSize:11},
+  title:{color:'#fff',fontWeight:'900',fontSize:30,marginTop:8},
+  note:{color:'#999',fontSize:13,lineHeight:20,marginTop:20},
+  panel:{backgroundColor:'#121212',borderColor:'#292929',borderWidth:1,borderRadius:18,padding:20,marginTop:28,minHeight:140},
+  status:{color:'#aaa',fontSize:13},
+  song:{color:'#fff',fontWeight:'800',fontSize:22,marginTop:18},
+  artist:{color:'#aaa',marginTop:5},
+  code:{color:'#777',fontSize:11,marginTop:8},
+  button:{backgroundColor:'#39E75F',borderRadius:12,padding:17,alignItems:'center',marginTop:24},
+  disabled:{backgroundColor:'#666'},
+  buttonText:{color:'#050505',fontWeight:'900',letterSpacing:1}
+});

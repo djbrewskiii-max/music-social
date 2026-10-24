@@ -5,14 +5,22 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "musicsocial",
+    "scheme": [
+      "musicsocial",
+      "ovrlee-spotify"
+    ],
     "userInterfaceStyle": "automatic",
     "ios": {
+      "deploymentTarget": "17.0",
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.brewskiii.musicsocial",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSAppleMusicUsageDescription": "NOW uses your Apple Music activity and library to help you discover people who listen like you."
+        "NSAppleMusicUsageDescription": "NOW uses your Apple Music activity and library to help you discover people who listen like you.",
+        "NSMicrophoneUsageDescription": "NOW uses the microphone only when you start a Shazam Lab recognition test to identify nearby music.",
+        "LSApplicationQueriesSchemes": [
+          "spotify"
+        ]
       }
     },
     "android": {
@@ -38,7 +46,16 @@
           "imageWidth": 76
         }
       ],
-      "@wwdrew/expo-apple-music"
+      "./plugins/with-ios-17",
+      "@wwdrew/expo-apple-music",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

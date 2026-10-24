@@ -1,6 +1,8 @@
 import { Auth, AuthStatus } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
+import { setMusicProvider } from '../music-provider';
 import { useState } from 'react';
+import SpotifyRemote from '../../now-spotify';
 import {
     Alert,
     Pressable,
@@ -12,6 +14,25 @@ import {
 
 export default function ConnectMusicScreen() {
   const [connecting, setConnecting] = useState(false);
+  // This screen only starts Spotify authorization. The /callback route is the
+  // sole owner of the redirect, native token exchange, and connection result.
+  const connectSpotify = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    try {
+      const launched = await SpotifyRemote.authorize();
+      if (!launched) {
+        Alert.alert('Spotify not ready', 'Spotify could not be opened on this iPhone.');
+        setConnecting(false);
+      }
+      // When Spotify returns, Expo Router opens /callback. Do not consume its
+      // URL here or run a competing timer that can interrupt the callback.
+    } catch (error) {
+      console.error('Spotify authorization launch error:', error);
+      setConnecting(false);
+      Alert.alert('Could not open Spotify', 'Please check that Spotify is installed.');
+    }
+  };
 
   const connectAppleMusic = async () => {
     try {
@@ -22,9 +43,10 @@ export default function ConnectMusicScreen() {
       console.log('Apple Music authorization:', result);
 
       if (result.status === AuthStatus.AUTHORIZED) {
+        await setMusicProvider('apple_music');
         Alert.alert(
           'Apple Music connected',
-          'NOW can now access your Apple Music data.',
+          'OVRLEE can now access your Apple Music data.',
           [
             {
               text: 'Continue',
@@ -37,7 +59,7 @@ export default function ConnectMusicScreen() {
 
       Alert.alert(
         'Apple Music not connected',
-        'NOW needs Apple Music permission to build your Music DNA.'
+        'OVRLEE needs Apple Music permission to build your Music DNA.'
       );
     } catch (error) {
       console.error('Apple Music connection error:', error);
@@ -59,13 +81,13 @@ export default function ConnectMusicScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View>
-          <Text style={styles.logo}>NOW</Text>
+          <Text style={styles.logo}>OVRLEE</Text>
 
           <View style={styles.header}>
             <Text style={styles.heading}>Bring your music with you.</Text>
 
             <Text style={styles.subheading}>
-              Connect your music library so NOW can find the people who listen
+              Connect your music library so OVRLEE can find the people who listen
               like you.
             </Text>
           </View>
@@ -89,14 +111,22 @@ export default function ConnectMusicScreen() {
               <Text style={styles.arrow}>→</Text>
             </Pressable>
 
-            <View style={styles.spotifyButton}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.spotifyButton,
+                (pressed || connecting) && styles.pressed,
+              ]}
+              disabled={connecting}
+              onPress={connectSpotify}
+            >
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
-                <Text style={styles.spotifyText}>Coming soon</Text>
+                <Text style={styles.spotifyText}>
+                  {connecting ? 'Connecting to Spotify...' : 'Connect Spotify'}
+                </Text>
               </View>
-
-              <Text style={styles.soon}>SOON</Text>
-            </View>
+              <Text style={styles.soon}>→</Text>
+            </Pressable>
           </View>
         </View>
 
