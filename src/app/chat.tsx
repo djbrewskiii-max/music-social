@@ -31,6 +31,7 @@ export default function ChatScreen() {
     name?: string;
     song?: string;
     artist?: string;
+    draft?: string;
   }>();
 
   const otherUserId = params.userId || '';
@@ -40,7 +41,10 @@ export default function ChatScreen() {
 
   const [currentUserId, setCurrentUserId] = useState('');
   const [conversationId, setConversationId] = useState('');
-  const [message, setMessage] = useState('');
+  // Pre-filled from a YOU TWO conversation opener; editable before sending.
+  const [message, setMessage] = useState(
+    typeof params.draft === 'string' ? params.draft : ''
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);

@@ -158,13 +158,7 @@ export default function CoreFourSection({ userId, owner = false }: { userId?: st
         <Text numberOfLines={1} style={s.album}>{album.album_title}</Text><Text numberOfLines={1} style={s.artist}>{album.artist_name}</Text>
         {owner && !stories[albumKey(album)] && <Pressable onPress={() => openAlbum(album)} style={s.addStoryLink}><Text style={s.addStoryText}>+ ADD STORY</Text></Pressable>}
       </Pressable>)}</View>
-      {!owner && !sharedLoading && sharedAlbums.length > 0 && <View style={s.sharedBox}>
-        <Text style={s.sharedEyebrow}>YOU TWO</Text><Text style={s.sharedTitle}>{sharedAlbums.length === 1 ? '1 album in common' : `${sharedAlbums.length} albums in common`}</Text>
-        <View style={s.sharedRow}>{sharedAlbums.map(a => <View key={`${a.position}-${albumKey(a)}`} style={s.sharedItem}>
-          {a.artwork_url ? <Image source={{ uri: a.artwork_url }} style={s.sharedArt} /> : <View style={[s.sharedArt, { backgroundColor: '#222' }]} />}
-          <View style={s.sharedText}><Text style={s.sharedAlbum} numberOfLines={2}>{a.album_title}</Text><Text style={s.sharedArtist} numberOfLines={1}>{a.artist_name}</Text></View>
-        </View>)}</View>
-      </View>}
+      {/* Shared albums now live in the YOU TWO card on profiles. */}
       {owner && <Text style={s.note}>Tap artwork to open music. Add a story only when you want to share one.</Text>}
     </>}
     <Modal visible={!!selected} animationType="slide" transparent onRequestClose={() => { setSelected(null); setEditing(false); }}>

@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
 import UnifiedRotation from '../components/UnifiedRotation';
 
@@ -1259,6 +1260,14 @@ export default function ProfileScreen() {
           </Pressable>}
           {isBlocked && <Text style={styles.blockNotice}>You've blocked this account.</Text>}
         </View>
+
+        {!isBlocked && !blockedByOther && !!viewerId && typeof userId === 'string' && viewerId !== userId && (
+          <YouTwoCard
+            viewerId={viewerId}
+            userId={userId}
+            theirName={profile.display_name || profile.username || 'them'}
+          />
+        )}
 
         {!isBlocked && !blockedByOther && hasPresenceSong && (
           <View
