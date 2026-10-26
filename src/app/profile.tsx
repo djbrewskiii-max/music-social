@@ -1197,7 +1197,7 @@ export default function ProfileScreen() {
           {!!profile.bio && <Text style={styles.profileBio}>{profile.bio}</Text>}
           <View style={styles.socialCounts}>
             <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'followers', name: profile.display_name || 'Listener' } })} hitSlop={10}>
-              <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followerCount}</Text> followers</Text>
+              <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followerCount}</Text> {followerCount === 1 ? 'follower' : 'followers'}</Text>
             </Pressable>
             <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'following', name: profile.display_name || 'Listener' } })} hitSlop={10}>
               <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followingCount}</Text> following</Text>

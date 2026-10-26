@@ -273,9 +273,11 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
       if (firstArtist) {
         push('artist', `Talk ${firstArtist.name}`, `Fellow ${firstArtist.name} fan. Which album got you into them?`);
       }
-      const theirFirstAlbum = theirs(albums)[0];
+      // One of their Core Four you DON'T share, so it isn't a repeat of the first opener.
+      const sharedAlbumKeys = new Set(sharedAlbums.map((a) => workKey(a.album_title, a.artist_name)));
+      const theirFirstAlbum = theirs(albums).find((a) => !sharedAlbumKeys.has(workKey(a.album_title, a.artist_name)));
       if (theirFirstAlbum) {
-        push('their-album', `Ask about their Core Four`, `${theirFirstAlbum.album_title} in your Core Four caught my eye. What's the story there?`);
+        push('their-album', `Ask about ${theirFirstAlbum.album_title}`, `${theirFirstAlbum.album_title} in your Core Four caught my eye. What's the story there?`);
       }
       push('repeat', 'What’s on repeat?', 'What have you had on repeat lately?');
 
@@ -370,8 +372,7 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 20,
-    marginTop: 26,
+    marginTop: 4,
     padding: 20,
     borderRadius: 20,
     backgroundColor: '#0d120e',
