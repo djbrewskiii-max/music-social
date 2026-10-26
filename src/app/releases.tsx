@@ -24,11 +24,14 @@ import {
   ROOM_COLUMNS,
   RoomSummary,
 } from '../first-listen';
+import FirstListenShowcase from '../components/FirstListenShowcase';
 import { supabase } from '../supabase';
+import { useFirstListenFeed } from '../use-first-listen-feed';
 
 const GREEN = '#39E75F';
 
 export default function ReleasesScreen() {
+  const feed = useFirstListenFeed();
   const [rooms, setRooms] = useState<ReleaseRoom[]>([]);
   const [mine, setMine] = useState<ReleaseRoom[]>([]);
   const [summaries, setSummaries] = useState<Record<string, RoomSummary>>({});
@@ -148,9 +151,15 @@ export default function ReleasesScreen() {
   const live = rooms
     .filter(isOpen)
     .sort((a, b) => Number(b.featured) - Number(a.featured) || activity(b) - activity(a));
-  const upcoming = rooms
-    .filter((room) => !isOpen(room))
-    .sort((a, b) => Number(b.featured) - Number(a.featured) || new Date(a.opens_at).getTime() - new Date(b.opens_at).getTime());
+
+  const calendarByMonth: [string, ReleaseRoom[]][] = [];
+  for (const room of [...feed.calendar].sort((x, y) => x.release_date.localeCompare(y.release_date))) {
+    const [year, month] = room.release_date.split('-').map(Number);
+    const label = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+    const last = calendarByMonth[calendarByMonth.length - 1];
+    if (last && last[0] === label) last[1].push(room);
+    else calendarByMonth.push([label, [room]]);
+  }
 
   const meta = (room: ReleaseRoom) => {
     const s = summaries[room.id];
@@ -217,7 +226,7 @@ export default function ReleasesScreen() {
             tintColor="#ffffff"
             onRefresh={async () => {
               setRefreshing(true);
-              await load();
+              await Promise.all([load(), feed.refresh({ rescan: true })]);
               setRefreshing(false);
             }}
           />
@@ -298,20 +307,31 @@ export default function ReleasesScreen() {
           <>
             {!!error && <Text style={styles.error}>{error}</Text>}
 
-            <Text style={styles.section}>Live now</Text>
-            <Text style={styles.hint}>Albums out this week. Jump in and react with everyone.</Text>
-            {live.length ? (
-              live.map((room) => <RoomRow key={room.id} room={room} />)
+            <FirstListenShowcase feed={feed} showSeeAll={false} />
+
+            <Text style={[styles.section, styles.sectionGap]}>Release calendar</Text>
+            <Text style={styles.hint}>Every upcoming album on OVRLEE, by date. Tap one to start counting down.</Text>
+            {calendarByMonth.length ? (
+              calendarByMonth.map(([month, monthRooms]) => (
+                <View key={month}>
+                  <Text style={styles.month}>{month}</Text>
+                  {monthRooms.map((room) => (
+                    <RoomRow key={room.id} room={room} />
+                  ))}
+                </View>
+              ))
             ) : (
-              <Text style={styles.empty}>No rooms open this week yet. Search an album above to open the first one.</Text>
+              <Text style={styles.empty}>Search an upcoming album above to start its countdown.</Text>
             )}
 
-            <Text style={[styles.section, styles.sectionGap]}>Countdown</Text>
-            <Text style={styles.hint}>Tap the bell in a room to get a push the moment it drops.</Text>
-            {upcoming.length ? (
-              upcoming.map((room) => <RoomRow key={room.id} room={room} />)
-            ) : (
-              <Text style={styles.empty}>Search an upcoming album to start its countdown.</Text>
+            {live.length > 0 && (
+              <>
+                <Text style={[styles.section, styles.sectionGap]}>Out this week</Text>
+                <Text style={styles.hint}>Rooms that are open right now.</Text>
+                {live.map((room) => (
+                  <RoomRow key={`live-${room.id}`} room={room} />
+                ))}
+              </>
             )}
 
             {mine.length > 0 && (
@@ -374,6 +394,7 @@ const styles = StyleSheet.create({
   },
   openPillUpcoming: { backgroundColor: '#dddddd' },
   section: { fontSize: 17, color: '#ffffff', fontWeight: '900', marginBottom: 6 },
+  month: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2, marginTop: 14, marginBottom: 2 },
   sectionGap: { marginTop: 34 },
   hint: { fontSize: 12, color: '#888888', marginBottom: 14 },
   room: {
