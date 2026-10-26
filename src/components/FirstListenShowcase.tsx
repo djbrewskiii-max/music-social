@@ -59,7 +59,13 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
     (r) => (r.reason || summaries[r.room.id]?.i_follow) && now - new Date(r.room.opens_at).getTime() < 2 * 86400000
   );
   const hero: RankedRoom | undefined = freshForYou || comingSoon[0] || outNow[0];
-  const upcomingShelf = comingSoon.filter((r) => r.room.id !== hero?.room.id).slice(0, 15);
+  // Yours: albums tied to your taste or your people. Everything else: OVRLEE's
+  // calendar of what's coming, soonest first, so the screen is never empty.
+  const upcomingShelf = comingSoon.filter((r) => r.room.id !== hero?.room.id && (r.reason || summaries[r.room.id]?.i_follow)).slice(0, 15);
+  const calendarShelf = comingSoon
+    .filter((r) => r.room.id !== hero?.room.id && !upcomingShelf.includes(r))
+    .sort((a, b) => a.room.opens_at.localeCompare(b.room.opens_at))
+    .slice(0, 20);
   const outShelf = outNow.filter((r) => r.room.id !== hero?.room.id).slice(0, 15);
 
   if (loading) {
@@ -77,7 +83,7 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
         <Text style={styles.eyebrow}>FIRST LISTEN</Text>
         <Text style={styles.heading}>The next drop.</Text>
         <Pressable onPress={() => router.push('/releases')} style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{scanning ? 'Checking your artists for new music…' : 'No drops on the calendar yet.'}</Text>
+          <Text style={styles.emptyTitle}>{scanning ? 'Building the release calendar…' : 'No drops on the calendar yet.'}</Text>
           <Text style={styles.emptyText}>
             Add albums to your Core Four and pin songs to your rotation, and OVRLEE will find your artists' next releases.
             You can also search any upcoming album.
@@ -173,6 +179,50 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
           <Text style={styles.shelfTitle}>Coming soon for you</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
             {upcomingShelf.map(({ room, reason }) => {
+              const following = !!summaries[room.id]?.i_follow;
+              return (
+                <Pressable key={room.id} onPress={() => openRoom(room.id)} style={styles.card}>
+                  <View>
+                    {room.artwork_url ? (
+                      <Image source={{ uri: room.artwork_url }} style={styles.cardArt} />
+                    ) : (
+                      <View style={[styles.cardArt, styles.artFallback]} />
+                    )}
+                    <View style={styles.datePill}>
+                      <Text style={styles.datePillText}>{shortDate(room)}</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => setFollowing(room.id, !following)}
+                      hitSlop={8}
+                      style={[styles.bellButton, following && styles.bellOn]}
+                      accessibilityLabel={following ? 'Stop notifying' : 'Notify me when it drops'}
+                    >
+                      <Text style={styles.bellText}>{following ? '🔔' : '＋'}</Text>
+                    </Pressable>
+                  </View>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {room.album_title}
+                  </Text>
+                  <Text style={styles.cardArtist} numberOfLines={1}>
+                    {room.artist_name}
+                  </Text>
+                  {!!reason && (
+                    <Text style={styles.cardReason} numberOfLines={2}>
+                      {reason}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      )}
+
+      {calendarShelf.length > 0 && (
+        <>
+          <Text style={styles.shelfTitle}>Coming soon on OVRLEE</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
+            {calendarShelf.map(({ room, reason }) => {
               const following = !!summaries[room.id]?.i_follow;
               return (
                 <Pressable key={room.id} onPress={() => openRoom(room.id)} style={styles.card}>

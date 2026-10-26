@@ -16,7 +16,6 @@ import { supabase } from './supabase';
 
 const API = 'https://api.music.apple.com/v1/catalog/us';
 const developerToken = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN || '';
-const SCAN_EVERY_MS = 12 * 60 * 60 * 1000;
 
 export const normalizeArtist = (value: string | null | undefined) =>
   (value || '')
@@ -103,8 +102,12 @@ async function catalog(path: string) {
 
 const artistIdCache = new Map<string, string | null>();
 
-async function findArtistId(name: string): Promise<string | null> {
+async function findArtistId(name: string, knownId?: string | null): Promise<string | null> {
   const key = normalizeArtist(name);
+  if (knownId) {
+    artistIdCache.set(key, knownId);
+    return knownId;
+  }
   if (artistIdCache.has(key)) return artistIdCache.get(key)!;
   const query = new URLSearchParams({ term: name, types: 'artists', limit: '5' });
   const json = await catalog(`/search?${query.toString()}`);
@@ -137,13 +140,13 @@ export type ArtistReleases = { upcoming: CatalogAlbum[]; recent: CatalogAlbum[] 
 const releaseCache = new Map<string, { at: number; value: ArtistReleases }>();
 
 /** Upcoming albums, plus anything released in the last 14 days, for one artist. */
-export async function findArtistReleases(name: string): Promise<ArtistReleases> {
+export async function findArtistReleases(name: string, knownArtistId?: string | null): Promise<ArtistReleases> {
   const key = normalizeArtist(name);
   const cached = releaseCache.get(key);
   if (cached && Date.now() - cached.at < 30 * 60 * 1000) return cached.value;
 
   const empty: ArtistReleases = { upcoming: [], recent: [] };
-  const artistId = await findArtistId(name);
+  const artistId = await findArtistId(name, knownArtistId);
   if (!artistId) {
     releaseCache.set(key, { at: Date.now(), value: empty });
     return empty;
@@ -181,51 +184,125 @@ export async function findArtistReleases(name: string): Promise<ArtistReleases> 
 }
 
 // ---------------------------------------------------------------------------
-// Scanning: turn discoveries into shared FIRST LISTEN rooms
+// Scanning: build OVRLEE's shared "Coming soon" calendar
 // ---------------------------------------------------------------------------
 
+const SCAN_THROTTLE_MS = 6 * 60 * 60 * 1000; // per phone
+const RECHECK_ARTIST_MS = 24 * 60 * 60 * 1000; // per artist, shared by everyone
+const MAX_ARTISTS_PER_SCAN = 120;
+
+/** Artists behind what's popular on Apple Music right now. */
+export async function getChartArtists(): Promise<string[]> {
+  try {
+    const json = await catalog('/charts?types=albums,songs&limit=50');
+    const lists: any[] = [...(json?.results?.albums || []), ...(json?.results?.songs || [])];
+    const names = lists.flatMap((chart) => (chart?.data || []).map((item: any) => primary(String(item?.attributes?.artistName || ''))));
+    return [...new Map(names.filter(Boolean).map((n) => [normalizeArtist(n), n])).values()];
+  } catch (error) {
+    console.log('Chart artists:', error);
+    return [];
+  }
+}
+
 /**
- * Checks this person's top artists for new and upcoming albums and makes sure
- * each one has a room. Runs at most every 12 hours per account on this phone.
+ * Finds new and upcoming albums and opens a FIRST LISTEN room for each one,
+ * so they appear on everyone's Radar without searching.
+ *
+ * Who gets checked: this person's top artists first, then the artists behind
+ * Apple Music's current charts. Each artist is checked at most once a day
+ * across ALL of OVRLEE (the shared artist_release_checks table), so every
+ * member's phone does a small part of the work.
+ *
  * Returns how many albums were found.
  */
-export async function scanForReleases(userId: string, profile: TasteProfile, { force = false } = {}): Promise<number> {
-  const storageKey = `ovrlee.releaseScan.${userId}`;
+export async function scanForReleases(
+  userId: string,
+  profile: TasteProfile,
+  { force = false, onProgress }: { force?: boolean; onProgress?: () => void } = {}
+): Promise<number> {
+  const storageKey = `ovrlee.releaseScan.v2.${userId}`;
   if (!force) {
     try {
       const last = Number(await AsyncStorage.getItem(storageKey));
-      if (last && Date.now() - last < SCAN_EVERY_MS) return 0;
+      if (last && Date.now() - last < SCAN_THROTTLE_MS) return 0;
     } catch {
       /* storage unavailable: scan anyway */
     }
   }
 
-  const artists = [...profile.values()].sort((a, b) => b.score - a.score).slice(0, 30);
-  if (!artists.length) return 0;
+  const personal = [...profile.values()].sort((a, b) => b.score - a.score).slice(0, 30).map((a) => a.name);
+  const charts = await getChartArtists();
+  const candidates = [...new Map([...personal, ...charts].map((n) => [normalizeArtist(n), n])).entries()];
+  if (!candidates.length) return 0;
+
+  // Skip artists someone on OVRLEE already checked today.
+  const keys = candidates.map(([key]) => key);
+  const { data: checks } = await supabase
+    .from('artist_release_checks')
+    .select('artist_key, apple_artist_id, checked_at')
+    .in('artist_key', keys);
+  const checkRows = (checks as { artist_key: string; apple_artist_id: string | null; checked_at: string }[]) || [];
+  const recent = new Set(
+    checkRows.filter((c) => Date.now() - new Date(c.checked_at).getTime() < RECHECK_ARTIST_MS).map((c) => c.artist_key)
+  );
+  const knownIds = new Map(checkRows.map((c) => [c.artist_key, c.apple_artist_id]));
+  const due = candidates.filter(([key]) => !recent.has(key)).slice(0, MAX_ARTISTS_PER_SCAN);
 
   const found: CatalogAlbum[] = [];
-  for (let start = 0; start < artists.length; start += 4) {
-    const batch = await Promise.allSettled(artists.slice(start, start + 4).map((a) => findArtistReleases(a.name)));
-    for (const result of batch) {
-      if (result.status === 'fulfilled') found.push(...result.value.upcoming, ...result.value.recent);
-    }
-  }
+  const opened = new Set<string>();
 
-  const unique = [...new Map(found.map((album) => [album.id, album])).values()];
-  if (unique.length) {
+  // Open rooms as albums are found, so the screen fills in while the scan runs.
+  const openNewRooms = async (albums: CatalogAlbum[]) => {
+    const fresh = [...new Map(albums.filter((a) => !opened.has(a.id)).map((a) => [a.id, a])).values()];
+    if (!fresh.length) return 0;
+    fresh.forEach((a) => opened.add(a.id));
     const { data: existing } = await supabase
       .from('release_rooms')
       .select('apple_album_id')
-      .in('apple_album_id', unique.map((a) => a.id));
+      .in('apple_album_id', fresh.map((a) => a.id));
     const have = new Set(((existing as { apple_album_id: string }[]) || []).map((r) => r.apple_album_id));
-    for (const album of unique.filter((a) => !have.has(a.id))) {
+    let created = 0;
+    for (const album of fresh.filter((a) => !have.has(a.id))) {
       try {
         await openRoomForAlbum(album);
+        created++;
       } catch (error) {
         console.log('Release scan room:', album.title, error);
       }
     }
+    return created;
+  };
+
+  const checked: { artist_key: string; artist_name: string; apple_artist_id: string | null; found: number; checked_at: string }[] = [];
+  for (let start = 0; start < due.length; start += 4) {
+    const batch = due.slice(start, start + 4);
+    const results = await Promise.allSettled(batch.map(([key, name]) => findArtistReleases(name, knownIds.get(key))));
+    const batchAlbums: CatalogAlbum[] = [];
+    results.forEach((result, i) => {
+      const [key, name] = batch[i];
+      if (result.status !== 'fulfilled') return;
+      const albums = [...result.value.upcoming, ...result.value.recent];
+      found.push(...albums);
+      batchAlbums.push(...albums);
+      checked.push({
+        artist_key: key,
+        artist_name: name,
+        apple_artist_id: artistIdCache.get(key) ?? null,
+        found: albums.length,
+        checked_at: new Date().toISOString(),
+      });
+    });
+    if ((await openNewRooms(batchAlbums)) > 0) onProgress?.();
+
+    // Save progress as we go, so a scan cut short still counts.
+    const batchChecks = checked.splice(0, checked.length);
+    if (batchChecks.length) {
+      const { error } = await supabase.from('artist_release_checks').upsert(batchChecks, { onConflict: 'artist_key' });
+      if (error) console.log('Artist checks save:', error.message);
+    }
   }
+
+  const unique = [...new Map(found.map((album) => [album.id, album])).values()];
 
   try {
     await AsyncStorage.setItem(storageKey, String(Date.now()));

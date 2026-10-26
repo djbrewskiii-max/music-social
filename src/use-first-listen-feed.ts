@@ -75,7 +75,12 @@ export function useFirstListenFeed(): FirstListenFeed {
       scanningRef.current = true;
       setScanning(true);
       try {
-        const found = await scanForReleases(user.id, taste, { force: rescan });
+        const found = await scanForReleases(user.id, taste, {
+          force: rescan,
+          onProgress: () => {
+            loadRooms(user.id);
+          },
+        });
         if (found > 0) await loadRooms(user.id);
       } catch (error) {
         console.log('Release scan:', error);
