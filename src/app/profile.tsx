@@ -22,6 +22,7 @@ import {
 import { supabase } from '../supabase';
 import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
+import FirstListenShelf from '../components/FirstListenShelf';
 import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
@@ -1432,6 +1433,8 @@ export default function ProfileScreen() {
         )}
 
         {!isBlocked && !blockedByOther && <CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
+
+        {!isBlocked && !blockedByOther && typeof userId === 'string' && <FirstListenShelf userId={userId} />}
 
         {!isBlocked && !blockedByOther && <><View
           style={

@@ -43,6 +43,8 @@ export default function RootLayout() {
         <Stack.Screen name="post" />
         <Stack.Screen name="activity" />
         <Stack.Screen name="notification-settings" />
+        <Stack.Screen name="releases" />
+        <Stack.Screen name="first-listen" />
       </Stack>
       {pathname === '/now' && (
         <Pressable

@@ -18,23 +18,30 @@ import { supabase } from '../supabase';
 const GREEN = '#39E75F';
 
 type Level = 'off' | 'following' | 'everyone';
-type Category = 'likes' | 'replies' | 'follows' | 'messages';
+type Category = 'likes' | 'replies' | 'follows' | 'messages' | 'releases';
 type Settings = Record<Category, Level>;
 
 // Instagram's defaults: everything on, from everyone.
-const DEFAULTS: Settings = { likes: 'everyone', replies: 'everyone', follows: 'everyone', messages: 'everyone' };
+const DEFAULTS: Settings = { likes: 'everyone', replies: 'everyone', follows: 'everyone', messages: 'everyone', releases: 'everyone' };
 
-const CATEGORIES: { key: Category; title: string; sub: string; example: string }[] = [
+const CATEGORIES: { key: Category; title: string; sub: string; example: string; onOff?: boolean }[] = [
   { key: 'likes', title: 'Likes', sub: 'When someone likes your post', example: 'alex liked your post.' },
   { key: 'replies', title: 'Replies', sub: 'When someone replies to your post', example: 'alex replied: this song is everything' },
   { key: 'follows', title: 'New followers', sub: 'Including when someone follows you back', example: "alex followed you back. You're mutuals now." },
   { key: 'messages', title: 'Messages', sub: 'When someone sends you a DM', example: 'alex: did you hear the new album?' },
+  { key: 'releases', title: 'Album drops', sub: "When a FIRST LISTEN room you're waiting on opens", example: 'Currents is out · The FIRST LISTEN room is open.', onOff: true },
 ];
 
 const LEVELS: { key: Level; label: string }[] = [
   { key: 'off', label: 'Off' },
   { key: 'following', label: 'From people I follow' },
   { key: 'everyone', label: 'From everyone' },
+];
+
+// Album drops are either on or off (there's no "from people I follow").
+const ON_OFF: { key: Level; label: string }[] = [
+  { key: 'off', label: 'Off' },
+  { key: 'everyone', label: 'On' },
 ];
 
 export default function NotificationSettingsScreen() {
@@ -61,7 +68,7 @@ export default function NotificationSettingsScreen() {
         setUserId(user.id);
         const { data, error } = await supabase
           .from('notification_settings')
-          .select('likes, replies, follows, messages')
+          .select('likes, replies, follows, messages, releases')
           .eq('user_id', user.id)
           .maybeSingle();
         if (!active) return;
@@ -131,7 +138,7 @@ export default function NotificationSettingsScreen() {
               </View>
               <Text style={styles.groupSub}>{category.sub}</Text>
               <View style={styles.options}>
-                {LEVELS.map((level) => {
+                {(category.onOff ? ON_OFF : LEVELS).map((level) => {
                   const selected = settings[category.key] === level.key;
                   return (
                     <Pressable

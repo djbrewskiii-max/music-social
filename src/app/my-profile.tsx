@@ -27,6 +27,7 @@ import { unregisterPushNotifications } from '../notifications';
 import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
+import FirstListenShelf from '../components/FirstListenShelf';
 import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
@@ -1272,6 +1273,8 @@ export default function MyProfileScreen() {
           )}
 
           <CoreFourSection owner />
+
+          <FirstListenShelf owner />
 
           <View
             style={
