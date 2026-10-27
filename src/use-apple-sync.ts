@@ -32,13 +32,24 @@ export function useAppleSync(desired: DesiredPlayback) {
     setState('connecting');
     setMessage('');
     try {
+      // In-app playback only needs permission + an active subscription. It does
+      // NOT need a music user token (that token also fails when the app's
+      // developer token has expired, which used to block sync by mistake).
       const auth = await Auth.authorize(developerToken || undefined);
-      if (auth.status !== AuthStatus.AUTHORIZED || !auth.musicUserToken) {
+      if (auth.status !== AuthStatus.AUTHORIZED) {
+        console.log('Apple sync: authorization status', auth.status);
         setState('unavailable');
-        setMessage('Allow Apple Music access for OVRLEE to listen in sync. Until then, follow along below.');
+        setMessage(
+          auth.status === AuthStatus.DENIED
+            ? 'OVRLEE doesn’t have Apple Music access on this phone. Turn it on in iPhone Settings → Privacy & Security → Media & Apple Music, then try again.'
+            : auth.status === AuthStatus.RESTRICTED
+              ? 'Apple Music is restricted on this phone (Screen Time or parental controls).'
+              : `Apple Music didn’t authorize (${auth.status}). Try again in a moment.`
+        );
         return;
       }
-      const subscription = await Auth.checkSubscription(auth.musicUserToken);
+      if (!auth.musicUserToken) console.log('Apple sync: no music user token (developer token may be expired); continuing');
+      const subscription = await Auth.checkSubscription(auth.musicUserToken || '');
       if (!subscription.canPlayCatalogContent) {
         setState('unavailable');
         setMessage('Listening in sync needs an Apple Music subscription. You can still follow along with the host below.');
@@ -54,7 +65,7 @@ export function useAppleSync(desired: DesiredPlayback) {
     } catch (error: any) {
       console.log('Apple sync enable:', error?.message || error);
       setState('unavailable');
-      setMessage("Couldn't connect to Apple Music. You can still follow along with the host below.");
+      setMessage(`Couldn't connect to Apple Music (${error?.message || 'unknown error'}). You can still follow along below.`);
     }
   }, []);
 
@@ -102,6 +113,7 @@ export function useAppleSync(desired: DesiredPlayback) {
         if (!isPlaying) Player.play();
       } catch (error: any) {
         console.log('Apple sync tick:', error?.message || error);
+        setMessage(`Playback hiccup: ${error?.message || 'unknown error'}. Retrying…`);
         queuedRef.current = null;
       } finally {
         busyRef.current = false;
@@ -130,5 +142,10 @@ export function useAppleSync(desired: DesiredPlayback) {
     []
   );
 
-  return { state, message, enable, disable };
+  const retry = useCallback(() => {
+    setMessage('');
+    setState('off');
+  }, []);
+
+  return { state, message, enable, disable, retry };
 }

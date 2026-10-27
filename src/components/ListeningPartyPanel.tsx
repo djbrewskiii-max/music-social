@@ -165,23 +165,32 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
           </View>
 
           {/* Listening: in sync (Apple Music) or follow along */}
-          {provider === 'apple' && sync.state !== 'unavailable' ? (
-            <Pressable
-              onPress={sync.state === 'syncing' ? sync.disable : sync.enable}
-              style={[styles.syncButton, sync.state === 'syncing' && styles.syncOn]}
-              disabled={sync.state === 'connecting'}
-            >
-              {sync.state === 'connecting' ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={[styles.syncText, sync.state === 'syncing' && styles.syncTextOn]}>
-                  {sync.state === 'syncing' ? '♪ LISTENING IN SYNC · TAP TO STOP' : '▶ LISTEN IN SYNC'}
-                </Text>
-              )}
-            </Pressable>
-          ) : (
+          {provider === 'apple' && sync.state !== 'unavailable' && (
+            <>
+              <Pressable
+                onPress={sync.state === 'syncing' ? sync.disable : sync.enable}
+                style={[styles.syncButton, sync.state === 'syncing' && styles.syncOn]}
+                disabled={sync.state === 'connecting'}
+              >
+                {sync.state === 'connecting' ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={[styles.syncText, sync.state === 'syncing' && styles.syncTextOn]}>
+                    {sync.state === 'syncing' ? '♪ LISTENING IN SYNC · TAP TO STOP' : '▶ LISTEN IN SYNC'}
+                  </Text>
+                )}
+              </Pressable>
+              {sync.state === 'syncing' && !!sync.message && <Text style={[styles.followNote, { marginTop: 8 }]}>{sync.message}</Text>}
+            </>
+          )}
+          {(provider === 'spotify' || (provider === 'apple' && sync.state === 'unavailable')) && (
             <View style={styles.follow}>
               {!!sync.message && <Text style={styles.followNote}>{sync.message}</Text>}
+              {provider === 'apple' && (
+                <Pressable onPress={sync.retry} style={styles.retry}>
+                  <Text style={styles.retryText}>TRY LISTENING IN SYNC AGAIN</Text>
+                </Pressable>
+              )}
               <Text style={[styles.followText, justStartedTrack && styles.followNow]}>
                 {party.status === 'paused'
                   ? `Paused on track ${loc.track?.number}. Pause yours too.`
@@ -293,6 +302,8 @@ const styles = StyleSheet.create({
   syncText: { color: '#000000', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   syncTextOn: { color: GREEN },
   follow: { marginTop: 14, padding: 12, borderRadius: 14, backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#242424' },
+  retry: { alignSelf: 'flex-start', marginBottom: 10 },
+  retryText: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   followNote: { color: '#8a8a8a', fontSize: 12, lineHeight: 17, marginBottom: 8 },
   followText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
   followNow: { color: GREEN },
