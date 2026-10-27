@@ -12,7 +12,7 @@ export type ReleaseRoom = {
   artwork_url: string | null;
   release_date: string;
   opens_at: string;
-  tracks: { number: number; name: string; durationMs: number | null }[];
+  tracks: { id?: string; number: number; name: string; durationMs: number | null }[];
   track_count: number | null;
   featured: boolean;
   created_at: string;

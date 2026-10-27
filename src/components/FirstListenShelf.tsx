@@ -23,6 +23,7 @@ type Row = {
 */
 export default function FirstListenShelf({ userId, owner = false }: { userId?: string | null; owner?: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
+  const [wasThere, setWasThere] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
 
   useFocusEffect(
@@ -41,6 +42,19 @@ export default function FirstListenShelf({ userId, owner = false }: { userId?: s
         if (!alive) return;
         if (error) console.log('First Listen shelf:', error.message);
         setRows(((data as unknown as Row[]) || []).filter((r) => r.release_rooms));
+        const { data: attended } = await supabase
+          .from('party_attendance')
+          .select('listening_parties(room_id)')
+          .eq('user_id', id)
+          .limit(200);
+        if (!alive) return;
+        setWasThere(
+          new Set(
+            ((attended as unknown as { listening_parties: { room_id: string } | null }[]) || [])
+              .map((a) => a.listening_parties?.room_id)
+              .filter(Boolean) as string[]
+          )
+        );
         setLoaded(true);
       })();
       return () => {
@@ -95,6 +109,7 @@ export default function FirstListenShelf({ userId, owner = false }: { userId?: s
                 <Text style={styles.artist} numberOfLines={1}>
                   {room.artist_name}
                 </Text>
+                {wasThere.has(r.room_id) && <Text style={styles.wasThere}>WAS THERE</Text>}
                 {revised ? (
                   <Text style={styles.meta}>
                     {r.first_rating} → {r.rating}
@@ -137,6 +152,19 @@ const styles = StyleSheet.create({
   scoreText: { color: GREEN, fontSize: 13, fontWeight: '900' },
   album: { color: '#ffffff', fontSize: 13, fontWeight: '800', marginTop: 8 },
   artist: { color: '#999999', fontSize: 11, marginTop: 3 },
+  wasThere: {
+    alignSelf: 'flex-start',
+    color: '#000000',
+    backgroundColor: GREEN,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginTop: 5,
+  },
   meta: { color: '#7d8a7f', fontSize: 10, fontWeight: '800', letterSpacing: 0.6, marginTop: 4 },
   emptyBox: { borderWidth: 1, borderColor: '#2a2a2a', borderStyle: 'dashed', borderRadius: 14, padding: 18 },
   emptyTitle: { color: '#ffffff', fontSize: 15, fontWeight: '800' },

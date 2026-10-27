@@ -121,8 +121,11 @@ async function findArtistId(name: string, knownId?: string | null): Promise<stri
 function toAlbum(item: any): CatalogAlbum | null {
   const a = item?.attributes || {};
   if (!item?.id || !a.name || typeof a.releaseDate !== 'string') return null;
-  // Albums and EPs only; skip singles and compilations.
+  // Albums and EPs only; skip singles, compilations, and background-noise releases.
   if (a.isSingle === true || a.isCompilation === true) return null;
+  const genres: string[] = Array.isArray(a.genreNames) ? a.genreNames : [];
+  if (genres.some((g) => /sleep|relaxation|meditation|healing|new age|fitness|karaoke|children/i.test(g))) return null;
+  if (/\b(sleep(?:therapy|music|sounds)?\b|white noise|meditation|solfeggio|binaural|lullab|asmr)/i.test(`${a.name} ${a.artistName}`)) return null;
   return {
     id: String(item.id),
     title: String(a.name),

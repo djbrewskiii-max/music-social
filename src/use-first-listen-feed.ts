@@ -13,7 +13,21 @@ import {
 } from './release-radar';
 import { supabase } from './supabase';
 
+export type HostedParty = {
+  room_id: string;
+  starts_at: string;
+  status: 'scheduled' | 'live' | 'paused' | 'ended';
+  hostName: string;
+  hostAvatar: string | null;
+};
+
+// Background-noise releases that crowd out real albums (sleep, meditation, etc.).
+const NOISE = /\b(sleep(?:therapy|music|sounds)?\b|white noise|meditation|relax(ing|ation)?|solfeggio|binaural|lullab(y|ies)|asmr|study music|spa music|healing frequenc)/i;
+export const isNoise = (room: Pick<ReleaseRoom, 'album_title' | 'artist_name'>) =>
+  NOISE.test(room.album_title) || NOISE.test(room.artist_name);
+
 export type FirstListenFeed = {
+  parties: Record<string, HostedParty>;
   loading: boolean;
   scanning: boolean;
   userId: string;
@@ -39,6 +53,7 @@ export function useFirstListenFeed(): FirstListenFeed {
   const [summaries, setSummaries] = useState<Record<string, RoomSummary>>({});
   const [friends, setFriends] = useState<FriendsWaiting>({});
   const [profile, setProfile] = useState<TasteProfile>(new Map());
+  const [parties, setParties] = useState<Record<string, HostedParty>>({});
   const scanningRef = useRef(false);
 
   const loadRooms = useCallback(async (uid: string) => {
@@ -53,12 +68,41 @@ export function useFirstListenFeed(): FirstListenFeed {
       console.log('First Listen rooms:', error.message);
       return;
     }
-    const loaded = (data as ReleaseRoom[]) || [];
+    const loaded = ((data as ReleaseRoom[]) || []).filter((room) => !isNoise(room));
     const ids = loaded.map((r) => r.id);
-    const [nextSummaries, nextFriends] = await Promise.all([loadSummaries(ids), loadFriendsWaiting(uid, ids)]);
+    const [nextSummaries, nextFriends, partyResult] = await Promise.all([
+      loadSummaries(ids),
+      loadFriendsWaiting(uid, ids),
+      ids.length
+        ? supabase.from('listening_parties').select('room_id, host_id, starts_at, status').in('room_id', ids).neq('status', 'ended')
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    const partyRows = (partyResult.data as { room_id: string; host_id: string; starts_at: string; status: HostedParty['status'] }[]) || [];
+    const hostIds = [...new Set(partyRows.map((p) => p.host_id))];
+    const { data: hostRows } = hostIds.length
+      ? await supabase.from('profiles').select('user_id, display_name, username, avatar_url').in('user_id', hostIds)
+      : { data: [] };
+    const hosts = new Map(
+      ((hostRows as { user_id: string; display_name: string | null; username: string | null; avatar_url: string | null }[]) || []).map((h) => [
+        h.user_id,
+        h,
+      ])
+    );
+    const nextParties: Record<string, HostedParty> = {};
+    for (const p of partyRows) {
+      const h = hosts.get(p.host_id);
+      nextParties[p.room_id] = {
+        room_id: p.room_id,
+        starts_at: p.starts_at,
+        status: p.status,
+        hostName: h?.display_name?.trim() || h?.username?.trim() || 'Host',
+        hostAvatar: h?.avatar_url || null,
+      };
+    }
     setRooms(loaded);
     setSummaries(nextSummaries);
     setFriends(nextFriends);
+    setParties(nextParties);
   }, []);
 
   const refresh = useCallback(
@@ -123,8 +167,12 @@ export function useFirstListenFeed(): FirstListenFeed {
     [userId]
   );
 
-  const ranked = rankRooms(rooms, profile, summaries, friends);
+  // Hosted nights get a boost so they're easy to find.
+  const ranked = rankRooms(rooms, profile, summaries, friends)
+    .map((r) => (parties[r.room.id] ? { ...r, score: r.score + 60 } : r))
+    .sort((a, b) => b.score - a.score);
   return {
+    parties,
     loading,
     scanning,
     userId,

@@ -17,6 +17,7 @@ export type CatalogAlbum = {
 };
 
 export type CatalogTrack = {
+  id?: string; // Apple Music catalog song id (used for in-app playback)
   number: number;
   name: string;
   durationMs: number | null;
@@ -71,6 +72,7 @@ export async function getAlbumWithTracks(
     // Position on the album, counted straight through (multi-disc albums
     // restart trackNumber on each disc, so it can't be used as a unique number).
     .map((track: any, index: number) => ({
+      id: track?.id ? String(track.id) : undefined,
       number: index + 1,
       name: String(track?.attributes?.name || `Track ${index + 1}`),
       durationMs: typeof track?.attributes?.durationInMillis === 'number' ? track.attributes.durationInMillis : null,

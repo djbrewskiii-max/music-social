@@ -51,7 +51,7 @@ type Props = {
 
 export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) {
   const now = useNow();
-  const { comingSoon, outNow, summaries, loading, scanning, setFollowing } = feed;
+  const { comingSoon, outNow, summaries, loading, scanning, setFollowing, parties } = feed;
 
   // The hero is the drop this person would care about most:
   // something out today if it's theirs, otherwise their top upcoming album.
@@ -95,6 +95,9 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
   }
 
   const heroOpen = isOpen(hero.room);
+  const heroParty = parties[hero.room.id];
+  const partyTime = (iso: string) =>
+    new Date(iso).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }).toUpperCase();
   const heroSummary = summaries[hero.room.id];
   const heroFollowing = !!heroSummary?.i_follow;
 
@@ -126,6 +129,21 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
               </View>
               {!!heroSummary?.waiting && !heroOpen && <Text style={styles.waiting}>{heroSummary.waiting} waiting</Text>}
             </View>
+
+            {!!heroParty && (
+              <View style={styles.heroHost}>
+                {heroParty.hostAvatar ? (
+                  <Image source={{ uri: heroParty.hostAvatar }} style={styles.heroHostAvatar} />
+                ) : (
+                  <View style={[styles.heroHostAvatar, styles.artFallback]} />
+                )}
+                <Text style={styles.heroHostText} numberOfLines={1}>
+                  HOSTED BY <Text style={styles.heroHostName}>{heroParty.hostName.toUpperCase()}</Text>
+                  {'  ·  '}
+                  {heroParty.status === 'live' || heroParty.status === 'paused' ? 'PLAYING NOW' : partyTime(heroParty.starts_at)}
+                </Text>
+              </View>
+            )}
 
             {hero.room.artwork_url ? (
               <Image source={{ uri: hero.room.artwork_url }} style={styles.heroArt} />
@@ -191,6 +209,11 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
                     <View style={styles.datePill}>
                       <Text style={styles.datePillText}>{shortDate(room)}</Text>
                     </View>
+                    {!!parties[room.id] && (
+                      <View style={styles.hostedPill}>
+                        <Text style={styles.hostedPillText}>HOSTED</Text>
+                      </View>
+                    )}
                     <Pressable
                       onPress={() => setFollowing(room.id, !following)}
                       hitSlop={8}
@@ -235,6 +258,11 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
                     <View style={styles.datePill}>
                       <Text style={styles.datePillText}>{shortDate(room)}</Text>
                     </View>
+                    {!!parties[room.id] && (
+                      <View style={styles.hostedPill}>
+                        <Text style={styles.hostedPillText}>HOSTED</Text>
+                      </View>
+                    )}
                     <Pressable
                       onPress={() => setFollowing(room.id, !following)}
                       hitSlop={8}
@@ -317,9 +345,9 @@ const styles = StyleSheet.create({
   eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.4 },
   heading: { color: '#ffffff', fontSize: 30, fontWeight: '900', letterSpacing: -0.8, marginTop: 6 },
   hero: { borderRadius: 24, overflow: 'hidden', backgroundColor: '#111111' },
-  heroImage: { borderRadius: 24, transform: [{ scale: 1.4 }] },
-  heroShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
-  heroInner: { padding: 20, alignItems: 'center' },
+  heroImage: { borderRadius: 24, transform: [{ scale: 1.6 }] },
+  heroShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.32)' },
+  heroInner: { padding: 16, alignItems: 'center' },
   heroTop: { alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusPill: {
     flexDirection: 'row',
@@ -336,9 +364,10 @@ const styles = StyleSheet.create({
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#000000', marginRight: 6 },
   waiting: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700' },
   heroArt: {
-    width: 190,
-    height: 190,
-    borderRadius: 14,
+    width: '100%',
+    maxWidth: 340,
+    aspectRatio: 1,
+    borderRadius: 16,
     marginTop: 18,
     shadowColor: '#000000',
     shadowOpacity: 0.6,
@@ -346,7 +375,31 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
   },
   artFallback: { backgroundColor: '#222222' },
-  heroTitle: { color: '#ffffff', fontSize: 26, fontWeight: '900', textAlign: 'center', marginTop: 18, letterSpacing: -0.5 },
+  heroTitle: { color: '#ffffff', fontSize: 30, fontWeight: '900', textAlign: 'center', marginTop: 20, letterSpacing: -0.6 },
+  heroHost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginTop: 14,
+    padding: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(57,231,95,0.5)',
+  },
+  heroHostAvatar: { width: 28, height: 28, borderRadius: 14, marginRight: 9 },
+  heroHostText: { flex: 1, color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  heroHostName: { color: GREEN },
+  hostedPill: {
+    position: 'absolute',
+    left: 8,
+    top: 36,
+    backgroundColor: GREEN,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  hostedPillText: { color: '#000000', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   heroArtist: { color: 'rgba(255,255,255,0.8)', fontSize: 16, fontWeight: '600', marginTop: 4 },
   reason: { color: GREEN, fontSize: 12, fontWeight: '800', marginTop: 10, textAlign: 'center' },
   liveLine: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 16 },

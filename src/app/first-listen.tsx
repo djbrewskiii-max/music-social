@@ -27,7 +27,9 @@ import {
   ROOM_COLUMNS,
   RoomSummary,
 } from '../first-listen';
+import ListeningPartyPanel from '../components/ListeningPartyPanel';
 import { supabase } from '../supabase';
+import { useListeningParty } from '../use-listening-party';
 
 const GREEN = '#39E75F';
 
@@ -216,6 +218,33 @@ export default function FirstListenRoom() {
     return counts;
   }, [messages]);
 
+  const partyState = useListeningParty(id, room?.apple_album_id ?? null, tracks, myId);
+  const party = partyState.party;
+  const partyStarted = party?.status === 'live' || party?.status === 'paused';
+
+  // Where the room lost it: reactions per track, and each track's peak moment.
+  const heat = useMemo(() => {
+    const byTrack: Record<number, { count: number; peakMs: number; peakCount: number; topEmoji: string }> = {};
+    const buckets: Record<string, number> = {};
+    const emojiCount: Record<number, Record<string, number>> = {};
+    for (const r of partyState.reactions) {
+      const t = (byTrack[r.track_number] ||= { count: 0, peakMs: 0, peakCount: 0, topEmoji: r.emoji });
+      t.count++;
+      const bucket = Math.floor(r.position_ms / 10000);
+      const key = `${r.track_number}:${bucket}`;
+      buckets[key] = (buckets[key] || 0) + 1;
+      if (buckets[key] > t.peakCount) {
+        t.peakCount = buckets[key];
+        t.peakMs = bucket * 10000;
+      }
+      const e = (emojiCount[r.track_number] ||= {});
+      e[r.emoji] = (e[r.emoji] || 0) + 1;
+      if (e[r.emoji] >= (e[t.topEmoji] || 0)) t.topEmoji = r.emoji;
+    }
+    const max = Math.max(1, ...Object.values(byTrack).map((t) => t.count));
+    return { byTrack, max };
+  }, [partyState.reactions]);
+
   const visibleMessages = track ? messages.filter((m) => m.track_number === track) : messages;
   const trackName = (n: number | null) => (n ? tracks.find((t) => t.number === n)?.name || `Track ${n}` : '');
   const nameOf = (uid: string) => people[uid]?.display_name?.trim() || people[uid]?.username?.trim() || 'Listener';
@@ -319,8 +348,9 @@ export default function FirstListenRoom() {
   const renderMessage = ({ item }: { item: RoomMessage }) => {
     const person = people[item.user_id];
     const mine = item.user_id === myId;
+    const fromHost = !!party && item.user_id === party.host_id;
     return (
-      <Pressable onLongPress={() => removeMessage(item)} style={styles.message}>
+      <Pressable onLongPress={() => removeMessage(item)} style={[styles.message, fromHost && styles.hostMessage]}>
         <Pressable onPress={() => router.push({ pathname: mine ? '/my-profile' : '/profile', params: mine ? {} : { userId: item.user_id } })}>
           {person?.avatar_url ? (
             <Image source={{ uri: person.avatar_url }} style={styles.avatar} />
@@ -332,9 +362,10 @@ export default function FirstListenRoom() {
         </Pressable>
         <View style={styles.messageBody}>
           <View style={styles.messageTop}>
-            <Text style={styles.messageName} numberOfLines={1}>
+            <Text style={[styles.messageName, fromHost && { color: GREEN }]} numberOfLines={1}>
               {nameOf(item.user_id)}
             </Text>
+            {fromHost && <Text style={styles.hostTag}>HOST</Text>}
             {!!item.track_number && !track && (
               <Pressable onPress={() => setTrack(item.track_number)}>
                 <Text style={styles.trackTag}>
@@ -365,7 +396,7 @@ export default function FirstListenRoom() {
 
         <View style={styles.hero}>
           {room.artwork_url ? (
-            <Image source={{ uri: room.artwork_url }} style={styles.heroArt} />
+            <Image source={{ uri: room.artwork_url }} style={[styles.heroArt, partyStarted && styles.heroArtSmall]} />
           ) : (
             <View style={[styles.heroArt, styles.avatarFallback]} />
           )}
@@ -393,6 +424,14 @@ export default function FirstListenRoom() {
             </View>
           </View>
         </View>
+
+        {!!party && (
+          <ListeningPartyPanel
+            partyState={partyState}
+            room={{ apple_album_id: room.apple_album_id, album_title: room.album_title, artist_name: room.artist_name, opens_at: room.opens_at }}
+            here={here}
+          />
+        )}
 
         <View style={styles.statsRow}>
           <Text style={styles.stat}>
@@ -484,6 +523,17 @@ export default function FirstListenRoom() {
                   <Text style={styles.trackName} numberOfLines={1}>
                     {t.name}
                   </Text>
+                  {heat.byTrack[t.number] ? (
+                    <View style={styles.heatWrap}>
+                      <View style={styles.heatBar}>
+                        <View style={[styles.heatFill, { width: `${(heat.byTrack[t.number].count / heat.max) * 100}%` }]} />
+                      </View>
+                      <Text style={styles.heatText}>
+                        {heat.byTrack[t.number].topEmoji} peak {Math.floor(heat.byTrack[t.number].peakMs / 60000)}:
+                        {String(Math.floor((heat.byTrack[t.number].peakMs % 60000) / 1000)).padStart(2, '0')}
+                      </Text>
+                    </View>
+                  ) : null}
                   <Text style={styles.trackCount}>
                     {trackCounts[t.number] ? `${trackCounts[t.number]} 💬` : 'Talk ›'}
                   </Text>
@@ -640,6 +690,13 @@ const styles = StyleSheet.create({
   hereText: { color: '#d9f5de', fontSize: 11, fontWeight: '800' },
   hero: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 14, alignItems: 'center' },
   heroArt: { width: 112, height: 112, borderRadius: 12 },
+  heroArtSmall: { width: 64, height: 64, borderRadius: 9 },
+  hostMessage: { backgroundColor: '#0d1a10', borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8 },
+  hostTag: { color: '#000000', backgroundColor: GREEN, fontSize: 8, fontWeight: '900', letterSpacing: 1, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
+  heatWrap: { width: 92, marginLeft: 8, alignItems: 'flex-end' },
+  heatBar: { width: 92, height: 4, borderRadius: 2, backgroundColor: '#1f2a21', overflow: 'hidden' },
+  heatFill: { height: 4, backgroundColor: GREEN },
+  heatText: { color: '#8fb898', fontSize: 10, fontWeight: '700', marginTop: 4 },
   heroText: { flex: 1, marginLeft: 16 },
   heroStatus: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   heroTitle: { color: '#ffffff', fontSize: 22, fontWeight: '900', marginTop: 6 },
