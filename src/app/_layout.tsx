@@ -2,7 +2,12 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ShareIntentProvider } from 'expo-share-intent';
+
+import PartyMiniBar from '../components/PartyMiniBar';
+import ShareIntentHandler from '../components/ShareIntentHandler';
 import { startNotifications } from '../notifications';
+import { PartySessionProvider } from '../party-session';
 import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
@@ -18,6 +23,8 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <ShareIntentProvider>
+    <PartySessionProvider>
     <View style={styles.root}>
       <Stack
         screenOptions={{
@@ -56,7 +63,11 @@ export default function RootLayout() {
           <Text style={styles.connectText}>Connect Music</Text>
         </Pressable>
       )}
+      <PartyMiniBar />
+      <ShareIntentHandler />
     </View>
+    </PartySessionProvider>
+    </ShareIntentProvider>
   );
 }
 

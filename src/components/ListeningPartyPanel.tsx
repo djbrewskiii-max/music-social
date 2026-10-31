@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -5,7 +6,7 @@ import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text
 import { openAlbumInMusicApp } from '../first-listen';
 import { formatTime, REACTIONS, Reaction } from '../listening-party';
 import { getMusicProvider } from '../music-provider';
-import { useAppleSync } from '../use-apple-sync';
+import { usePartySession } from '../party-session';
 import { useListeningParty } from '../use-listening-party';
 
 const GREEN = '#39E75F';
@@ -14,7 +15,7 @@ type Party = ReturnType<typeof useListeningParty>;
 
 type Props = {
   partyState: Party;
-  room: { apple_album_id: string; album_title: string; artist_name: string; opens_at: string };
+  room: { id: string; apple_album_id: string; album_title: string; artist_name: string; opens_at: string; artwork_url: string | null };
   here: number;
 };
 
@@ -79,16 +80,28 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
   }, [reactions]);
 
   const playing = party?.status === 'live' && !loc.finished;
-  const sync = useAppleSync(
-    party && (party.status === 'live' || party.status === 'paused')
-      ? { songId: loc.track?.id, offsetMs: loc.offsetMs, playing }
-      : null
-  );
 
-  // When the party ends, stop in-app playback.
-  useEffect(() => {
-    if (party?.status === 'ended' && sync.state === 'syncing') sync.disable();
-  }, [party?.status, sync]);
+  // Playback lives app-wide (party-session), so it keeps going outside the room.
+  const session = usePartySession();
+  const thisRoom = session.room?.roomId === room.id;
+  const syncState = thisRoom ? session.state : 'off';
+  const sync = {
+    state: syncState,
+    message: thisRoom ? session.message : '',
+    enable: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+      return session.start({
+        roomId: room.id,
+        appleAlbumId: room.apple_album_id,
+        albumTitle: room.album_title,
+        artistName: room.artist_name,
+        artworkUrl: room.artwork_url,
+        tracks,
+      });
+    },
+    disable: session.stop,
+    retry: session.retry,
+  };
 
   if (!party) return null;
 
@@ -176,7 +189,7 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
                   <ActivityIndicator color="#000" />
                 ) : (
                   <Text style={[styles.syncText, sync.state === 'syncing' && styles.syncTextOn]}>
-                    {sync.state === 'syncing' ? '♪ LISTENING IN SYNC · TAP TO STOP' : '▶ LISTEN IN SYNC'}
+                    {sync.state === 'syncing' ? '♪ LISTENING IN SYNC · KEEPS PLAYING IF YOU LEAVE · TAP TO STOP' : '▶ LISTEN IN SYNC'}
                   </Text>
                 )}
               </Pressable>
@@ -208,7 +221,10 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
             {REACTIONS.map((emoji) => (
               <Pressable
                 key={emoji}
-                onPress={() => react(emoji as Reaction)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+                  react(emoji as Reaction);
+                }}
                 style={({ pressed }) => [styles.reactButton, pressed && { transform: [{ scale: 1.2 }] }]}
                 accessibilityLabel={`React ${emoji}`}
               >
@@ -224,7 +240,10 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
           <Text style={styles.hostControlsLabel}>YOUR CONTROLS</Text>
           {party.status === 'scheduled' ? (
             <Pressable
-              onPress={controls.start}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+                controls.start();
+              }}
               disabled={!albumOut}
               style={[styles.startButton, !albumOut && { opacity: 0.4 }]}
             >

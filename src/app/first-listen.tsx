@@ -428,7 +428,14 @@ export default function FirstListenRoom() {
         {!!party && (
           <ListeningPartyPanel
             partyState={partyState}
-            room={{ apple_album_id: room.apple_album_id, album_title: room.album_title, artist_name: room.artist_name, opens_at: room.opens_at }}
+            room={{
+              id: room.id,
+              apple_album_id: room.apple_album_id,
+              album_title: room.album_title,
+              artist_name: room.artist_name,
+              opens_at: room.opens_at,
+              artwork_url: room.artwork_url,
+            }}
             here={here}
           />
         )}

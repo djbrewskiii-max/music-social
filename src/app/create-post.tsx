@@ -2,7 +2,7 @@ import { Auth, AuthStatus, History } from '@wwdrew/expo-apple-music';
 import { requireNativeModule } from 'expo-modules-core';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase } from '../supabase';
 import { getMusicProvider, type MusicProvider } from '../music-provider';
+import { resolveSharedMusic } from '../shared-music';
 
 type Track = { id: string; song: string; artist: string; artworkUrl: string; album?: string };
 type NativePlayback = {
@@ -128,6 +129,36 @@ export default function CreatePostScreen() {
     setResults([]);
     setError('');
   };
+  // Shared into OVRLEE from Apple Music or Spotify: attach it automatically.
+  const { sharedUrl } = useLocalSearchParams<{ sharedUrl?: string }>();
+  const [sharedNote, setSharedNote] = useState('');
+  useEffect(() => {
+    if (typeof sharedUrl !== 'string' || !sharedUrl) return;
+    let alive = true;
+    setSharedNote('Adding the music you shared…');
+    resolveSharedMusic(sharedUrl)
+      .then((found) => {
+        if (!alive) return;
+        if (!found) {
+          setSharedNote('');
+          setError("Couldn't read that link. Search for the song below instead.");
+          return;
+        }
+        pick({ id: found.id, song: found.song, artist: found.artist, album: found.album, artworkUrl: found.artworkUrl });
+        setSharedNote(`Shared from ${found.source === 'spotify' ? 'Spotify' : 'Apple Music'}${found.kind === 'album' ? ' · album' : ''}. Say something about it.`);
+      })
+      .catch((e) => {
+        console.log('Shared music:', e);
+        if (!alive) return;
+        setSharedNote('');
+        setError("Couldn't load that song right now. Search for it below instead.");
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedUrl]);
+
   const addPhoto = async () => {
     const available = MAX_ITEMS - tracks.length - photos.length;
     if (available <= 0) { setError('Remove an attachment before adding another.'); return; }
@@ -241,6 +272,7 @@ export default function CreatePostScreen() {
                 </Pressable>
               </View>
             </View>
+            {!!sharedNote && <Text style={styles.sharedNote}>{sharedNote}</Text>}
             {!!error && <Text style={styles.error}>{error}</Text>}
             <Pressable style={[styles.publish, (!selected || posting) && styles.disabled]}
               disabled={!selected || posting} onPress={publish}>
@@ -277,6 +309,7 @@ export default function CreatePostScreen() {
   );
 }
 const styles = StyleSheet.create({
+  sharedNote: { color: '#39E75F', fontSize: 13, fontWeight: '700', marginBottom: 10 },
   counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemCounter: { color: green, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   screen: { flex: 1, backgroundColor: '#050505' },
