@@ -67,7 +67,7 @@
       [
         "expo-share-intent",
         {
-          "iosShareExtensionName": "OVRLEE",
+          "iosShareExtensionName": "Post to OVRLEE",
           "iosActivationRules": {
             "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
             "NSExtensionActivationSupportsText": true
