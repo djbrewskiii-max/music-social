@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '../supabase';
 
@@ -23,15 +23,16 @@ type Props = {
 
 type Reason = {
   key: string;
-  kind: 'album' | 'show' | 'song' | 'artist' | 'people';
+  kind: 'album' | 'show' | 'song' | 'artist';
   title: string;
+  artist?: string;
   detail: string;
   artworkUrl: string | null;
+  appleId?: string | null;
 };
 
-type Opener = { key: string; label: string; draft: string };
 
-type AlbumRow = { user_id: string; album_title: string; artist_name: string; artwork_url: string | null };
+type AlbumRow = { user_id: string; album_title: string; artist_name: string; artwork_url: string | null; apple_music_id?: string | null };
 type PinRow = { user_id: string; song: string; artist: string; artwork_url: string | null };
 type PostRow = {
   user_id: string;
@@ -71,18 +72,20 @@ function addWeight(map: Map<string, { name: string; weight: number }>, artist: s
   else map.set(key, { name: artist.split(FEATURE_SPLIT)[0].trim(), weight });
 }
 
-function overlapLabel(points: number) {
-  if (points >= 10) return 'Rare overlap';
-  if (points >= 5) return 'Strong overlap';
-  if (points >= 2) return 'Real overlap';
-  return 'A starting point';
+// Frequency, not "overlap": how in tune two people's music is.
+function frequency(points: number) {
+  if (points >= 10) return { word: 'Rare frequency', bars: 5 };
+  if (points >= 5) return { word: 'Same frequency', bars: 4 };
+  if (points >= 2) return { word: 'In sync', bars: 3 };
+  if (points > 0) return { word: 'Tuning in', bars: 2 };
+  return { word: 'New frequency', bars: 1 };
 }
 
 export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
   const [loading, setLoading] = useState(true);
   const [reasons, setReasons] = useState<Reason[]>([]);
-  const [openers, setOpeners] = useState<Opener[]>([]);
-  const [label, setLabel] = useState('');
+  const [freq, setFreq] = useState(frequency(0));
+  const [people, setPeople] = useState<string>('');
   const [hasAnything, setHasAnything] = useState(false);
 
   useEffect(() => {
@@ -94,7 +97,7 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
       const both = [viewerId, userId];
 
       const [albumsRes, pinsRes, postsRes, attendanceRes, dnaRes, followsRes] = await Promise.all([
-        supabase.from('core_four_albums').select('user_id, album_title, artist_name, artwork_url').in('user_id', both),
+        supabase.from('core_four_albums').select('user_id, album_title, artist_name, artwork_url, apple_music_id').in('user_id', both),
         supabase.from('profile_rotation_pins').select('user_id, song, artist, artwork_url').in('user_id', both),
         supabase
           .from('posts')
@@ -136,8 +139,10 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
           key: `album-${workKey(album.album_title, album.artist_name)}`,
           kind: 'album',
           title: album.album_title,
-          detail: `${album.artist_name} · in both your Core Fours`,
+          artist: album.artist_name,
+          detail: 'In both your Core Fours',
           artworkUrl: album.artwork_url,
+          appleId: album.apple_music_id || null,
         });
       }
 
@@ -162,7 +167,7 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
           key: `show-${show.id}`,
           kind: 'show',
           title: show.artist_name,
-          detail: `${show.venue_name} · ${upcoming ? 'you’re both going' : 'you were both there'}`,
+          detail: `${show.venue_name} · ${upcoming ? 'You’re both going' : 'You were both there'}`,
           artworkUrl: show.artwork_url,
         });
       }
@@ -177,7 +182,8 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
           key: `song-${workKey(pin.song, pin.artist)}`,
           kind: 'song',
           title: pin.song,
-          detail: `${pin.artist} · in both your rotations`,
+          artist: pin.artist,
+          detail: 'In both your rotations',
           artworkUrl: pin.artwork_url,
         });
       }
@@ -208,14 +214,12 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
         .sort((a, b) => b.weight - a.weight);
 
       points += Math.min(sharedArtists.length, 8) * 1.5;
-      if (sharedArtists.length) {
-        const names = sharedArtists.slice(0, 4).map((a) => a.name);
-        const extra = sharedArtists.length - names.length;
+      for (const artist of sharedArtists.slice(0, 6)) {
         found.push({
-          key: 'artists',
+          key: `artist-${artist.key}`,
           kind: 'artist',
-          title: names.join(', ') + (extra > 0 ? ` +${extra}` : ''),
-          detail: sharedArtists.length === 1 ? 'An artist you both keep coming back to' : 'Artists you both keep coming back to',
+          title: artist.name,
+          detail: 'You both keep coming back',
           artworkUrl: null,
         });
       }
@@ -236,54 +240,15 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
           .map((p) => p.display_name?.trim() || p.username?.trim())
           .filter(Boolean) as string[];
         const extra = sharedPeople.length - names.length;
-        found.push({
-          key: 'people',
-          kind: 'people',
-          title: names.length ? names.join(' and ') + (extra > 0 ? ` +${extra}` : '') : `${sharedPeople.length} people`,
-          detail: 'People you both follow',
-          artworkUrl: null,
-        });
-      }
-
-      // Conversation openers, from the strongest things you share.
-      const nextOpeners: Opener[] = [];
-      const push = (key: string, label: string, draft: string) => {
-        if (nextOpeners.length < 3 && !nextOpeners.some((o) => o.key === key)) nextOpeners.push({ key, label, draft });
-      };
-      const firstAlbum = sharedAlbums[0];
-      if (firstAlbum) {
-        push('album', `Ask about ${firstAlbum.album_title}`, `${firstAlbum.album_title} is in both our Core Fours. What's your favorite track on it?`);
-      }
-      const firstShow = sharedShows[0];
-      if (firstShow) {
-        const upcoming = new Date(firstShow.starts_at).getTime() > Date.now();
-        push(
-          'show',
-          upcoming ? `Going to ${firstShow.artist_name}` : `The ${firstShow.artist_name} show`,
-          upcoming
-            ? `You're going to ${firstShow.artist_name} at ${firstShow.venue_name} too? What song are you most hoping they play?`
-            : `You were at ${firstShow.artist_name} at ${firstShow.venue_name} too! What was your favorite moment?`
+        setPeople(
+          names.length
+            ? `You both follow ${names.join(' and ')}${extra > 0 ? ` and ${extra} more` : ''}`
+            : `You both follow ${sharedPeople.length} of the same people`
         );
       }
-      const firstPin = sharedPins[0];
-      if (firstPin) {
-        push('song', `Ask about ${firstPin.song}`, `"${firstPin.song}" is in your rotation too. How did you find it?`);
-      }
-      const firstArtist = sharedArtists[0];
-      if (firstArtist) {
-        push('artist', `Talk ${firstArtist.name}`, `Fellow ${firstArtist.name} fan. Which album got you into them?`);
-      }
-      // One of their Core Four you DON'T share, so it isn't a repeat of the first opener.
-      const sharedAlbumKeys = new Set(sharedAlbums.map((a) => workKey(a.album_title, a.artist_name)));
-      const theirFirstAlbum = theirs(albums).find((a) => !sharedAlbumKeys.has(workKey(a.album_title, a.artist_name)));
-      if (theirFirstAlbum) {
-        push('their-album', `Ask about ${theirFirstAlbum.album_title}`, `${theirFirstAlbum.album_title} in your Core Four caught my eye. What's the story there?`);
-      }
-      push('repeat', 'What’s on repeat?', 'What have you had on repeat lately?');
 
-      setReasons(found.slice(0, 5));
-      setOpeners(nextOpeners);
-      setLabel(overlapLabel(points));
+      setReasons(found.slice(0, 12));
+      setFreq(frequency(points));
       setHasAnything(found.length > 0);
       setLoading(false);
     })().catch((error) => {
@@ -298,72 +263,89 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
 
   if (!viewerId || !userId || viewerId === userId) return null;
 
-  const openChatWith = (draft: string) => {
-    router.push({ pathname: '/chat', params: { userId, name: theirName, draft } });
+  // Tap anything you share: it lands in your DM as a music card, no script.
+  const share = (reason: Reason) => {
+    const card = {
+      kind: reason.kind,
+      title: reason.title,
+      artist: reason.artist,
+      artworkUrl: reason.artworkUrl,
+      appleId: reason.appleId ?? null,
+      detail: reason.detail,
+    };
+    router.push({ pathname: '/chat', params: { userId, name: theirName, attach: JSON.stringify(card) } });
   };
+
+  const headline = !hasAnything
+    ? `You and ${theirName} are on different frequencies.`
+    : freq.bars >= 5
+      ? `You and ${theirName} are on a rare frequency.`
+      : freq.bars === 4
+        ? `You and ${theirName} are on the same frequency.`
+        : freq.bars === 3
+          ? `You and ${theirName} are in sync.`
+          : `You and ${theirName} are tuning in.`;
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.eyebrow}>YOU TWO</Text>
-        {!loading && hasAnything && (
-          <View style={styles.labelPill}>
-            <Text style={styles.labelText}>{label.toUpperCase()}</Text>
+        <Text style={styles.eyebrow}>YOU & {theirName.toUpperCase()}</Text>
+        {!loading && (
+          <View style={styles.meterWrap} accessibilityLabel={freq.word}>
+            <View style={styles.meter}>
+              {[1, 2, 3, 4, 5].map((bar) => (
+                <View
+                  key={bar}
+                  style={[styles.bar, { height: 5 + bar * 3 }, bar <= freq.bars && styles.barOn]}
+                />
+              ))}
+            </View>
+            <Text style={styles.freqWord}>{freq.word.toUpperCase()}</Text>
           </View>
         )}
       </View>
 
       {loading ? (
-        <ActivityIndicator color={GREEN} style={{ marginVertical: 22 }} />
+        <ActivityIndicator color={GREEN} style={{ marginVertical: 18 }} />
       ) : (
         <>
-          <Text style={styles.title}>
-            {hasAnything ? `What you and ${theirName} share.` : 'Nothing in common yet.'}
-          </Text>
+          <Text style={styles.title}>{headline}</Text>
           {!hasAnything && (
-            <Text style={styles.subtle}>
-              Which might be the best reason to talk. Different taste is how you find new music.
-            </Text>
+            <Text style={styles.subtle}>Different taste is how you find new music. Their Core Four is a good place to start.</Text>
           )}
 
-          {reasons.map((reason) => (
-            <View key={reason.key} style={styles.reason}>
-              {reason.artworkUrl ? (
-                <Image source={{ uri: reason.artworkUrl }} style={styles.art} />
-              ) : (
-                <View style={[styles.art, styles.artFallback]}>
-                  <Text style={styles.artGlyph}>
-                    {reason.kind === 'people' ? '◎' : reason.kind === 'show' ? '✦' : '♪'}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.reasonText}>
-                <Text style={styles.reasonTitle} numberOfLines={1}>
-                  {reason.title}
-                </Text>
-                <Text style={styles.reasonDetail} numberOfLines={1}>
-                  {reason.detail}
-                </Text>
-              </View>
-            </View>
-          ))}
+          {reasons.length > 0 && (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tiles}>
+                {reasons.map((reason) => (
+                  <Pressable
+                    key={reason.key}
+                    onPress={() => share(reason)}
+                    style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Send ${reason.title} to ${theirName}`}
+                  >
+                    {reason.artworkUrl ? (
+                      <Image source={{ uri: reason.artworkUrl }} style={styles.tileArt} />
+                    ) : (
+                      <View style={[styles.tileArt, styles.artFallback]}>
+                        <Text style={styles.tileInitial}>{reason.kind === 'show' ? '✦' : reason.title.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.tileTitle} numberOfLines={1}>
+                      {reason.title}
+                    </Text>
+                    <Text style={styles.tileDetail} numberOfLines={2}>
+                      {reason.detail}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Text style={styles.hint}>Tap one to send it to {theirName}.</Text>
+            </>
+          )}
 
-          <Text style={styles.openerHeading}>START WITH</Text>
-          <View style={styles.openers}>
-            {openers.map((opener) => (
-              <Pressable
-                key={opener.key}
-                accessibilityRole="button"
-                accessibilityHint="Opens a chat with this message ready to send"
-                onPress={() => openChatWith(opener.draft)}
-                style={({ pressed }) => [styles.opener, pressed && styles.pressed]}
-              >
-                <Text style={styles.openerText} numberOfLines={1}>
-                  {opener.label} →
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          {!!people && <Text style={styles.people}>{people}</Text>}
         </>
       )}
     </View>
@@ -373,35 +355,29 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
 const styles = StyleSheet.create({
   card: {
     marginTop: 4,
-    padding: 20,
+    padding: 18,
     borderRadius: 20,
     backgroundColor: '#0d120e',
     borderWidth: 1,
     borderColor: '#1f3322',
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.2 },
-  labelPill: { borderWidth: 1, borderColor: '#2f5a35', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
-  labelText: { color: GREEN, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  title: { color: '#ffffff', fontSize: 19, fontWeight: '800', marginTop: 10, marginBottom: 14 },
-  subtle: { color: '#9aa79c', fontSize: 13, lineHeight: 19, marginTop: -6, marginBottom: 6 },
-  reason: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  art: { width: 46, height: 46, borderRadius: 7 },
+  eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.2, flexShrink: 1, marginRight: 10 },
+  meterWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  meter: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 20 },
+  bar: { width: 4, borderRadius: 2, backgroundColor: '#2a3a2d' },
+  barOn: { backgroundColor: GREEN },
+  freqWord: { color: GREEN, fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
+  title: { color: '#ffffff', fontSize: 20, fontWeight: '900', marginTop: 12, lineHeight: 25 },
+  subtle: { color: '#9aa79c', fontSize: 13, lineHeight: 19, marginTop: 6 },
+  tiles: { gap: 12, paddingTop: 16, paddingRight: 6 },
+  tile: { width: 112 },
+  tileArt: { width: 112, height: 112, borderRadius: 10 },
   artFallback: { backgroundColor: '#18211a', alignItems: 'center', justifyContent: 'center' },
-  artGlyph: { color: GREEN, fontSize: 18 },
-  reasonText: { flex: 1, marginLeft: 12 },
-  reasonTitle: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
-  reasonDetail: { color: '#9aa79c', fontSize: 12, marginTop: 4 },
-  openerHeading: { color: '#6f7d71', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginTop: 10, marginBottom: 10 },
-  openers: { gap: 8 },
-  opener: {
-    backgroundColor: '#132016',
-    borderWidth: 1,
-    borderColor: '#2a4a2f',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  openerText: { color: '#e9f7eb', fontSize: 14, fontWeight: '700' },
-  pressed: { opacity: 0.65 },
+  tileInitial: { color: GREEN, fontSize: 34, fontWeight: '900' },
+  tileTitle: { color: '#ffffff', fontSize: 13, fontWeight: '800', marginTop: 8 },
+  tileDetail: { color: '#9aa79c', fontSize: 11, marginTop: 3, lineHeight: 15 },
+  hint: { color: '#6f7d71', fontSize: 11, marginTop: 12 },
+  people: { color: '#c5d3c7', fontSize: 12, marginTop: 10 },
+  pressed: { opacity: 0.7 },
 });

@@ -153,6 +153,7 @@ export default function ProfileScreen() {
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [profileTab, setProfileTab] = useState<'posts' | 'identity' | 'shows'>('posts');
   const [followsMe, setFollowsMe] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -1432,11 +1433,220 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {!isBlocked && !blockedByOther && <CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
+        {!isBlocked && !blockedByOther && (
+          <>
+            <View style={styles.tabBar}>
+              {([
+                ['posts', 'Posts'],
+                ['identity', 'Identity'],
+                ['shows', 'Shows'],
+              ] as const).map(([key, label]) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: profileTab === key }}
+                  onPress={() => setProfileTab(key)}
+                  style={[styles.tab, profileTab === key && styles.tabActive]}
+                >
+                  <Text style={[styles.tabText, profileTab === key && styles.tabTextActive]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
 
-        {!isBlocked && !blockedByOther && typeof userId === 'string' && <FirstListenShelf userId={userId} />}
+            {profileTab === 'posts' && (
 
-        {!isBlocked && !blockedByOther && <><View
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                FROM{' '}
+                {(
+                  profile.display_name ||
+                  'THEM'
+                ).toUpperCase()}
+              </Text>
+
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                Posts.
+              </Text>
+            </View>
+          </View>
+
+
+          {posts.length ===
+          0 ? (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                They haven't posted
+                anything yet.
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={
+                styles.postList
+              }
+            >
+              {posts.map(
+                (post) => (
+                  <Pressable
+                    key={
+                      post.id
+                    }
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.postCard,
+
+                      pressed &&
+                        styles.cardPressed,
+                    ]}
+                    onPress={() =>
+                      openPost(
+                        post.id
+                      )
+                    }
+                  >
+                    <View
+                      style={
+                        styles.postMeta
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.postTime
+                        }
+                      >
+                        {formatPostTime(
+                          post.created_at
+                        )}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.postArrow
+                        }
+                      >
+                        →
+                      </Text>
+                    </View>
+
+                    {!!post.body && (
+                      <Text
+                        style={
+                          styles.postBody
+                        }
+                        numberOfLines={
+                          4
+                        }
+                      >
+                        {
+                          post.body
+                        }
+                      </Text>
+                    )}
+
+                    <View
+                      style={
+                        styles.postMusic
+                      }
+                    >
+                      {post.artwork_url ? (
+                        <Image
+                          source={{
+                            uri:
+                              post.artwork_url,
+                          }}
+                          style={
+                            styles.postArtwork
+                          }
+                        />
+                      ) : (
+                        <View
+                          style={
+                            styles.postArtworkPlaceholder
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.postNote
+                            }
+                          >
+                            ♪
+                          </Text>
+                        </View>
+                      )}
+
+                      <View
+                        style={
+                          styles.postMusicInfo
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.postSong
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.song_title
+                          }
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.postArtist
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            post.artist_name
+                          }
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                )
+              )}
+            </View>
+          )}
+
+        </View>
+            )}
+
+            {profileTab === 'identity' && (
+              <>
+        {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
+        {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
+        <View
           style={
             styles.section
           }
@@ -1571,311 +1781,64 @@ export default function ProfileScreen() {
 
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
                   </View>
-
         <View
           style={
-            styles.section
+            styles.eraTeaser
           }
         >
-          <View
+          <Text
             style={
-              styles.sectionHeader
+              styles.eraEyebrow
             }
           >
-            <View>
-              <Text
-                style={
-                  styles.sectionEyebrow
-                }
-              >
-                YOU TWO
-              </Text>
+            ERAS
+          </Text>
 
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                {sharedCount >
-                0
-                  ? 'There’s overlap.'
-                  : 'Different lanes.'}
-              </Text>
-            </View>
+          <Text
+            style={
+              styles.eraTitle
+            }
+          >
+            Their sound changes.
+            OVRLEE remembers it.
+          </Text>
 
-            {musicDataAvailable && (
-              <View
-                style={
-                  styles.sharedCount
-                }
-              >
-                <Text
-                  style={
-                    styles.sharedCountNumber
-                  }
-                >
-                  {
-                    sharedCount
-                  }
-                </Text>
+          <Text
+            style={
+              styles.eraText
+            }
+          >
+            Your listening history
+            will eventually live here
+            in chapters.
+          </Text>
 
-                <Text
-                  style={
-                    styles.sharedCountLabel
-                  }
-                >
-                  SHARED
-                </Text>
-              </View>
-            )}
+          <View
+            style={
+              styles.eraPreview
+            }
+          >
+            <Text
+              style={
+                styles.eraSeason
+              }
+            >
+              FALL '26
+            </Text>
+
+            <Text
+              style={
+                styles.eraComing
+              }
+            >
+              COMING SOON
+            </Text>
           </View>
-
-          {!musicDataAvailable ? (
-            <View
-              style={
-                styles.emptySection
-              }
-            >
-              <Text
-                style={
-                  styles.emptySectionTitle
-                }
-              >
-                Still learning.
-              </Text>
-
-              <Text
-                style={
-                  styles.emptySectionText
-                }
-              >
-                Once both of you have
-                enough listening data,
-                NOW can show what
-                connects your taste.
-              </Text>
-            </View>
-          ) : sharedCount ===
-            0 ? (
-            <View
-              style={
-                styles.overlapCard
-              }
-            >
-              <Text
-                style={
-                  styles.overlapCopy
-                }
-              >
-                Nothing is overlapping
-                right now. That can
-                change as both of your
-                rotations move.
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={
-                styles.overlapCard
-              }
-            >
-              {sharedArtists.length >
-                0 && (
-                <View
-                  style={
-                    styles.overlapBlock
-                  }
-                >
-                  <Text
-                    style={
-                      styles.overlapLabel
-                    }
-                  >
-                    YOU BOTH LISTEN TO
-                  </Text>
-
-                  <View
-                    style={
-                      styles.sharedArtistWrap
-                    }
-                  >
-                    {sharedArtists.map(
-                      (
-                        artist
-                      ) => (
-                        <View
-                          key={
-                            artist.name
-                          }
-                          style={
-                            styles.sharedArtistPill
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.sharedArtistText
-                            }
-                          >
-                            {
-                              artist.name
-                            }
-                          </Text>
-                        </View>
-                      )
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {sharedTracks.length >
-                0 && (
-                <View
-                  style={[
-                    styles.overlapBlock,
-
-                    sharedArtists.length >
-                      0 &&
-                      styles.overlapBlockBorder,
-                  ]}
-                >
-                  <Text
-                    style={
-                      styles.overlapLabel
-                    }
-                  >
-                    IN BOTH ROTATIONS
-                  </Text>
-
-                  {sharedTracks
-                    .slice(0, 3)
-                    .map(
-                      (
-                        track,
-                        index
-                      ) => (
-                        <Pressable
-                          key={`${track.id}-${index}`}
-                          style={
-                            styles.sharedTrack
-                          }
-                          onPress={() =>
-                            openAppleMusic(
-                              track.song,
-                              track.artist,
-                              track.id
-                            )
-                          }
-                        >
-                          {track.artworkUrl ? (
-                            <Image
-                              source={{
-                                uri:
-                                  track.artworkUrl,
-                              }}
-                              style={
-                                styles.sharedTrackArtwork
-                              }
-                            />
-                          ) : (
-                            <View
-                              style={
-                                styles.sharedTrackPlaceholder
-                              }
-                            >
-                              <Text
-                                style={
-                                  styles.sharedTrackNote
-                                }
-                              >
-                                ♪
-                              </Text>
-                            </View>
-                          )}
-
-                          <View
-                            style={
-                              styles.sharedTrackInfo
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.sharedTrackName
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {
-                                track.song
-                              }
-                            </Text>
-
-                            <Text
-                              style={
-                                styles.sharedTrackArtist
-                              }
-                              numberOfLines={
-                                1
-                              }
-                            >
-                              {
-                                track.artist
-                              }
-                            </Text>
-                          </View>
-
-                          <Text
-                            style={
-                              styles.bothLabel
-                            }
-                          >
-                            BOTH
-                          </Text>
-                        </Pressable>
-                      )
-                    )}
-                </View>
-              )}
-
-              <Pressable
-                style={({
-                  pressed,
-                }) => [
-                  styles.overlapMessageButton,
-
-                  pressed &&
-                    styles.buttonPressed,
-                ]}
-                onPress={() => {
-                  const track =
-                    sharedTracks[0];
-
-                  openChat(
-                    track?.song,
-                    track?.artist
-                  );
-                }}
-              >
-                <Text
-                  style={
-                    styles.overlapMessageText
-                  }
-                >
-                  SAY SOMETHING
-                </Text>
-
-                <Text
-                  style={
-                    styles.overlapMessageArrow
-                  }
-                >
-                  →
-                </Text>
-              </Pressable>
-            </View>
-          )}
         </View>
+              </>
+            )}
 
+            {profileTab === 'shows' && (
         <View
           style={
             styles.section
@@ -2059,247 +2022,9 @@ export default function ProfileScreen() {
             </ScrollView>
           )}
         </View>
-
-        <View
-          style={
-            styles.section
-          }
-        >
-          <View
-            style={
-              styles.sectionHeader
-            }
-          >
-            <View>
-              <Text
-                style={
-                  styles.sectionEyebrow
-                }
-              >
-                FROM{' '}
-                {(
-                  profile.display_name ||
-                  'THEM'
-                ).toUpperCase()}
-              </Text>
-
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                On NOW.
-              </Text>
-            </View>
-          </View>
-
-
-          {posts.length ===
-          0 ? (
-            <View
-              style={
-                styles.emptySection
-              }
-            >
-              <Text
-                style={
-                  styles.emptySectionText
-                }
-              >
-                They haven't posted
-                anything yet.
-              </Text>
-            </View>
-          ) : (
-            <View
-              style={
-                styles.postList
-              }
-            >
-              {posts.map(
-                (post) => (
-                  <Pressable
-                    key={
-                      post.id
-                    }
-                    style={({
-                      pressed,
-                    }) => [
-                      styles.postCard,
-
-                      pressed &&
-                        styles.cardPressed,
-                    ]}
-                    onPress={() =>
-                      openPost(
-                        post.id
-                      )
-                    }
-                  >
-                    <View
-                      style={
-                        styles.postMeta
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.postTime
-                        }
-                      >
-                        {formatPostTime(
-                          post.created_at
-                        )}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.postArrow
-                        }
-                      >
-                        →
-                      </Text>
-                    </View>
-
-                    {!!post.body && (
-                      <Text
-                        style={
-                          styles.postBody
-                        }
-                        numberOfLines={
-                          4
-                        }
-                      >
-                        {
-                          post.body
-                        }
-                      </Text>
-                    )}
-
-                    <View
-                      style={
-                        styles.postMusic
-                      }
-                    >
-                      {post.artwork_url ? (
-                        <Image
-                          source={{
-                            uri:
-                              post.artwork_url,
-                          }}
-                          style={
-                            styles.postArtwork
-                          }
-                        />
-                      ) : (
-                        <View
-                          style={
-                            styles.postArtworkPlaceholder
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.postNote
-                            }
-                          >
-                            ♪
-                          </Text>
-                        </View>
-                      )}
-
-                      <View
-                        style={
-                          styles.postMusicInfo
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.postSong
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            post.song_title
-                          }
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.postArtist
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            post.artist_name
-                          }
-                        </Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                )
-              )}
-            </View>
-          )}
-
-        </View>
-
-        <View
-          style={
-            styles.eraTeaser
-          }
-        >
-          <Text
-            style={
-              styles.eraEyebrow
-            }
-          >
-            ERAS
-          </Text>
-
-          <Text
-            style={
-              styles.eraTitle
-            }
-          >
-            Their sound changes.
-            NOW remembers it.
-          </Text>
-
-          <Text
-            style={
-              styles.eraText
-            }
-          >
-            Your listening history
-            will eventually live here
-            in chapters.
-          </Text>
-
-          <View
-            style={
-              styles.eraPreview
-            }
-          >
-            <Text
-              style={
-                styles.eraSeason
-              }
-            >
-              FALL '26
-            </Text>
-
-            <Text
-              style={
-                styles.eraComing
-              }
-            >
-              COMING SOON
-            </Text>
-          </View>
-        </View></>}
+            )}
+          </>
+        )}
 
         {!isBlocked && !blockedByOther && <Text
           style={
@@ -2307,7 +2032,7 @@ export default function ProfileScreen() {
           }
         >
           YOUR MUSIC. YOUR PEOPLE.
-          RIGHT NOW.
+          OVRLEE.
         </Text>}
       </ScrollView>
     </SafeAreaView>
@@ -2392,7 +2117,12 @@ const styles =
     socialCountNumber: { color: '#ffffff', fontWeight: '900' },
     followButton: { width: '100%', marginTop: 24, backgroundColor: '#39E75F', minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
     followingButton: { backgroundColor: '#171717', borderWidth: 1, borderColor: '#444444' },
-    followsYou: { color: '#888888', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 8 },
+    tabBar: { flexDirection: 'row', marginHorizontal: 20, marginTop: 28, borderBottomWidth: 1, borderBottomColor: '#222222' },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2, borderBottomColor: 'transparent', minHeight: 44 },
+  tabActive: { borderBottomColor: '#39E75F' },
+  tabText: { color: '#777777', fontSize: 13, fontWeight: '800', letterSpacing: 0.4 },
+  tabTextActive: { color: '#ffffff' },
+  followsYou: { color: '#888888', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 8 },
 
   followButtonText: { color: '#050505', fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
     followingButtonText: { color: '#ffffff' },

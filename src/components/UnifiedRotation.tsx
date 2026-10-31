@@ -32,6 +32,7 @@ type Pin = {
   artist: string;
   artwork_url: string | null;
   position: number;
+  created_at?: string;
 };
 
 type Props = {
@@ -117,7 +118,7 @@ export default function UnifiedRotation({
 
       const { data, error } = await supabase
         .from('profile_rotation_pins')
-        .select('id,user_id,song,artist,artwork_url,position')
+        .select('id,user_id,song,artist,artwork_url,position,created_at')
         .eq('user_id', id)
         .order('position');
 
@@ -617,26 +618,21 @@ export default function UnifiedRotation({
     chosen.map(({ track }) => trackKey(track))
   );
 
+  // In Rotation is chosen, never auto-filled: the same for Apple Music and
+  // Spotify. Listening activity only shows up as suggestions in the editor.
   const displayed: {
     track: Track;
     pin?: Pin;
-  }[] = [
-    ...chosen,
-    ...fallbackTracks
-      .filter(
-        (track, index, all) =>
-          !used.has(trackKey(track)) &&
-          all.findIndex(
-            item =>
-              trackKey(item) === trackKey(track)
-          ) === index
-      )
-      .slice(
-        0,
-        Math.max(0, 5 - chosen.length)
-      )
-      .map(track => ({ track })),
-  ];
+  }[] = chosen;
+
+  const since = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days < 1) return 'since today';
+    if (days < 7) return `since ${d.toLocaleDateString('en-US', { weekday: 'long' })}`;
+    return `since ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  };
 
   const renderTrack = ({
     item,
@@ -761,6 +757,7 @@ export default function UnifiedRotation({
                   numberOfLines={1}
                 >
                   {track.artist}
+                  {pin?.created_at ? `  ·  ${since(pin.created_at)}` : ''}
                 </Text>
               </View>
 

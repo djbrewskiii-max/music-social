@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -14,6 +15,7 @@ import {
     View,
 } from 'react-native';
 
+import { cardLabel, fallbackBody, MusicCard, openMusicCard, parseCard } from '../music-card';
 import { refreshUnreadCounts, setOpenConversation } from '../notifications';
 import { supabase } from '../supabase';
 
@@ -23,6 +25,7 @@ type Message = {
   sender_id: string;
   body: string;
   created_at: string;
+  attachment?: MusicCard | null;
 };
 
 export default function ChatScreen() {
@@ -32,6 +35,7 @@ export default function ChatScreen() {
     song?: string;
     artist?: string;
     draft?: string;
+    attach?: string;
   }>();
 
   const otherUserId = params.userId || '';
@@ -42,6 +46,8 @@ export default function ChatScreen() {
   const [currentUserId, setCurrentUserId] = useState('');
   const [conversationId, setConversationId] = useState('');
   // Pre-filled from a YOU TWO conversation opener; editable before sending.
+  // A song/album/artist/show tapped on someone's profile, ready to send as a card.
+  const [staged, setStaged] = useState<MusicCard | null>(() => parseCard(params.attach));
   const [message, setMessage] = useState(
     typeof params.draft === 'string' ? params.draft : ''
   );
@@ -236,7 +242,7 @@ export default function ChatScreen() {
       await supabase
         .from('messages')
         .select(
-          'id, conversation_id, sender_id, body, created_at'
+          'id, conversation_id, sender_id, body, created_at, attachment'
         )
         .eq('conversation_id', activeConversationId)
         .order('created_at', { ascending: true });
@@ -261,7 +267,9 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async () => {
-    const cleanMessage = message.trim();
+    const typed = message.trim();
+    const card = staged;
+    const cleanMessage = typed || (card ? fallbackBody(card) : '');
 
     if (
       !cleanMessage ||
@@ -281,9 +289,10 @@ export default function ChatScreen() {
         conversation_id: conversationId,
         sender_id: currentUserId,
         body: cleanMessage,
+        attachment: card ? { ...card, autoBody: !typed } : null,
       })
       .select(
-        'id, conversation_id, sender_id, body, created_at'
+        'id, conversation_id, sender_id, body, created_at, attachment'
       )
       .single();
 
@@ -293,7 +302,7 @@ export default function ChatScreen() {
         error.message
       );
 
-      setMessage(cleanMessage);
+      setMessage(typed);
       setSending(false);
       // 42501 = blocked by a database rule (one of you blocked the other).
       Alert.alert(
@@ -306,6 +315,8 @@ export default function ChatScreen() {
       );
       return;
     }
+
+    setStaged(null);
 
     /*
       Realtime normally adds the message for us.
@@ -488,16 +499,44 @@ export default function ChatScreen() {
                           : styles.theirMessage,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.messageText,
-                          isMine
-                            ? styles.myMessageText
-                            : styles.theirMessageText,
-                        ]}
-                      >
-                        {item.body}
-                      </Text>
+                      {!!item.attachment && (
+                        <Pressable
+                          onPress={() => openMusicCard(item.attachment as MusicCard)}
+                          style={styles.card}
+                          accessibilityLabel={`${item.attachment.title}${item.attachment.artist ? ' by ' + item.attachment.artist : ''}`}
+                        >
+                          {item.attachment.artworkUrl ? (
+                            <Image source={{ uri: item.attachment.artworkUrl }} style={styles.cardArt} />
+                          ) : (
+                            <View style={[styles.cardArt, styles.cardArtEmpty]}>
+                              <Text style={styles.cardGlyph}>{item.attachment.kind === 'show' ? '✦' : '♪'}</Text>
+                            </View>
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.cardKind}>{cardLabel(item.attachment)}</Text>
+                            <Text style={styles.cardTitle} numberOfLines={2}>{item.attachment.title}</Text>
+                            {!!item.attachment.artist && (
+                              <Text style={styles.cardArtist} numberOfLines={1}>{item.attachment.artist}</Text>
+                            )}
+                            {!!item.attachment.detail && (
+                              <Text style={styles.cardDetail} numberOfLines={1}>{item.attachment.detail}</Text>
+                            )}
+                          </View>
+                        </Pressable>
+                      )}
+                      {!(item.attachment && item.attachment.autoBody) && (
+                        <Text
+                          style={[
+                            styles.messageText,
+                            isMine
+                              ? styles.myMessageText
+                              : styles.theirMessageText,
+                            !!item.attachment && { marginTop: 8 },
+                          ]}
+                        >
+                          {item.body}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -506,10 +545,32 @@ export default function ChatScreen() {
           )}
         </ScrollView>
 
+        {!!staged && (
+          <View style={styles.staged}>
+            {staged.artworkUrl ? (
+              <Image source={{ uri: staged.artworkUrl }} style={styles.stagedArt} />
+            ) : (
+              <View style={[styles.stagedArt, styles.cardArtEmpty]}>
+                <Text style={styles.cardGlyph}>{staged.kind === 'show' ? '✦' : '♪'}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardKind}>SENDING {cardLabel(staged)}</Text>
+              <Text style={styles.stagedTitle} numberOfLines={1}>
+                {staged.title}
+                {staged.artist ? ` · ${staged.artist}` : ''}
+              </Text>
+            </View>
+            <Pressable onPress={() => setStaged(null)} hitSlop={10} accessibilityLabel="Remove attachment">
+              <Text style={styles.stagedRemove}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
-            placeholder={`Message ${otherName}...`}
+            placeholder={staged ? 'Add a thought, or just send it…' : `Message ${otherName}...`}
             placeholderTextColor="#666666"
             value={message}
             onChangeText={setMessage}
@@ -523,18 +584,18 @@ export default function ChatScreen() {
           <Pressable
             onPress={sendMessage}
             disabled={
-              !message.trim() ||
+              (!message.trim() && !staged) ||
               !conversationId ||
               sending
             }
             style={({ pressed }) => [
               styles.sendButton,
-              (!message.trim() ||
+              ((!message.trim() && !staged) ||
                 !conversationId ||
                 sending) &&
                 styles.sendButtonDisabled,
               pressed &&
-                message.trim() &&
+                (message.trim() || staged) &&
                 styles.sendPressed,
             ]}
           >
@@ -549,6 +610,29 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  card: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 14, padding: 8, minWidth: 220 },
+  cardArt: { width: 56, height: 56, borderRadius: 8 },
+  cardArtEmpty: { backgroundColor: '#1d1d1d', alignItems: 'center', justifyContent: 'center' },
+  cardGlyph: { color: '#39E75F', fontSize: 20 },
+  cardKind: { color: '#39E75F', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  cardTitle: { color: '#ffffff', fontSize: 15, fontWeight: '800', marginTop: 2 },
+  cardArtist: { color: '#cfcfcf', fontSize: 12, marginTop: 2 },
+  cardDetail: { color: '#9fb9a5', fontSize: 11, marginTop: 3 },
+  staged: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 14,
+    marginBottom: 6,
+    padding: 8,
+    borderRadius: 14,
+    backgroundColor: '#0d150f',
+    borderWidth: 1,
+    borderColor: '#2b5a33',
+  },
+  stagedArt: { width: 40, height: 40, borderRadius: 7 },
+  stagedTitle: { color: '#ffffff', fontSize: 14, fontWeight: '700', marginTop: 2 },
+  stagedRemove: { color: '#bbbbbb', fontSize: 14, fontWeight: '900', paddingHorizontal: 6 },
   container: {
     flex: 1,
     backgroundColor: '#050505',
