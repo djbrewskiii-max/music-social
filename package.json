@@ -56,7 +56,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "update": "bash scripts/ovrlee-update.sh"
   },
   "private": true
 }

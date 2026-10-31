@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '../supabase';
+import Sparks, { SparkGlow } from './Sparks';
 
 /*
   YOU TWO — why two people might click, built only from things both of them
@@ -72,19 +73,19 @@ function addWeight(map: Map<string, { name: string; weight: number }>, artist: s
   else map.set(key, { name: artist.split(FEATURE_SPLIT)[0].trim(), weight });
 }
 
-// Frequency, not "overlap": how in tune two people's music is.
-function frequency(points: number) {
-  if (points >= 10) return { word: 'Rare frequency', bars: 5 };
-  if (points >= 5) return { word: 'Same frequency', bars: 4 };
-  if (points >= 2) return { word: 'In sync', bars: 3 };
-  if (points > 0) return { word: 'Tuning in', bars: 2 };
-  return { word: 'New frequency', bars: 1 };
-}
+// Sparks (max 5): taste earns up to 3, connection earns up to 3 (two-way only).
+const tasteSparks = (points: number) => (points >= 6 ? 3 : points >= 3 ? 2 : points > 0 ? 1 : 0);
+const QUIET_DAYS = 21;
 
 export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
   const [loading, setLoading] = useState(true);
   const [reasons, setReasons] = useState<Reason[]>([]);
-  const [freq, setFreq] = useState(frequency(0));
+  const [taste, setTaste] = useState(0);
+  const [twoWay, setTwoWay] = useState(false);
+  const [lasting, setLasting] = useState(false);
+  const [sharedMoment, setSharedMoment] = useState(false);
+  const [lastTouch, setLastTouch] = useState<string | null>(null);
+  const [showWhy, setShowWhy] = useState(false);
   const [people, setPeople] = useState<string>('');
   const [hasAnything, setHasAnything] = useState(false);
 
@@ -248,7 +249,14 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
       }
 
       setReasons(found.slice(0, 12));
-      setFreq(frequency(points));
+      setTaste(tasteSparks(points));
+      const { data: conn } = await supabase.rpc('connection_with', { p_other: userId });
+      if (!alive) return;
+      const row = Array.isArray(conn) ? conn[0] : conn;
+      setTwoWay(!!row?.two_way);
+      setLasting(!!row?.lasting);
+      setSharedMoment(!!row?.shared_moment);
+      setLastTouch(row?.last_interaction ?? null);
       setHasAnything(found.length > 0);
       setLoading(false);
     })().catch((error) => {
@@ -276,40 +284,39 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
     router.push({ pathname: '/chat', params: { userId, name: theirName, attach: JSON.stringify(card) } });
   };
 
-  const headline = !hasAnything
-    ? `You and ${theirName} are on different frequencies.`
-    : freq.bars >= 5
-      ? `You and ${theirName} are on a rare frequency.`
-      : freq.bars === 4
-        ? `You and ${theirName} are on the same frequency.`
-        : freq.bars === 3
-          ? `You and ${theirName} are in sync.`
-          : `You and ${theirName} are tuning in.`;
+  const connection = (twoWay ? 1 : 0) + (lasting ? 1 : 0) + (sharedMoment ? 1 : 0);
+  const sparks = Math.min(5, taste + connection);
+  const showSparks = sparks >= 3;
+  const quiet = !lastTouch || Date.now() - new Date(lastTouch).getTime() > QUIET_DAYS * 86400000;
+  const glow: SparkGlow = sparks === 5 ? (quiet ? 'dim' : 'bright') : 'none';
+  const why = [
+    `Taste ${taste}/3`,
+    twoWay ? 'You talk back and forth' : null,
+    lasting ? 'It’s lasted' : null,
+    sharedMoment ? 'You’ve shared a moment' : null,
+  ]
+    .filter(Boolean)
+    .join('  ·  ');
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.eyebrow}>YOU & {theirName.toUpperCase()}</Text>
-        {!loading && (
-          <View style={styles.meterWrap} accessibilityLabel={freq.word}>
-            <View style={styles.meter}>
-              {[1, 2, 3, 4, 5].map((bar) => (
-                <View
-                  key={bar}
-                  style={[styles.bar, { height: 5 + bar * 3 }, bar <= freq.bars && styles.barOn]}
-                />
-              ))}
-            </View>
-            <Text style={styles.freqWord}>{freq.word.toUpperCase()}</Text>
-          </View>
+        <Text style={styles.youAnd} numberOfLines={1}>
+          You & {theirName}
+        </Text>
+        {!loading && showSparks && (
+          <Pressable onPress={() => setShowWhy((v) => !v)} hitSlop={10} accessibilityRole="button">
+            <Sparks count={sparks} glow={glow} />
+          </Pressable>
         )}
       </View>
+      {showWhy && showSparks && <Text style={styles.why}>{why}</Text>}
+      {glow === 'dim' && !showWhy && <Text style={styles.why}>It’s been quiet. Say something to relight it.</Text>}
 
       {loading ? (
         <ActivityIndicator color={GREEN} style={{ marginVertical: 18 }} />
       ) : (
         <>
-          <Text style={styles.title}>{headline}</Text>
           {!hasAnything && (
             <Text style={styles.subtle}>Different taste is how you find new music. Their Core Four is a good place to start.</Text>
           )}
@@ -363,7 +370,8 @@ const styles = StyleSheet.create({
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.2, flexShrink: 1, marginRight: 10 },
-  meterWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  youAnd: { color: '#ffffff', fontSize: 22, fontWeight: '900', flexShrink: 1, marginRight: 12 },
+  why: { color: '#8fb898', fontSize: 11, marginTop: 8 },
   meter: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 20 },
   bar: { width: 4, borderRadius: 2, backgroundColor: '#2a3a2d' },
   barOn: { backgroundColor: GREEN },
