@@ -30,7 +30,7 @@ plist.NSAppleMusicUsageDescription =
   'OVRLEE uses your Apple Music library and listening to build your music identity, find people who listen like you, and play listening parties in sync.';
 plist.NSMicrophoneUsageDescription =
   'OVRLEE uses the microphone only when you tap Recognize Music to identify a song playing near you.';
-changes.push('Permission messages updated');
+
 
 // 4. ovrlee:// links (existing schemes stay first so current links keep working)
 const schemes = Array.isArray(expo.scheme) ? expo.scheme : expo.scheme ? [expo.scheme] : [];
@@ -62,6 +62,30 @@ if (!hasShare) {
     },
   ]);
   changes.push('Share extension added');
+}
+
+// 7. Save collection slides straight to Photos
+const hasMedia = (expo.plugins || []).some((p) => p === 'expo-media-library' || (Array.isArray(p) && p[0] === 'expo-media-library'));
+if (!hasMedia) {
+  expo.plugins.push([
+    'expo-media-library',
+    {
+      savePhotosPermission: 'OVRLEE saves your collection slides to Photos so you can post them anywhere.',
+      photosPermission: 'OVRLEE uses your photos for posts and collections.',
+      isAccessMediaLocationEnabled: false,
+    },
+  ]);
+  changes.push('Save-to-Photos added (takes effect in the next app build)');
+}
+
+// 8. Development builds reopen the last server instead of the launcher
+const devClient = (expo.plugins || []).find((p) => p === 'expo-dev-client' || (Array.isArray(p) && p[0] === 'expo-dev-client'));
+if (!devClient) {
+  expo.plugins.push(['expo-dev-client', { launchMode: 'most-recent' }]);
+  changes.push('Dev builds skip the server picker (next app build)');
+} else if (Array.isArray(devClient) && devClient[1]?.launchMode !== 'most-recent') {
+  devClient[1] = { ...(devClient[1] || {}), launchMode: 'most-recent' };
+  changes.push('Dev builds skip the server picker (next app build)');
 }
 
 fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');

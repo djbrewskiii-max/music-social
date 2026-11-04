@@ -74,6 +74,20 @@
           },
           "disableAndroid": true
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "OVRLEE saves your collection slides to Photos so you can post them anywhere.",
+          "photosPermission": "OVRLEE uses your photos for posts and collections.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "expo-dev-client",
+        {
+          "launchMode": "most-recent"
+        }
       ]
     ],
     "experiments": {

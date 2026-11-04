@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { artistImage } from '../apple-catalog';
 import { supabase } from '../supabase';
 import Sparks, { SparkGlow } from './Sparks';
 
@@ -249,6 +250,18 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
       }
 
       setReasons(found.slice(0, 12));
+
+      // Artist tiles get the artist's photo instead of an initial.
+      Promise.all(
+        found
+          .filter((r) => r.kind === 'artist' && !r.artworkUrl)
+          .slice(0, 6)
+          .map(async (r) => [r.key, await artistImage(r.title)] as const)
+      ).then((pairs) => {
+        if (!alive) return;
+        const photos = new Map(pairs.filter(([, url]) => !!url));
+        if (photos.size) setReasons((prev) => prev.map((r) => (photos.has(r.key) ? { ...r, artworkUrl: photos.get(r.key)! } : r)));
+      });
       setTaste(tasteSparks(points));
       const { data: conn } = await supabase.rpc('connection_with', { p_other: userId });
       if (!alive) return;

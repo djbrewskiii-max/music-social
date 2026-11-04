@@ -1,11 +1,16 @@
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useFonts } from 'expo-font';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CollectionMeta, itemsFromPost } from '../collection';
+import Slide, { buildSlides, SLIDE_H, SLIDE_W } from '../components/CollectionSlides';
+import { captureSlides, saveSlides } from '../export-slides';
+import { addToRotation } from '../music-card';
 import { supabase } from '../supabase';
 import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music-provider';
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string };
-type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null };
+type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
 type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
@@ -29,6 +34,54 @@ export default function PostDetailScreen() {
   const [likes, setLikes] = useState(0);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
+  const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
+  const [saved, setSaved] = useState(false);
+  const [saveCount, setSaveCount] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const exportRefs = useRef<(View | null)[]>([]);
+
+  const loadSaves = useCallback(async (id: string, me: string | null) => {
+    const { data } = await supabase.from('collection_saves').select('user_id').eq('post_id', id);
+    const rows = (data as { user_id: string }[]) || [];
+    setSaveCount(rows.length);
+    setSaved(!!me && rows.some((r) => r.user_id === me));
+  }, []);
+
+  const toggleSave = async () => {
+    if (!post || !myUserId) return;
+    const next = !saved;
+    setSaved(next);
+    setSaveCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    const result = next
+      ? await supabase.from('collection_saves').insert({ user_id: myUserId, post_id: post.id })
+      : await supabase.from('collection_saves').delete().eq('user_id', myUserId).eq('post_id', post.id);
+    if (result.error && result.error.code !== '23505') {
+      setSaved(!next);
+      setSaveCount((c) => Math.max(0, c + (next ? -1 : 1)));
+    }
+  };
+
+  const pin = async (track: Music) => {
+    const result = await addToRotation({ song: track.song, artist: track.artist, artworkUrl: track.artworkUrl || null });
+    if (result === 'added') Alert.alert('In rotation', `${track.song} is on your profile now.`);
+    else if (result === 'already') Alert.alert('Already in rotation', `${track.song} is already one of your five.`);
+    else if (result === 'full') Alert.alert('Your rotation is full', 'Swap a song out on your profile to make room.');
+    else Alert.alert('That didn’t go through', 'Try again in a moment.');
+  };
+
+  const exportCollection = async (count: number) => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const uris = await captureSlides(exportRefs.current.slice(0, count));
+      const result = await saveSlides(uris);
+      if (result.mode === 'photos') Alert.alert('Saved to Photos', `${result.count} slides are in your camera roll, in order.`);
+    } catch (e: any) {
+      Alert.alert("Couldn't save slides", e?.message || 'Try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
 
   const load = useCallback(async () => {
@@ -36,7 +89,7 @@ export default function PostDetailScreen() {
     setLoading(true); setError('');
     try {
       const { data: found, error: postError } = await supabase.from('posts')
-        .select('id,user_id,created_at,body,song_title,artist_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items')
+        .select('id,user_id,created_at,body,song_title,artist_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
         .eq('id', postId).maybeSingle();
       if (postError) throw postError;
       if (!found) { setError('This post is unavailable.'); setPost(null); return; }
@@ -51,6 +104,7 @@ export default function PostDetailScreen() {
       if (replyResult.error) throw replyResult.error;
       if (likeResult.error) console.log('Post likes:', likeResult.error.message);
       setMyUserId(userResult.data.user?.id || null);
+      if (item.collection) loadSaves(item.id, userResult.data.user?.id || null);
       const p = profileResult.data;
       setAuthor({ name: p?.display_name || 'Listener', username: p?.username || '', avatar: p?.avatar_url || null });
       const rows = replyResult.data || [];
@@ -125,8 +179,45 @@ export default function PostDetailScreen() {
             {author.avatar ? <Image source={{ uri: author.avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={{ color: '#fff' }}>{author.name[0]}</Text></View>}
             <View><Text style={styles.authorName}>{author.name}</Text><Text style={styles.secondary}>@{author.username}</Text></View>
           </Pressable>
-          {!!post.body && <Text style={styles.caption}>{post.body}</Text>}
-          {photos.length > 0 && <View style={{ marginBottom: 20 }}>
+          {!!post.body && !post.collection && <Text style={styles.caption}>{post.body}</Text>}
+          {!!post.collection && fontsLoaded && (() => {
+            const items = itemsFromPost(post);
+            const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos });
+            const slideW = Math.min(260, width - 110);
+            return (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={styles.collectionTitle}>{post.collection.title}</Text>
+                {!!post.body && <Text style={styles.caption}>{post.body}</Text>}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 6 }}>
+                  {slides.map((spec, i) => (
+                    <View key={i} style={{ borderRadius: 10, overflow: 'hidden' }}>
+                      <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} />
+                    </View>
+                  ))}
+                </ScrollView>
+                <View style={styles.collectionActions}>
+                  {post.user_id !== myUserId ? (
+                    <Pressable onPress={toggleSave} style={[styles.saveButton, saved && styles.saveButtonOn]}>
+                      <Text style={[styles.saveText, saved && { color: green }]}>{saved ? 'SAVED ✓' : 'SAVE COLLECTION'}</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable onPress={() => exportCollection(slides.length)} disabled={exporting} style={[styles.saveButton, exporting && { opacity: 0.5 }]}>
+                      <Text style={styles.saveText}>{exporting ? 'SAVING…' : 'SAVE SLIDES'}</Text>
+                    </Pressable>
+                  )}
+                  {saveCount > 0 && <Text style={styles.secondary}>{saveCount} {saveCount === 1 ? 'save' : 'saves'}</Text>}
+                </View>
+                <View style={styles.offscreen} pointerEvents="none">
+                  {slides.map((spec, i) => (
+                    <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
+                      <Slide spec={spec} width={SLIDE_W} username={author.username} index={i} total={slides.length} />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
+          {photos.length > 0 && !post.collection && <View style={{ marginBottom: 20 }}>
             <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={e => setGalleryIndex(Math.round(e.nativeEvent.contentOffset.x / (width - 36)))}>
               {photos.map((url, index) => <Pressable key={`${index}-${url}`} onPress={() => setViewer(index)}>
@@ -139,7 +230,14 @@ export default function PostDetailScreen() {
             <Text style={styles.musicLabel}>{music.length > 1 ? `COLLECTION · ${music.length} TRACKS` : 'MUSIC'}</Text>
             {music.map((track, i) => <Pressable key={`${track.id || track.song}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]} onPress={() => openMusic(track)}>
               {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.cover} /> : <View style={styles.cover}><Text style={{ color: '#fff' }}>♪</Text></View>}
-              <View style={{ flex: 1 }}><Text style={styles.trackName} numberOfLines={1}>{track.song}</Text><Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
+                <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
+                {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
+                <Pressable onPress={() => pin(track)} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+                  <Text style={styles.rotationLink}>+ ADD TO MY ROTATION</Text>
+                </Pressable>
+              </View>
               <Text style={styles.play}>▶</Text>
             </Pressable>)}
           </View>
@@ -189,6 +287,14 @@ export default function PostDetailScreen() {
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
+  collectionTitle: { color: '#ffffff', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 34, lineHeight: 38, marginBottom: 6 },
+  collectionActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
+  saveButton: { borderWidth: 1, borderColor: '#3a3a3a', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  saveButtonOn: { borderColor: '#39E75F', backgroundColor: '#0e1a10' },
+  saveText: { color: '#ffffff', fontSize: 11, fontWeight: '900', letterSpacing: 1.1 },
+  offscreen: { position: 'absolute', left: -10000, top: 0 },
+  trackNote: { color: '#dadada', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 16, marginTop: 4 },
+  rotationLink: { color: '#39E75F', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   screen: { flex: 1, backgroundColor: '#050505' },
   header: { height: 60, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#222' },
   back: { color: '#fff', fontSize: 34 }, title: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 2 },

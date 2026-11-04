@@ -79,3 +79,22 @@ export async function getAlbumWithTracks(
     }));
   return { album: toAlbum(item), tracks };
 }
+
+const artistImageCache = new Map<string, string | null>();
+
+/** An artist's photo from the Apple Music catalog (null if none). */
+export async function artistImage(name: string): Promise<string | null> {
+  const key = name.trim().toLowerCase();
+  if (artistImageCache.has(key)) return artistImageCache.get(key)!;
+  try {
+    const json = await catalogFetch(`/search?${new URLSearchParams({ term: name, types: 'artists', limit: '3' }).toString()}`);
+    const artists: any[] = json?.results?.artists?.data || [];
+    const match = artists.find((a) => String(a?.attributes?.name || '').trim().toLowerCase() === key) || artists[0];
+    const url = artworkUrl(match?.attributes?.artwork?.url, 400);
+    artistImageCache.set(key, url);
+    return url;
+  } catch {
+    artistImageCache.set(key, null);
+    return null;
+  }
+}

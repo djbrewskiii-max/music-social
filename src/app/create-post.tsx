@@ -237,6 +237,14 @@ export default function CreatePostScreen() {
           {step === 'compose' ? <>
             <Text style={styles.heading}>Post through music.</Text>
             <Text style={styles.muted}>Choose music to make a post your own.</Text>
+            <Pressable onPress={() => router.push('/studio')} style={({ pressed }) => [styles.studioCard, pressed && { opacity: 0.8 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.studioEyebrow}>OVRLEE STUDIO</Text>
+                <Text style={styles.studioTitle}>Make a collection</Text>
+                <Text style={styles.studioSub}>Liner notes, album walls, moodboards. Post it here, share it anywhere.</Text>
+              </View>
+              <Text style={styles.studioArrow}>→</Text>
+            </Pressable>
             <View style={styles.postCard}>
               <View style={styles.counterRow}><Text style={styles.eyebrow}>YOUR POST</Text><Text style={styles.itemCounter}>{itemCount}/{MAX_ITEMS}</Text></View>
               {tracks.map((track, index) => <View key={`${track.id}-${index}`} style={styles.trackRow}>
@@ -309,6 +317,11 @@ export default function CreatePostScreen() {
   );
 }
 const styles = StyleSheet.create({
+  studioCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f1a11', borderWidth: 1, borderColor: '#24412a', borderRadius: 18, padding: 16, marginTop: 18 },
+  studioEyebrow: { color: '#39E75F', fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
+  studioTitle: { color: '#ffffff', fontSize: 18, fontWeight: '900', marginTop: 6 },
+  studioSub: { color: '#9aa79c', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  studioArrow: { color: '#39E75F', fontSize: 22, marginLeft: 12 },
   sharedNote: { color: '#39E75F', fontSize: 13, fontWeight: '700', marginBottom: 10 },
   counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemCounter: { color: green, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
