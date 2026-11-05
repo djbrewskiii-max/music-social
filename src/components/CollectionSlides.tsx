@@ -141,18 +141,39 @@ function titleSize(text: string, base: number) {
 const captionSize = (text: string) => (text.length <= 40 ? 18 : text.length <= 90 ? 15.5 : 13.5);
 const noteSize = (text: string) => (text.length <= 40 ? 24 : text.length <= 100 ? 20 : 16.5);
 
-/* Album art arrangement for the Tracklist cover, by how many songs there are. */
-function artGrid(n: number): { cols: number; size: number } {
-  if (n <= 1) return { cols: 1, size: 210 };
-  if (n === 2) return { cols: 2, size: 150 };
-  if (n === 3) return { cols: 3, size: 100 };
-  if (n === 4) return { cols: 2, size: 128 };
-  if (n <= 6) return { cols: 3, size: 96 };
-  if (n <= 9) return { cols: 3, size: 76 };
-  return { cols: 4, size: 62 };
+/* Album art arrangement for the Tracklist cover: as big as the space allows.
+   1–3 covers sit in one row (left to right); more fill the best grid. */
+function artGrid(n: number, availH: number): { cols: number; size: number } {
+  const W = 316;
+  const gap = 8;
+  if (n <= 0) return { cols: 1, size: Math.min(200, availH) };
+  if (n <= 3) {
+    const size = Math.min((W - (n - 1) * gap) / n, availH, n === 1 ? 230 : 999);
+    return { cols: n, size: Math.floor(size) };
+  }
+  let best = { cols: 2, size: 0 };
+  for (let cols = 2; cols <= 4; cols++) {
+    const rows = Math.ceil(n / cols);
+    const size = Math.min((W - (cols - 1) * gap) / cols, (availH - (rows - 1) * gap) / rows);
+    if (size > best.size) best = { cols, size: Math.floor(size) };
+  }
+  return best;
+}
+
+/* Album wall: fewer covers, fewer and bigger tiles (so covers barely repeat). */
+type WallLayout = { cols: number; rows: number; photo: [number, number, number, number] }; // photo: col, row, colSpan, rowSpan
+function wallLayout(n: number): WallLayout {
+  if (n <= 8) return { cols: 3, rows: 3, photo: [1, 1, 1, 1] }; // 8 tiles
+  if (n <= 10) return { cols: 3, rows: 4, photo: [1, 1, 1, 2] }; // 10 tiles
+  if (n <= 12) return { cols: 4, rows: 4, photo: [1, 1, 2, 2] }; // 12 tiles
+  if (n <= 14) return { cols: 4, rows: 5, photo: [1, 1, 2, 3] }; // 14 tiles
+  return { cols: 4, rows: 6, photo: [1, 1, 2, 4] }; // 16 tiles
 }
 
 export type SlideEditing = {
+  arranging?: boolean; // show numbers + remove buttons; tap two covers to swap
+  selected?: number | null; // the cover picked first in a swap
+  onRemove?: (index: number) => void;
   onTitle?: () => void;
   onPhoto?: (index: number) => void;
   onAddSong?: () => void;
@@ -231,6 +252,32 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     </Pressable>
   );
 
+  // An album cover tile. In Arrange mode it shows its number and a remove
+  // button, and the cover picked for a swap gets a ring.
+  const Cover = ({ uri, songIndex, style, radius = 4 }: { uri: string | null; songIndex: number; style: any; radius?: number }) => {
+    const arranging = !!editing?.arranging && songIndex >= 0;
+    const picked = arranging && editing?.selected === songIndex;
+    return (
+      <Pressable
+        disabled={!editing}
+        onPress={() => (uri ? editing?.onSong?.(songIndex) : editing?.onAddSong?.())}
+        style={[{ borderRadius: u(radius), overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style, picked && { borderWidth: u(3), borderColor: '#39E75F' }]}
+      >
+        {uri ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} /> : editing ? <Text style={{ color: p.sub, fontSize: u(20), fontWeight: '300' }}>+</Text> : null}
+        {arranging && uri && (
+          <>
+            <View style={{ position: 'absolute', left: u(4), bottom: u(4), minWidth: u(18), height: u(18), borderRadius: u(9), backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: u(4) }}>
+              <Text style={{ color: '#fff', fontSize: u(10), fontWeight: '900' }}>{songIndex + 1}</Text>
+            </View>
+            <Pressable onPress={() => editing?.onRemove?.(songIndex)} hitSlop={8} style={{ position: 'absolute', right: u(4), top: u(4), width: u(20), height: u(20), borderRadius: u(10), backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: u(10), fontWeight: '900' }}>✕</Text>
+            </Pressable>
+          </>
+        )}
+      </Pressable>
+    );
+  };
+
   let body: React.ReactNode = null;
 
   /* Liner Notes cover: the photo framed in the card, words below. The photo
@@ -258,9 +305,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     const art = item.note.length > 100 ? 220 : item.note.length > 40 ? 248 : 268;
     body = (
       <View style={{ position: 'absolute', top: u(58), left: u(22), right: u(22), bottom: u(64) }}>
-        <Pressable disabled={!editing?.onSong} onPress={() => editing?.onSong?.(spec.index)} style={{ alignSelf: 'center', width: u(art), height: u(art), borderRadius: u(5), overflow: 'hidden', backgroundColor: p.tile }}>
-          {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: '100%', height: '100%' }} /> : null}
-        </Pressable>
+        <Cover uri={item.artworkUrl || null} songIndex={spec.index} radius={5} style={{ alignSelf: 'center', width: u(art), height: u(art) }} />
         <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: u(24) }}>
           <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '700', width: u(24) }}>{String(spec.index + 1).padStart(2, '0')}</Text>
           <Text style={{ flex: 1, color: p.ink, fontSize: u(26), fontWeight: '900', letterSpacing: u(-0.4) }} numberOfLines={2}>
@@ -281,37 +326,46 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     );
   }
 
-  /* Album wall: your photo surrounded by covers. */
+  /* Album wall: your photo surrounded by covers. The grid grows with the
+     number of albums, so a few albums get big tiles and barely repeat. */
   if (spec.kind === 'wall') {
     const n = spec.arts.length;
-    const cells = Array.from({ length: 16 }, (_, i) => (editing ? spec.arts[i] || null : n ? spec.arts[(i * 7 + Math.floor(i / 4)) % n] : null));
-    const cell = u(73);
+    const L = wallLayout(n);
     const gap = u(6);
+    const areaW = u(324);
+    const areaH = u(410);
+    const cw = (areaW - gap * (L.cols - 1)) / L.cols;
+    const ch = Math.min((areaH - gap * (L.rows - 1)) / L.rows, cw);
     const left = u(18);
     const top = u(52);
-    const positions: [number, number][] = [];
-    for (let r = 0; r < 6; r++) for (let c = 0; c < 4; c++) if (!(r >= 1 && r <= 4 && (c === 1 || c === 2))) positions.push([r, c]);
+    const [pc, pr, pcs, prs] = L.photo;
+    const tiles: [number, number][] = [];
+    for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) if (!(c >= pc && c < pc + pcs && r >= pr && r < pr + prs)) tiles.push([r, c]);
     body = (
       <>
-        {positions.map(([r, c], i) => (
-          <Pressable
-            key={i}
-            disabled={!editing}
-            onPress={() => (cells[i] ? editing?.onSong?.(i) : editing?.onAddSong?.())}
-            style={{ position: 'absolute', left: left + c * (cell + gap), top: top + r * (cell * 0.92 + gap), width: cell, height: cell * 0.92, borderRadius: u(3), overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }}
-          >
-            {cells[i] ? <Image source={{ uri: cells[i]! }} style={{ width: '100%', height: '100%' }} /> : editing ? <Text style={{ color: p.sub, fontSize: u(20), fontWeight: '300' }}>+</Text> : null}
-          </Pressable>
-        ))}
+        {tiles.map(([r, c], i) => {
+          // Editing: one tile per album, empty "+" spots for the rest.
+          // Posted: fill every tile, repeating in a staggered order if needed.
+          const songIndex = editing ? (i < n ? i : -1) : n ? (i * 7 + Math.floor(i / L.cols)) % n : -1;
+          return (
+            <Cover
+              key={i}
+              uri={songIndex >= 0 ? spec.arts[songIndex] : null}
+              songIndex={editing ? songIndex : -1}
+              radius={3}
+              style={{ position: 'absolute', left: left + c * (cw + gap), top: top + r * (ch + gap), width: cw, height: ch }}
+            />
+          );
+        })}
         <Photo
           uri={spec.photo}
           slot={0}
           label="Tap to add your photo"
-          style={{ position: 'absolute', left: left + cell + gap, top: top + cell * 0.92 + gap, width: cell * 2 + gap, height: (cell * 0.92 + gap) * 4 - gap, borderRadius: u(4) }}
+          style={{ position: 'absolute', left: left + pc * (cw + gap), top: top + pr * (ch + gap), width: cw * pcs + gap * (pcs - 1), height: ch * prs + gap * (prs - 1), borderRadius: u(4) }}
         />
-        <View style={{ position: 'absolute', left: u(20), right: u(20), bottom: u(64) }}>
+        <View style={{ position: 'absolute', left: u(20), right: u(20), top: top + L.rows * (ch + gap) + u(10), bottom: u(64), justifyContent: 'center' }}>
           <Title text={spec.title} base={36} lines={2} />
-          {!!spec.caption && <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={1}>{spec.caption}</Text>}
+          {!!spec.caption && <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={2}>{spec.caption}</Text>}
           {!spec.caption && <Caption text="" />}
         </View>
       </>
@@ -337,7 +391,10 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
   /* Tracklist cover: the words, then the covers arranged for how many songs
      there are (one big cover for a single, a tidy grid for nine). */
   if (spec.kind === 'tracklistCover') {
-    const g = artGrid(spec.arts.length);
+    // Rough height the words take, so the covers can use the rest.
+    const titleLines = Math.min(spec.arts.length > 6 ? 3 : 4, Math.ceil(spec.title.length / 16));
+    const wordsH = 50 * 0.9 * titleLines + (spec.caption ? 22 * Math.min(4, Math.ceil(spec.caption.length / 34)) : 34) + 40;
+    const g = artGrid(spec.arts.length, Math.max(120, 506 - wordsH - 24));
     body = (
       <View style={{ position: 'absolute', left: u(22), right: u(22), top: u(70), bottom: u(64) }}>
         <View>
@@ -349,11 +406,9 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           </Text>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: u(14) }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: u(8), width: u(g.cols * g.size + (g.cols - 1) * 8) }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: u(8), width: u(g.cols * g.size + (g.cols - 1) * 8) + 2 }}>
             {spec.arts.map((a, i) => (
-              <View key={i} style={{ width: u(g.size), height: u(g.size), borderRadius: u(4), overflow: 'hidden', backgroundColor: p.tile }}>
-                {a ? <Image source={{ uri: a }} style={{ width: '100%', height: '100%' }} /> : null}
-              </View>
+              <Cover key={i} uri={a || null} songIndex={i} style={{ width: u(g.size), height: u(g.size) }} />
             ))}
             {editing?.onAddSong && spec.arts.length === 0 && (
               <Pressable onPress={editing.onAddSong} style={{ width: u(g.size), height: u(g.size), borderRadius: u(4), borderWidth: 1, borderStyle: 'dashed', borderColor: p.line, alignItems: 'center', justifyContent: 'center' }}>
@@ -373,7 +428,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     body = (
       <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(56), bottom: u(64), justifyContent: n <= 6 ? 'center' : 'flex-start' }}>
         {spec.items.map((item, i) => (
-          <Pressable disabled={!editing} onPress={() => editing?.onSong?.(spec.start + i)} key={`${item.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', height: u(d.row), borderBottomWidth: Math.max(1, u(0.6)), borderBottomColor: p.line }}>
+          <Pressable disabled={!editing} onPress={() => editing?.onSong?.(spec.start + i)} key={`${item.id}-${i}`} style={[{ flexDirection: 'row', alignItems: 'center', height: u(d.row), borderBottomWidth: Math.max(1, u(0.6)), borderBottomColor: p.line }, editing?.arranging && editing.selected === spec.start + i && { backgroundColor: 'rgba(57,231,95,0.18)' }]}>
             <Text style={{ width: u(24), color: p.sub, fontSize: u(10), fontWeight: '700', fontVariant: ['tabular-nums'] }}>{String(spec.start + i + 1).padStart(2, '0')}</Text>
             <View style={{ width: u(d.art), height: u(d.art), borderRadius: u(4), overflow: 'hidden', backgroundColor: p.tile, marginRight: u(12) }}>
               {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: '100%', height: '100%' }} /> : null}
@@ -382,6 +437,11 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
               <Text style={{ color: p.ink, fontSize: u(d.title), fontWeight: '800' }} numberOfLines={n <= 4 ? 2 : 1}>{item.song}</Text>
               <Text style={{ color: p.sub, fontSize: u(d.artist), marginTop: u(2) }} numberOfLines={1}>{item.artist}</Text>
             </View>
+            {editing?.arranging && (
+              <Pressable onPress={() => editing.onRemove?.(spec.start + i)} hitSlop={8} style={{ width: u(22), height: u(22), borderRadius: u(11), backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', marginLeft: u(8) }}>
+                <Text style={{ color: '#fff', fontSize: u(10), fontWeight: '900' }}>✕</Text>
+              </Pressable>
+            )}
           </Pressable>
         ))}
         {editing?.onAddSong && n < 12 && (

@@ -1577,7 +1577,7 @@ export default function ProfileScreen() {
                     )}
 
                     {post.collection ? (
-                      <CollectionPreview post={{ ...post, music_items: post.music_items || [], collection: post.collection }} username={profile.username || ''} slideWidth={130} />
+                      <CollectionPreview post={{ ...post, music_items: post.music_items || [], collection: post.collection }} username={profile.username || ''} slideWidth={160} />
                     ) : (<View
                       style={
                         styles.postMusic

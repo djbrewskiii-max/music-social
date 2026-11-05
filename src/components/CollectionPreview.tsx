@@ -1,8 +1,9 @@
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CollectionMeta, itemsFromPost } from '../collection';
+import { openMusicCard } from '../music-card';
 import Slide, { buildSlides, ThemeKey } from './CollectionSlides';
 
 /*
@@ -22,7 +23,7 @@ type Props = {
   slideWidth?: number;
 };
 
-export default function CollectionPreview({ post, username, slideWidth = 150 }: Props) {
+export default function CollectionPreview({ post, username, slideWidth = 190 }: Props) {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   if (!fontsLoaded) return null;
 
@@ -45,9 +46,36 @@ export default function CollectionPreview({ post, username, slideWidth = 150 }: 
           </Pressable>
         ))}
       </ScrollView>
-      <Text style={styles.meta}>
-        COLLECTION · {items.length} {items.length === 1 ? 'SONG' : 'SONGS'} · {slides.length} SLIDES
-      </Text>
+      {/* The music itself, right in the feed: the first few, then "see all". */}
+      <View style={styles.tracks}>
+        {items.slice(0, 3).map((it, i) => (
+          <Pressable
+            key={`${it.id}-${i}`}
+            onPress={() => openMusicCard({ kind: it.kind === 'album' ? 'album' : 'song', title: it.song, artist: it.artist, appleId: it.id || null })}
+            style={({ pressed }) => [styles.track, i > 0 && styles.trackDivider, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.trackNum}>{String(i + 1).padStart(2, '0')}</Text>
+            {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.trackArt} /> : <View style={styles.trackArt} />}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.trackTitle} numberOfLines={1}>{it.song}</Text>
+              <Text style={styles.trackArtist} numberOfLines={1}>
+                {it.kind === 'album' ? 'Album · ' : ''}{it.artist}
+              </Text>
+            </View>
+            <Text style={styles.play}>▶</Text>
+          </Pressable>
+        ))}
+        {items.length > 3 && (
+          <Pressable onPress={open} style={styles.more}>
+            <View style={styles.moreArts}>
+              {items.slice(3, 6).map((it, i) => (
+                <Image key={i} source={{ uri: it.artworkUrl }} style={[styles.moreArt, { marginLeft: i ? -10 : 0 }]} />
+              ))}
+            </View>
+            <Text style={styles.moreText}>+{items.length - 3} more · see the full collection →</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -57,5 +85,16 @@ const styles = StyleSheet.create({
   title: { color: '#ffffff', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 28, lineHeight: 31, marginBottom: 10 },
   row: { gap: 10, paddingRight: 10 },
   slide: { borderRadius: 10, overflow: 'hidden' },
-  meta: { color: '#39E75F', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginTop: 10 },
+  tracks: { marginTop: 12, borderWidth: 1, borderColor: '#222', borderRadius: 14, paddingHorizontal: 12 },
+  track: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  trackDivider: { borderTopWidth: 1, borderTopColor: '#1d1d1d' },
+  trackNum: { color: '#666', fontSize: 10, fontWeight: '800', width: 18 },
+  trackArt: { width: 38, height: 38, borderRadius: 5, backgroundColor: '#1a1a1a' },
+  trackTitle: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  trackArtist: { color: '#8a8a8a', fontSize: 12, marginTop: 2 },
+  play: { color: '#39E75F', fontSize: 12, paddingHorizontal: 4 },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#1d1d1d' },
+  moreArts: { flexDirection: 'row', width: 56 },
+  moreArt: { width: 26, height: 26, borderRadius: 4, borderWidth: 1, borderColor: '#000' },
+  moreText: { color: '#39E75F', fontSize: 12, fontWeight: '800' },
 });

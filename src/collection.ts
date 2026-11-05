@@ -20,7 +20,8 @@ export const TEMPLATES: { key: Template; name: string; blurb: string; minPhotos:
 ];
 
 export type CollectionItem = {
-  id: string; // Apple Music catalog song id
+  kind?: 'song' | 'album'; // albums can be collected too (defaults to song)
+  id: string; // Apple Music catalog id (song or album)
   song: string;
   artist: string;
   album: string;
@@ -39,7 +40,9 @@ export type CollectionMeta = {
   colors: Record<string, { bg: string; ink: string }>; // song id → art colors
 };
 
-export type LocalPhoto = { uri: string; base64: string; mimeType: string };
+// A photo picked from the camera roll (base64, not uploaded yet) or one that's
+// already uploaded (url), e.g. from a saved draft.
+export type LocalPhoto = { uri: string; base64?: string; mimeType?: string; url?: string };
 
 const developerToken = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN || '';
 
@@ -69,38 +72,59 @@ export function slideColors(artBg?: string | null) {
 
 /* ------------------------------- search ------------------------------- */
 
-export async function searchSongs(term: string, signal?: AbortSignal): Promise<CollectionItem[]> {
+function toItem(kind: 'song' | 'album', s: any): CollectionItem {
+  const a = s.attributes || {};
+  const colors = slideColors(a.artwork?.bgColor);
+  return {
+    kind,
+    id: String(s.id),
+    song: String(a.name || ''),
+    artist: String(a.artistName || ''),
+    album: kind === 'album' ? String(a.name || '') : String(a.albumName || ''),
+    artworkUrl: artworkUrl(a.artwork?.url, 1000) || '',
+    bg: colors.bg,
+    ink: colors.ink,
+    note: '',
+  };
+}
+
+/** Songs and albums, best matches first (albums lead when the name matches an album). */
+export async function searchMusic(term: string, signal?: AbortSignal): Promise<CollectionItem[]> {
   if (!developerToken) throw new Error('Apple Music search is not configured.');
   const response = await fetch(
-    'https://api.music.apple.com/v1/catalog/us/search?types=songs&limit=25&term=' + encodeURIComponent(term.trim()),
+    'https://api.music.apple.com/v1/catalog/us/search?types=songs,albums&limit=15&term=' + encodeURIComponent(term.trim()),
     { headers: { Authorization: `Bearer ${developerToken}` }, signal }
   );
   if (!response.ok) throw new Error(`Search returned ${response.status}`);
   const json = await response.json();
-  return (json?.results?.songs?.data || []).map((s: any) => {
-    const a = s.attributes || {};
-    const colors = slideColors(a.artwork?.bgColor);
-    return {
-      id: String(s.id),
-      song: String(a.name || ''),
-      artist: String(a.artistName || ''),
-      album: String(a.albumName || ''),
-      artworkUrl: artworkUrl(a.artwork?.url, 1000) || '',
-      bg: colors.bg,
-      ink: colors.ink,
-      note: '',
-    };
-  });
+  const songs: CollectionItem[] = (json?.results?.songs?.data || []).map((x: any) => toItem('song', x));
+  const albums: CollectionItem[] = (json?.results?.albums?.data || []).map((x: any) => toItem('album', x));
+  const q = term.trim().toLowerCase();
+  const albumFirst = albums.some((al) => al.song.toLowerCase().startsWith(q));
+  // Interleave so both kinds show near the top.
+  const out: CollectionItem[] = [];
+  const [first, second] = albumFirst ? [albums, songs] : [songs, albums];
+  for (let i = 0; i < Math.max(first.length, second.length); i++) {
+    if (first[i]) out.push(first[i]);
+    if (second[i]) out.push(second[i]);
+  }
+  return out;
+}
+
+/** Kept for older callers: songs only. */
+export async function searchSongs(term: string, signal?: AbortSignal): Promise<CollectionItem[]> {
+  return (await searchMusic(term, signal)).filter((i) => i.kind !== 'album');
 }
 
 /* ------------------------------ publishing ----------------------------- */
 
 async function uploadPhoto(userId: string, photo: LocalPhoto) {
+  if (!photo.base64) throw new Error('Photo is missing its data. Pick it again.');
   const ext = photo.mimeType === 'image/png' ? 'png' : 'jpg';
   const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
   const { error } = await supabase.storage
     .from('post-photos')
-    .upload(path, decode(photo.base64), { contentType: photo.mimeType, upsert: false });
+    .upload(path, decode(photo.base64), { contentType: photo.mimeType || 'image/jpeg', upsert: false });
   if (error) throw new Error(`Photo upload: ${error.message}`);
   return supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl;
 }
@@ -122,7 +146,7 @@ export async function publishCollection(input: {
   // in the editor keeps earlier photos around in case you switch back).
   const usable = input.template === 'tracklist' ? 0 : input.template === 'moodboard' ? 5 : 1;
   const photoUrls: string[] = [];
-  for (const photo of input.photos.slice(0, usable)) photoUrls.push(await uploadPhoto(user.id, photo));
+  for (const photo of input.photos.slice(0, usable)) photoUrls.push(photo.url || (await uploadPhoto(user.id, photo)));
 
   const first = input.items[0];
   const meta: CollectionMeta = {
@@ -144,7 +168,7 @@ export async function publishCollection(input: {
       album_name: first.album || null,
       artwork_url: first.artworkUrl || null,
       apple_music_id: first.id || null,
-      music_items: input.items.map((i) => ({ id: i.id, song: i.song, artist: i.artist, album: i.album, artworkUrl: i.artworkUrl })),
+      music_items: input.items.map((i) => ({ kind: i.kind || 'song', id: i.id, song: i.song, artist: i.artist, album: i.album, artworkUrl: i.artworkUrl })),
       photo_url: photoUrls[0] || null,
       photo_urls: photoUrls,
       collection: meta,
@@ -161,6 +185,7 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
   return (post.music_items || []).map((m: any) => {
     const colors = meta?.colors?.[m.id] || slideColors(null);
     return {
+      kind: m.kind === 'album' ? 'album' : 'song',
       id: String(m.id || ''),
       song: String(m.song || ''),
       artist: String(m.artist || ''),
@@ -171,4 +196,59 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
       note: meta?.notes?.[m.id] || '',
     };
   });
+}
+
+/* -------------------------------- drafts -------------------------------- */
+
+export type DraftData = {
+  template: Template;
+  theme: string;
+  titleFont: 'serif' | 'bold';
+  title: string;
+  caption: string;
+  items: CollectionItem[];
+  photoUrls: string[];
+};
+
+export type Draft = { id: string; updated_at: string; data: DraftData };
+
+/** Save (or update) a draft. Photos are uploaded so the draft works on any device. */
+export async function saveDraft(draftId: string | null, input: Omit<DraftData, 'photoUrls'> & { photos: LocalPhoto[] }): Promise<{ id: string; photos: LocalPhoto[] }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  const photos: LocalPhoto[] = [];
+  for (const photo of input.photos) {
+    const url = photo.url || (await uploadPhoto(user.id, photo));
+    photos.push({ uri: photo.uri, url });
+  }
+  const data: DraftData = {
+    template: input.template,
+    theme: input.theme,
+    titleFont: input.titleFont,
+    title: input.title,
+    caption: input.caption,
+    items: input.items,
+    photoUrls: photos.map((p) => p.url!),
+  };
+  if (draftId) {
+    const { error } = await supabase.from('collection_drafts').update({ data, updated_at: new Date().toISOString() }).eq('id', draftId);
+    if (error) throw error;
+    return { id: draftId, photos };
+  }
+  const { data: row, error } = await supabase.from('collection_drafts').insert({ user_id: user.id, data }).select('id').single();
+  if (error) throw error;
+  return { id: row.id as string, photos };
+}
+
+export async function listDrafts(): Promise<Draft[]> {
+  const { data, error } = await supabase.from('collection_drafts').select('id, updated_at, data').order('updated_at', { ascending: false }).limit(30);
+  if (error) {
+    console.log('Drafts:', error.message);
+    return [];
+  }
+  return (data as Draft[]) || [];
+}
+
+export async function deleteDraft(id: string) {
+  await supabase.from('collection_drafts').delete().eq('id', id);
 }

@@ -20,7 +20,7 @@ import {
   View,
 } from 'react-native';
 
-import { CollectionItem, LocalPhoto, publishCollection, searchSongs, Template, TEMPLATES } from '../collection';
+import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
@@ -58,6 +58,11 @@ export default function StudioScreen() {
   const [exporting, setExporting] = useState(false);
   const [postedId, setPostedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [arranging, setArranging] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [savingDraft, setSavingDraft] = useState(false);
   const exportRefs = useRef<(View | null)[]>([]);
   const pager = useRef<FlatList>(null);
 
@@ -73,6 +78,51 @@ export default function StudioScreen() {
       setUsername(data?.username || '');
     })();
   }, []);
+
+  // Your drafts, shown on the template picker.
+  useEffect(() => {
+    if (picking) listDrafts().then(setDrafts);
+  }, [picking]);
+
+  const hasWork = !!(title.trim() || caption.trim() || items.length || photos.length);
+
+  const storeDraft = async (thenLeave = false) => {
+    if (savingDraft) return;
+    setSavingDraft(true);
+    try {
+      const saved = await saveDraft(draftId, { template, theme, titleFont, title, caption, items, photos });
+      setDraftId(saved.id);
+      setPhotos(saved.photos);
+      if (thenLeave) router.back();
+      else Alert.alert('Draft saved', 'Find it at the top of Make a collection.');
+    } catch (e: any) {
+      Alert.alert("Couldn't save draft", e?.message || 'Try again.');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const leave = () => {
+    if (!hasWork || postedId) return router.back();
+    Alert.alert('Save this as a draft?', 'You can finish it later.', [
+      { text: 'Save draft', onPress: () => storeDraft(true) },
+      { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+      { text: 'Keep editing', style: 'cancel' },
+    ]);
+  };
+
+  const openDraft = (d: Draft) => {
+    const data = d.data;
+    setDraftId(d.id);
+    setTemplate(data.template);
+    setTheme((data.theme as ThemeKey) || 'auto');
+    setTitleFont(data.titleFont || 'serif');
+    setTitle(data.title || '');
+    setCaption(data.caption || '');
+    setItems(data.items || []);
+    setPhotos((data.photoUrls || []).map((url) => ({ uri: url, url })));
+    setPicking(false);
+  };
 
   // Load "your music" the first time the song sheet opens.
   useEffect(() => {
@@ -103,7 +153,7 @@ export default function StudioScreen() {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        setResults(await searchSongs(query, controller.signal));
+        setResults(await searchMusic(query, controller.signal));
       } catch (e: any) {
         if (e?.name !== 'AbortError') setResults([]);
       } finally {
@@ -141,6 +191,23 @@ export default function StudioScreen() {
     const full = await completeItem(item);
     setAdding(null);
     setItems((prev) => (prev.some((i) => i.id === full.id) ? prev : [...prev, full]));
+  };
+
+  // Arrange mode: tap one cover, then another, to swap them.
+  const tapInArrange = (index: number) => {
+    if (selected === null) return setSelected(index);
+    if (selected === index) return setSelected(null);
+    setItems((prev) => {
+      const next = [...prev];
+      if (!next[selected] || !next[index]) return prev;
+      [next[selected], next[index]] = [next[index], next[selected]];
+      return next;
+    });
+    setSelected(null);
+  };
+  const removeAt = (index: number) => {
+    setItems((prev) => prev.filter((_, i) => i !== index));
+    setSelected(null);
   };
 
   const songActions = (index: number) => {
@@ -220,6 +287,7 @@ export default function StudioScreen() {
     try {
       const id = await publishCollection({ template, theme, titleFont, title, caption, items, photos });
       setPostedId(id);
+      if (draftId) deleteDraft(draftId);
       Alert.alert('Posted', 'Your collection is on your profile. Save the slides to share them on TikTok or Instagram too?', [
         { text: 'Not now', style: 'cancel', onPress: () => router.replace({ pathname: '/post', params: { postId: id } }) },
         { text: 'Save slides', onPress: () => exportNow(id) },
@@ -268,6 +336,34 @@ export default function StudioScreen() {
           <Text style={styles.eyebrow}>OVRLEE STUDIO</Text>
           <Text style={styles.heading}>Make a collection.</Text>
           <Text style={styles.sub}>Pick a look, then build it right on the slides.</Text>
+          {drafts.length > 0 && (
+            <View style={{ marginBottom: 22 }}>
+              <Text style={styles.label}>YOUR DRAFTS</Text>
+              {drafts.map((d) => (
+                <Pressable key={d.id} onPress={() => openDraft(d)} style={({ pressed }) => [styles.draftRow, pressed && { opacity: 0.7 }]}>
+                  {d.data.items?.[0]?.artworkUrl ? <Image source={{ uri: d.data.items[0].artworkUrl }} style={styles.draftArt} /> : <View style={styles.draftArt} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.draftTitle} numberOfLines={1}>{d.data.title || 'Untitled collection'}</Text>
+                    <Text style={styles.draftMeta}>
+                      {TEMPLATES.find((t) => t.key === d.data.template)?.name} · {d.data.items?.length || 0} {d.data.items?.length === 1 ? 'song' : 'songs'} · {new Date(d.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() =>
+                      Alert.alert('Delete this draft?', undefined, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: async () => { await deleteDraft(d.id); setDrafts((prev) => prev.filter((x) => x.id !== d.id)); } },
+                      ])
+                    }
+                  >
+                    <Text style={styles.draftDelete}>✕</Text>
+                  </Pressable>
+                </Pressable>
+              ))}
+              <Text style={[styles.label, { marginTop: 22 }]}>NEW COLLECTION</Text>
+            </View>
+          )}
           {TEMPLATES.map((t) => {
             const demo = buildSlides(t.key, {
               title: t.key === 'wall' ? 'my people know.' : t.key === 'moodboard' ? 'songs for the summer' : t.key === 'tracklist' ? 'on repeat' : 'songs i’d play you on a long drive',
@@ -303,10 +399,13 @@ export default function StudioScreen() {
 
   /* ------------------------------- live canvas ------------------------------- */
   const editing = {
+    arranging,
+    selected,
+    onRemove: removeAt,
     onTitle: () => setSheet('text'),
     onPhoto: (i: number) => pickPhoto(i),
     onAddSong: () => setSheet('songs'),
-    onSong: (i: number) => songActions(i),
+    onSong: (i: number) => (arranging ? tapInArrange(i) : songActions(i)),
     onNote: (i: number) => setSheet({ note: i }),
   };
 
@@ -316,7 +415,7 @@ export default function StudioScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.canvasHeader}>
-        <Pressable onPress={() => setPicking(true)} hitSlop={12}>
+        <Pressable onPress={leave} hitSlop={12}>
           <Text style={styles.backSmall}>‹</Text>
         </Pressable>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
@@ -354,9 +453,29 @@ export default function StudioScreen() {
           </View>
         )}
       />
-      <Text style={styles.hint}>
-        {editingSlides.length > 1 ? `${page + 1} of ${editingSlides.length} · ` : ''}Tap anything on the slide to change it
-      </Text>
+      <View style={styles.hintRow}>
+        <Text style={styles.hint} numberOfLines={1}>
+          {arranging
+            ? selected === null
+              ? 'Tap a cover, then another to swap · ✕ removes'
+              : `Now tap where #${selected + 1} should go`
+            : `${editingSlides.length > 1 ? `${page + 1} of ${editingSlides.length} · ` : ''}Tap anything to change it`}
+        </Text>
+        {items.length > 1 || arranging ? (
+          <Pressable
+            onPress={() => {
+              setArranging((v) => !v);
+              setSelected(null);
+            }}
+            style={[styles.arrangeBtn, arranging && styles.arrangeOn]}
+          >
+            <Text style={[styles.arrangeText, arranging && { color: '#000' }]}>{arranging ? 'DONE' : '⇄ ARRANGE'}</Text>
+          </Pressable>
+        ) : null}
+        <Pressable onPress={() => storeDraft(false)} disabled={savingDraft || !hasWork} style={[styles.arrangeBtn, (!hasWork || savingDraft) && { opacity: 0.4 }]}>
+          <Text style={styles.arrangeText}>{savingDraft ? 'SAVING…' : 'DRAFT'}</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.toolbar}>
         <Pressable onPress={() => setSheet('songs')} style={styles.tool}>
@@ -429,6 +548,22 @@ export default function StudioScreen() {
               <Text style={styles.done}>Done</Text>
             </Pressable>
           </View>
+          {items.length > 0 && (
+            <View style={{ paddingBottom: 14 }}>
+              <Text style={[styles.label, { marginTop: 0, paddingHorizontal: 20 }]}>IN THIS COLLECTION · {items.length} · TAP TWO TO SWAP</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}>
+                {items.map((it, i) => (
+                  <Pressable key={`${it.id}-${i}`} onPress={() => tapInArrange(i)} style={[styles.stripItem, selected === i && styles.stripOn]}>
+                    {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.stripArt} /> : <View style={styles.stripArt} />}
+                    <View style={styles.stripNum}><Text style={styles.stripNumText}>{i + 1}</Text></View>
+                    <Pressable onPress={() => removeAt(i)} hitSlop={8} style={styles.stripX} accessibilityLabel={`Remove ${it.song}`}>
+                      <Text style={styles.stripXText}>✕</Text>
+                    </Pressable>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
           <View style={styles.sourceRow}>
             {([
               ['recent', 'Recently played'],
@@ -445,7 +580,7 @@ export default function StudioScreen() {
           </View>
           {source === 'search' && (
             <View style={styles.searchWrap}>
-              <TextInput value={query} onChangeText={setQuery} placeholder="Search any song" placeholderTextColor="#666" autoFocus autoCorrect={false} style={styles.search} />
+              <TextInput value={query} onChangeText={setQuery} placeholder="Search songs and albums" placeholderTextColor="#666" autoFocus autoCorrect={false} style={styles.search} />
               {searching && <ActivityIndicator color={GREEN} />}
             </View>
           )}
@@ -480,7 +615,7 @@ export default function StudioScreen() {
                         {item.song}
                       </Text>
                       <Text style={styles.songArtist} numberOfLines={1}>
-                        {item.artist}
+                        {item.kind === 'album' ? 'Album · ' : ''}{item.artist}
                       </Text>
                     </View>
                     {adding === item.song + item.artist ? (
@@ -584,7 +719,23 @@ const styles = StyleSheet.create({
   chipText: { color: '#bbbbbb', fontSize: 12, fontWeight: '800' },
   chipTextOn: { color: '#000000' },
   canvasSlide: { borderRadius: 14, overflow: 'hidden' },
-  hint: { color: '#777777', fontSize: 12, textAlign: 'center', marginTop: 12 },
+  hint: { color: '#777777', fontSize: 12, flex: 1 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, marginTop: 12 },
+  arrangeBtn: { borderWidth: 1, borderColor: '#333', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
+  arrangeOn: { backgroundColor: GREEN, borderColor: GREEN },
+  arrangeText: { color: '#ffffff', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  draftRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  draftArt: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#1a1a1a' },
+  draftTitle: { color: '#ffffff', fontSize: 16, fontFamily: SERIF },
+  draftMeta: { color: '#888', fontSize: 12, marginTop: 3 },
+  draftDelete: { color: '#888', fontSize: 14, fontWeight: '900', paddingHorizontal: 6 },
+  stripItem: { width: 62, height: 62, borderRadius: 8, overflow: 'hidden' },
+  stripOn: { borderWidth: 3, borderColor: GREEN },
+  stripArt: { width: '100%', height: '100%', backgroundColor: '#1a1a1a' },
+  stripNum: { position: 'absolute', left: 3, bottom: 3, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
+  stripNumText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  stripX: { position: 'absolute', right: 3, top: 3, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
+  stripXText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   toolbar: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 14, paddingHorizontal: 20 },
   tool: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, backgroundColor: '#121212', borderWidth: 1, borderColor: '#242424' },
   toolIcon: { color: GREEN, fontSize: 16, fontWeight: '900' },

@@ -1838,7 +1838,7 @@ export default function MyProfileScreen() {
                       )}
 
                       {post.collection ? (
-                        <CollectionPreview post={{ ...post, collection: post.collection }} username={profile?.username || ''} slideWidth={130} />
+                        <CollectionPreview post={{ ...post, collection: post.collection }} username={profile?.username || ''} slideWidth={160} />
                       ) : !!post.photo_url && <Image source={{ uri: post.photo_url }}
                         style={{ width: '100%', height: 220, borderRadius: 12, marginVertical: 10 }} resizeMode="cover" />}
                       {!post.collection && Array.isArray(post.music_items) && post.music_items.length > 1 &&

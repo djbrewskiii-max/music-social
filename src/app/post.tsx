@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Link
 import { CollectionMeta, itemsFromPost } from '../collection';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey } from '../components/CollectionSlides';
 import { captureSlides, saveSlides } from '../export-slides';
-import { addToRotation } from '../music-card';
+import { addToRotation, openMusicCard } from '../music-card';
 import { supabase } from '../supabase';
 import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music-provider';
 
@@ -158,6 +158,10 @@ export default function PostDetailScreen() {
     finally { setBusy(false); }
   };
   const openMusic = async (track: Music) => {
+    if ((track as any).kind === 'album') {
+      await openMusicCard({ kind: 'album', title: track.song, artist: track.artist, appleId: track.id || null });
+      return;
+    }
     const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id);
     try { await Linking.openURL(url); } catch { Alert.alert('Music', 'Unable to open this track.'); }
   };
