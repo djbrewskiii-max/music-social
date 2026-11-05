@@ -552,6 +552,9 @@ export default function StudioScreen() {
             ))}
           </ScrollView>
           <Text style={styles.colorHint}>{theme === 'auto' ? 'Album: each slide takes its color from the album art.' : 'One color across every slide.'}</Text>
+          <Pressable onPress={() => setSheet(null)} style={styles.colorDone}>
+            <Text style={styles.primaryText}>DONE</Text>
+          </Pressable>
         </View>
       )}
 
@@ -807,7 +810,9 @@ const styles = StyleSheet.create({
   toolText: { color: '#ffffff', fontSize: 12, fontWeight: '800', marginTop: 3 },
   toolOn: { borderColor: GREEN },
   toolSwatch: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden' },
-  colorTray: { marginTop: 12 },
+  // Slides up over the toolbar so the slide itself never gets squeezed.
+  colorTray: { position: 'absolute', zIndex: 50, elevation: 10, left: 0, right: 0, bottom: 0, paddingTop: 16, paddingBottom: 30, backgroundColor: '#0b0b0b', borderTopWidth: 1, borderTopColor: '#222', borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  colorDone: { marginHorizontal: 20, marginTop: 14, backgroundColor: GREEN, borderRadius: 16, paddingVertical: 14, alignItems: 'center' },
   swatch: { width: 40, height: 40, borderRadius: 20, padding: 3, borderWidth: 2, borderColor: 'transparent' },
   swatchOn: { borderColor: '#ffffff' },
   swatchFill: { flex: 1, borderRadius: 20 },

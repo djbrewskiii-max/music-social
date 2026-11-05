@@ -62,7 +62,7 @@ function paletteFor(theme: ThemeKey, kind: SlideSpec['kind'], artBg?: string): P
 export type SlideSpec =
   | { kind: 'cover'; title: string; caption: string; count: number; photo: string | null; fallbackArt: string | null; tint: string }
   | { kind: 'song'; item: CollectionItem; index: number }
-  | { kind: 'wall'; title: string; caption: string; photo: string | null; arts: string[] }
+  | { kind: 'wall'; title: string; caption: string; photo: string | null; arts: string[]; artIdx: number[] }
   | { kind: 'moodboard'; title: string; caption: string; photos: string[]; tint: string; slots: number }
   | { kind: 'tracklistCover'; title: string; caption: string; count: number; arts: string[] }
   | { kind: 'tracklist'; items: CollectionItem[]; start: number }
@@ -88,7 +88,18 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
       return [{ kind: 'cover', title: t, caption, count: items.length, photo: chosenArt || photos[0] || null, fallbackArt: items[0]?.artworkUrl || null, tint }, ...songs];
     }
     case 'wall':
-      return [{ kind: 'wall', title: t, caption, photo: photos[0] || null, arts: items.map((i) => i.artworkUrl) }, { kind: 'tracklist', items: items.slice(0, 12), start: 0 }];
+    {
+      // Each album once on the wall, even if several songs come from it.
+      const arts: string[] = [];
+      const artIdx: number[] = [];
+      items.forEach((it, i) => {
+        if (it.artworkUrl && !arts.includes(it.artworkUrl)) {
+          arts.push(it.artworkUrl);
+          artIdx.push(i);
+        }
+      });
+      return [{ kind: 'wall', title: t, caption, photo: photos[0] || null, arts, artIdx }, { kind: 'tracklist', items: items.slice(0, 12), start: 0 }];
+    }
     case 'moodboard': {
       // The editor always shows five spots; posts use the layout for the photos you added.
       const slots = editing ? 5 : Math.max(3, Math.min(5, photos.length));
@@ -145,15 +156,18 @@ function titleSize(text: string, base: number) {
 const captionSize = (text: string) => (text.length <= 40 ? 18 : text.length <= 90 ? 15.5 : 13.5);
 const noteSize = (text: string) => (text.length <= 40 ? 24 : text.length <= 100 ? 20 : 16.5);
 
-/* Album wall: the photo is always bigger than any cover, and the grid grows
-   with the number of albums (few albums = few, big tiles; barely any repeats). */
-type WallLayout = { cols: number; rows: number; photo: [number, number, number, number] }; // col, row, colSpan, rowSpan
-function wallLayout(n: number): WallLayout {
-  if (n <= 5) return { cols: 3, rows: 3, photo: [0, 0, 2, 2] }; // 5 tiles
-  if (n <= 8) return { cols: 4, rows: 3, photo: [1, 0, 2, 2] }; // 8 tiles
-  if (n <= 12) return { cols: 4, rows: 4, photo: [1, 1, 2, 2] }; // 12 tiles
-  if (n <= 14) return { cols: 4, rows: 5, photo: [1, 1, 2, 3] }; // 14 tiles
-  return { cols: 4, rows: 6, photo: [1, 1, 2, 4] }; // 16 tiles
+/* Album wall: columns from the number of albums, then as many rows as fit
+   the space, so the wall fills the page. The photo is always the biggest
+   thing on it, centered. */
+function wallLayout(n: number, w: number, h: number, gap: number) {
+  const cols = n <= 5 ? 3 : 4;
+  const cell = (w - gap * (cols - 1)) / cols;
+  const rows = Math.max(3, Math.floor((h + gap) / (cell + gap)));
+  const pcs = cols === 3 ? 2 : 2;
+  const prs = rows >= 6 ? 3 : 2;
+  const pc = cols === 3 ? 0 : 1;
+  const pr = Math.floor((rows - prs) / 2);
+  return { cols, rows, cell, photo: [pc, pr, pcs, prs] as [number, number, number, number] };
 }
 
 /** Measures a box so covers can be sized to the exact space available. */
@@ -429,29 +443,32 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
      covers. The grid fills whatever room the title leaves. */
   if (spec.kind === 'wall') {
     const n = spec.arts.length;
-    const L = wallLayout(n);
     const gap = u(6);
     const hasWords = !!(spec.title || spec.caption) || !!editing;
-    let cell = 0;
-    if (grid.box) cell = Math.floor(Math.min((grid.box.w - gap * (L.cols - 1)) / L.cols, (grid.box.h - gap * (L.rows - 1)) / L.rows));
-    const gridW = cell * L.cols + gap * (L.cols - 1);
-    const offsetX = grid.box ? (grid.box.w - gridW) / 2 : 0;
-    const [pc, pr, pcs, prs] = L.photo;
+    const L = grid.box ? wallLayout(n, grid.box.w, grid.box.h, gap) : null;
+    const cell = L ? Math.floor(L.cell) : 0;
+    const gridH = L ? L.rows * cell + (L.rows - 1) * gap : 0;
+    const offsetX = 0;
+    const offsetY = grid.box ? Math.max(0, (grid.box.h - gridH) / 2) : 0;
+    const [pc, pr, pcs, prs] = L ? L.photo : [0, 0, 0, 0];
     const tiles: [number, number][] = [];
-    for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) if (!(c >= pc && c < pc + pcs && r >= pr && r < pr + prs)) tiles.push([r, c]);
+    if (L) for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) if (!(c >= pc && c < pc + pcs && r >= pr && r < pr + prs)) tiles.push([r, c]);
     body = (
       <View style={{ position: 'absolute', left: u(18), right: u(18), top: u(52), bottom: u(64) }}>
         <View style={{ flex: 1 }} onLayout={grid.onLayout}>
           {cell > 0 &&
+            L &&
             tiles.map(([r, c], i) => {
-              const songIndex = editing ? (i < n ? i : -1) : n ? (i * 7 + Math.floor(i / L.cols)) % n : -1;
+              // Every tile shows an album: each one first, then repeats in a
+              // staggered order so neighbours never match.
+              const k = n ? (i < n ? i : (i * 7 + Math.floor(i / L.cols)) % n) : -1;
               return (
                 <Cover
                   key={i}
-                  uri={songIndex >= 0 ? spec.arts[songIndex] : null}
-                  songIndex={editing ? songIndex : -1}
+                  uri={k >= 0 ? spec.arts[k] : null}
+                  songIndex={k >= 0 ? spec.artIdx[k] : -1}
                   radius={2}
-                  style={{ position: 'absolute', left: offsetX + c * (cell + gap), top: r * (cell + gap), width: cell, height: cell }}
+                  style={{ position: 'absolute', left: offsetX + c * (cell + gap), top: offsetY + r * (cell + gap), width: cell, height: cell }}
                 />
               );
             })}
@@ -461,7 +478,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
                 position: 'absolute',
                 // The photo's spot reaches slightly past its tiles so you stand out.
                 left: offsetX + pc * (cell + gap) - u(6),
-                top: pr * (cell + gap) - u(6),
+                top: offsetY + pr * (cell + gap) - u(6),
                 width: cell * pcs + gap * (pcs - 1) + u(12),
                 height: cell * prs + gap * (prs - 1) + u(12),
                 zIndex: 2,

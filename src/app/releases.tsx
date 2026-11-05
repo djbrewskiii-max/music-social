@@ -24,14 +24,31 @@ import {
   ROOM_COLUMNS,
   RoomSummary,
 } from '../first-listen';
-import FirstListenShowcase from '../components/FirstListenShowcase';
 import { supabase } from '../supabase';
+import { normalizeArtist } from '../release-radar';
 import { useFirstListenFeed } from '../use-first-listen-feed';
 
 const GREEN = '#39E75F';
 
 export default function ReleasesScreen() {
   const feed = useFirstListenFeed();
+  const [calSort, setCalSort] = useState<'popular' | 'date'>('popular');
+  const [ranks, setRanks] = useState<Record<string, number>>({});
+
+  // Artist popularity (chart positions recorded by the release scan).
+  useEffect(() => {
+    const keys = [...new Set(feed.calendar.map((r) => normalizeArtist(r.artist_name.split(/\s+(?:feat\.?|ft\.?|featuring|with)\s+/i)[0])))].filter(Boolean);
+    if (!keys.length) return;
+    supabase
+      .from('artist_release_checks')
+      .select('artist_key, chart_rank')
+      .in('artist_key', keys.slice(0, 300))
+      .then(({ data }) => {
+        const map: Record<string, number> = {};
+        for (const row of (data as { artist_key: string; chart_rank: number | null }[]) || []) if (row.chart_rank) map[row.artist_key] = row.chart_rank;
+        setRanks(map);
+      });
+  }, [feed.calendar]);
   const [rooms, setRooms] = useState<ReleaseRoom[]>([]);
   const [mine, setMine] = useState<ReleaseRoom[]>([]);
   const [summaries, setSummaries] = useState<Record<string, RoomSummary>>({});
@@ -151,6 +168,15 @@ export default function ReleasesScreen() {
   const live = rooms
     .filter(isOpen)
     .sort((a, b) => Number(b.featured) - Number(a.featured) || activity(b) - activity(a));
+
+  // Biggest first: Apple Music chart position of the artist, then how many are waiting.
+  const popularCalendar = [...feed.calendar].sort((a, b) => {
+    const score = (r: ReleaseRoom) => {
+      const rank = ranks[normalizeArtist(r.artist_name.split(/\s+(?:feat\.?|ft\.?|featuring|with)\s+/i)[0])];
+      return (rank ? 1000 - Math.min(rank, 999) : 0) + (summaries[r.id]?.waiting || 0) * 25 + (r.featured ? 500 : 0);
+    };
+    return score(b) - score(a);
+  });
 
   const calendarByMonth: [string, ReleaseRoom[]][] = [];
   for (const room of [...feed.calendar].sort((x, y) => x.release_date.localeCompare(y.release_date))) {
@@ -307,11 +333,43 @@ export default function ReleasesScreen() {
           <>
             {!!error && <Text style={styles.error}>{error}</Text>}
 
-            <FirstListenShowcase feed={feed} showSeeAll={false} />
+            <Pressable onPress={() => router.push('/archive')} style={({ pressed }) => [styles.archiveCard, pressed && { opacity: 0.8 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.archiveEyebrow}>THE ARCHIVE</Text>
+                <Text style={styles.archiveTitle}>Day One records</Text>
+                <Text style={styles.archiveSub}>How every album was received on release night, and where it stands now.</Text>
+              </View>
+              <Text style={styles.archiveArrow}>→</Text>
+            </Pressable>
 
-            <Text style={[styles.section, styles.sectionGap]}>Release calendar</Text>
-            <Text style={styles.hint}>Every upcoming album on OVRLEE, by date. Tap one to start counting down.</Text>
-            {calendarByMonth.length ? (
+            <View style={styles.calHead}>
+              <Text style={styles.section}>Coming up everywhere</Text>
+              <View style={styles.sortRow}>
+                {([
+                  ['popular', 'Biggest'],
+                  ['date', 'By date'],
+                ] as const).map(([key, label]) => (
+                  <Pressable key={key} onPress={() => setCalSort(key)} style={[styles.sortChip, calSort === key && styles.sortChipOn]}>
+                    <Text style={[styles.sortText, calSort === key && styles.sortTextOn]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <Text style={styles.hint}>
+              {calSort === 'popular' ? 'Every upcoming album on OVRLEE, biggest artists first.' : 'Every upcoming album on OVRLEE, soonest first.'}
+            </Text>
+            {feed.calendar.length === 0 ? (
+              <Text style={styles.empty}>Search an upcoming album above to start its countdown.</Text>
+            ) : calSort === 'popular' ? (
+              popularCalendar.map((room, i) => (
+                <View key={room.id} style={styles.rankRow}>
+                  <Text style={styles.rankNum}>{i + 1}</Text>
+                  <View style={{ flex: 1 }}>
+                    <RoomRow room={room} />
+                  </View>
+                </View>
+              ))
+            ) : (
               calendarByMonth.map(([month, monthRooms]) => (
                 <View key={month}>
                   <Text style={styles.month}>{month}</Text>
@@ -320,8 +378,6 @@ export default function ReleasesScreen() {
                   ))}
                 </View>
               ))
-            ) : (
-              <Text style={styles.empty}>Search an upcoming album above to start its countdown.</Text>
             )}
 
             {live.length > 0 && (
@@ -394,6 +450,19 @@ const styles = StyleSheet.create({
   },
   openPillUpcoming: { backgroundColor: '#dddddd' },
   section: { fontSize: 17, color: '#ffffff', fontWeight: '900', marginBottom: 6 },
+  archiveCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#3a3226', backgroundColor: '#14110d', borderRadius: 18, padding: 16, marginTop: 4 },
+  archiveEyebrow: { color: GREEN, fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
+  archiveTitle: { color: '#F5E9DA', fontSize: 20, fontWeight: '900', marginTop: 6 },
+  archiveSub: { color: '#a69c90', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  archiveArrow: { color: '#F5E9DA', fontSize: 22, marginLeft: 12 },
+  calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 34 },
+  sortRow: { flexDirection: 'row', gap: 6 },
+  sortChip: { borderWidth: 1, borderColor: '#333', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  sortChipOn: { backgroundColor: '#fff', borderColor: '#fff' },
+  sortText: { color: '#bbb', fontSize: 11, fontWeight: '800' },
+  sortTextOn: { color: '#000' },
+  rankRow: { flexDirection: 'row', alignItems: 'center' },
+  rankNum: { color: '#666', fontSize: 13, fontWeight: '900', width: 26 },
   month: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2, marginTop: 14, marginBottom: 2 },
   sectionGap: { marginTop: 34 },
   hint: { fontSize: 12, color: '#888888', marginBottom: 14 },

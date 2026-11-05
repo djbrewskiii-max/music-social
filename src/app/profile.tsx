@@ -23,6 +23,7 @@ import { supabase } from '../supabase';
 import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
 import FirstListenShelf from '../components/FirstListenShelf';
+import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
@@ -159,7 +160,7 @@ export default function ProfileScreen() {
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [profileTab, setProfileTab] = useState<'posts' | 'identity' | 'shows'>('posts');
+  const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'identity' | 'shows'>('posts');
   const [followsMe, setFollowsMe] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -1444,6 +1445,7 @@ export default function ProfileScreen() {
             <View style={styles.tabBar}>
               {([
                 ['posts', 'Posts'],
+                ['collections', 'Collections'],
                 ['identity', 'Identity'],
                 ['shows', 'Shows'],
               ] as const).map(([key, label]) => (
@@ -1648,6 +1650,10 @@ export default function ProfileScreen() {
           )}
 
         </View>
+            )}
+
+            {profileTab === 'collections' && (
+              <CollectionGrid posts={posts} username={profile.username || ''} emptyText={`${profile.display_name || 'They'} hasn't made a collection yet.`} />
             )}
 
             {profileTab === 'identity' && (
@@ -2128,7 +2134,7 @@ const styles =
     tabBar: { flexDirection: 'row', marginHorizontal: 20, marginTop: 28, borderBottomWidth: 1, borderBottomColor: '#222222' },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2, borderBottomColor: 'transparent', minHeight: 44 },
   tabActive: { borderBottomColor: '#39E75F' },
-  tabText: { color: '#777777', fontSize: 13, fontWeight: '800', letterSpacing: 0.4 },
+  tabText: { color: '#777777', fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
   tabTextActive: { color: '#ffffff' },
   followsYou: { color: '#888888', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 8 },
 

@@ -28,6 +28,7 @@ import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
 import FirstListenShelf from '../components/FirstListenShelf';
+import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
@@ -1701,6 +1702,14 @@ export default function MyProfileScreen() {
               </ScrollView>
             )}
           </View>
+
+            {posts.some((p) => p.collection) && (
+              <View style={{ marginTop: 34 }}>
+                <Text style={[styles.eyebrow, { paddingHorizontal: 20 }]}>YOUR CRATE</Text>
+                <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '900', paddingHorizontal: 20, marginTop: 6 }}>Collections.</Text>
+                <CollectionGrid posts={posts} username={profile?.username || ''} emptyText="" />
+              </View>
+            )}
 
           <View
             style={

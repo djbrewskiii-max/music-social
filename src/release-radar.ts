@@ -192,19 +192,40 @@ export async function findArtistReleases(name: string, knownArtistId?: string | 
 
 const SCAN_THROTTLE_MS = 6 * 60 * 60 * 1000; // per phone
 const RECHECK_ARTIST_MS = 24 * 60 * 60 * 1000; // per artist, shared by everyone
-const MAX_ARTISTS_PER_SCAN = 120;
+const MAX_ARTISTS_PER_SCAN = 150;
 
-/** Artists behind what's popular on Apple Music right now. */
+// Chart position per artist (lower = bigger). The overall chart outranks genre charts.
+export const chartRanks = new Map<string, number>();
+
+// Apple Music genre charts, so the calendar covers more than the overall top 100:
+// Pop, Hip-Hop/Rap, R&B/Soul, Country, Latin, Alternative, Dance, Rock.
+const GENRES = ['14', '18', '15', '6', '12', '20', '17', '21'];
+
+/** Artists behind what's popular on Apple Music right now, biggest first. */
 export async function getChartArtists(): Promise<string[]> {
-  try {
-    const json = await catalog('/charts?types=albums,songs&limit=50');
+  const add = (name: string, rank: number) => {
+    const n = primary(name);
+    const key = normalizeArtist(n);
+    if (!key) return;
+    const prev = chartRanks.get(key);
+    if (prev === undefined || rank < prev) chartRanks.set(key, rank);
+    if (!names.has(key)) names.set(key, n);
+  };
+  const names = new Map<string, string>();
+  const read = (json: any, offset: number) => {
     const lists: any[] = [...(json?.results?.albums || []), ...(json?.results?.songs || [])];
-    const names = lists.flatMap((chart) => (chart?.data || []).map((item: any) => primary(String(item?.attributes?.artistName || ''))));
-    return [...new Map(names.filter(Boolean).map((n) => [normalizeArtist(n), n])).values()];
+    for (const chart of lists) (chart?.data || []).forEach((item: any, i: number) => add(String(item?.attributes?.artistName || ''), offset + i + 1));
+  };
+  try {
+    read(await catalog('/charts?types=albums,songs&limit=50'), 0);
   } catch (error) {
     console.log('Chart artists:', error);
-    return [];
   }
+  const genreResults = await Promise.allSettled(GENRES.map((g) => catalog(`/charts?types=albums&limit=25&genre=${g}`)));
+  genreResults.forEach((r) => {
+    if (r.status === 'fulfilled') read(r.value, 100);
+  });
+  return [...names.entries()].sort((a, b) => (chartRanks.get(a[0]) || 999) - (chartRanks.get(b[0]) || 999)).map(([, n]) => n);
 }
 
 /**
@@ -276,7 +297,7 @@ export async function scanForReleases(
     return created;
   };
 
-  const checked: { artist_key: string; artist_name: string; apple_artist_id: string | null; found: number; checked_at: string }[] = [];
+  const checked: { artist_key: string; artist_name: string; apple_artist_id: string | null; found: number; checked_at: string; chart_rank: number | null }[] = [];
   for (let start = 0; start < due.length; start += 4) {
     const batch = due.slice(start, start + 4);
     const results = await Promise.allSettled(batch.map(([key, name]) => findArtistReleases(name, knownIds.get(key))));
@@ -293,6 +314,7 @@ export async function scanForReleases(
         apple_artist_id: artistIdCache.get(key) ?? null,
         found: albums.length,
         checked_at: new Date().toISOString(),
+        chart_rank: chartRanks.get(key) ?? null,
       });
     });
     if ((await openNewRooms(batchAlbums)) > 0) onProgress?.();

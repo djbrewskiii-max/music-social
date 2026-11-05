@@ -27,6 +27,7 @@ import {
   ROOM_COLUMNS,
   RoomSummary,
 } from '../first-listen';
+import DayOnePanel from '../components/DayOnePanel';
 import ListeningPartyPanel from '../components/ListeningPartyPanel';
 import { supabase } from '../supabase';
 import { useListeningParty } from '../use-listening-party';
@@ -46,7 +47,7 @@ type Rating = {
 type Tab = 'room' | 'tracks' | 'ratings';
 
 export default function FirstListenRoom() {
-  const { roomId } = useLocalSearchParams<{ roomId?: string }>();
+  const { roomId, tab: tabParam } = useLocalSearchParams<{ roomId?: string; tab?: string }>();
   const id = typeof roomId === 'string' ? roomId : '';
 
   const [myId, setMyId] = useState('');
@@ -57,7 +58,7 @@ export default function FirstListenRoom() {
   const [people, setPeople] = useState<Record<string, Person>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<Tab>('room');
+  const [tab, setTab] = useState<Tab>(tabParam === 'ratings' || tabParam === 'tracks' ? (tabParam as Tab) : 'room');
   const [track, setTrack] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -552,6 +553,7 @@ export default function FirstListenRoom() {
 
         {tab === 'ratings' && (
           <ScrollView contentContainerStyle={styles.panel} keyboardShouldPersistTaps="handled">
+            <DayOnePanel roomId={room.id} opensAt={room.opens_at} now={now} currentAverage={average} currentCount={ratings.length} trackName={trackName} />
             <View style={styles.rateCard}>
               <Text style={styles.rateEyebrow}>{myRating ? 'YOUR RATING' : 'YOUR FIRST IMPRESSION'}</Text>
               {!open ? (
