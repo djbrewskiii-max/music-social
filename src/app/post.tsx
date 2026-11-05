@@ -186,7 +186,7 @@ export default function PostDetailScreen() {
           {!!post.body && !post.collection && <Text style={styles.caption}>{post.body}</Text>}
           {!!post.collection && fontsLoaded && (() => {
             const items = itemsFromPost(post);
-            const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos });
+            const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId });
             const slideW = Math.min(260, width - 110);
             return (
               <View style={{ marginBottom: 20 }}>

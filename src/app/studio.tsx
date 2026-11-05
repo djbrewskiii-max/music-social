@@ -33,7 +33,7 @@ const SCREEN_H = Dimensions.get('window').height;
 // The live canvas: as big as fits while leaving room for the toolbar.
 const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16));
 
-type Sheet = null | 'songs' | 'text' | 'color' | { note: number };
+type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | { note: number };
 
 export default function StudioScreen() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
@@ -41,6 +41,7 @@ export default function StudioScreen() {
   const [template, setTemplate] = useState<Template>('liner');
   const [theme, setTheme] = useState<ThemeKey>('auto');
   const [titleFont, setTitleFont] = useState<'serif' | 'bold'>('serif');
+  const [coverArtId, setCoverArtId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [items, setItems] = useState<CollectionItem[]>([]);
@@ -90,7 +91,7 @@ export default function StudioScreen() {
     if (savingDraft) return;
     setSavingDraft(true);
     try {
-      const saved = await saveDraft(draftId, { template, theme, titleFont, title, caption, items, photos });
+      const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos });
       setDraftId(saved.id);
       setPhotos(saved.photos);
       if (thenLeave) router.back();
@@ -102,12 +103,36 @@ export default function StudioScreen() {
     }
   };
 
+  // Autosave: a few seconds after any change, quietly keep a draft.
+  useEffect(() => {
+    if (picking || postedId || !hasWork) return;
+    const timer = setTimeout(async () => {
+      try {
+        const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos });
+        if (!draftId) setDraftId(saved.id);
+        // Swap in uploaded photo urls without disturbing what's on screen.
+        if (saved.photos.some((p, i) => p.url && !photos[i]?.url)) setPhotos(saved.photos);
+      } catch (e) {
+        console.log('Autosave:', e);
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template, theme, titleFont, coverArtId, title, caption, items, photos, picking, postedId]);
+
   const leave = () => {
     if (!hasWork || postedId) return router.back();
-    Alert.alert('Save this as a draft?', 'You can finish it later.', [
-      { text: 'Save draft', onPress: () => storeDraft(true) },
-      { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+    Alert.alert('Leave the studio?', 'Your work is saved as a draft. Find it at the top of Make a collection.', [
       { text: 'Keep editing', style: 'cancel' },
+      { text: 'Leave (keep draft)', onPress: () => storeDraft(true) },
+      {
+        text: 'Delete it',
+        style: 'destructive',
+        onPress: async () => {
+          if (draftId) await deleteDraft(draftId);
+          router.back();
+        },
+      },
     ]);
   };
 
@@ -117,6 +142,7 @@ export default function StudioScreen() {
     setTemplate(data.template);
     setTheme((data.theme as ThemeKey) || 'auto');
     setTitleFont(data.titleFont || 'serif');
+    setCoverArtId(data.coverArtId || null);
     setTitle(data.title || '');
     setCaption(data.caption || '');
     setItems(data.items || []);
@@ -167,12 +193,12 @@ export default function StudioScreen() {
   }, [query]);
 
   const editingSlides = useMemo(
-    () => buildSlides(template, { title: title || 'Tap to add a title', caption, items, photos: photos.map((p) => p.uri) }, true),
-    [template, title, caption, items, photos]
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId }, true),
+    [template, title, caption, items, photos, coverArtId]
   );
   const finalSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri) }),
-    [template, title, caption, items, photos]
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId }),
+    [template, title, caption, items, photos, coverArtId]
   );
 
   const inCollection = (item: CollectionItem) =>
@@ -233,6 +259,15 @@ export default function StudioScreen() {
     });
 
   const pickPhoto = async (slot: number) => {
+    // Liner Notes cover: your photo, or any album cover in the collection.
+    if (template === 'liner' && slot === 0) {
+      const options: any[] = [{ text: photos[0] ? 'Choose a different photo' : 'Choose a photo', onPress: () => { setCoverArtId(null); choosePhotos(0, 1); } }];
+      if (items.length) options.push({ text: 'Use an album cover', onPress: () => setSheet('cover') });
+      if (photos[0] && !coverArtId) options.push({ text: 'Remove photo', style: 'destructive', onPress: () => setPhotos((prev) => prev.slice(1)) });
+      options.push({ text: 'Cancel', style: 'cancel' });
+      Alert.alert('Cover', 'Your own photo, or one of the albums in this collection.', options);
+      return;
+    }
     if (photos[slot]) {
       Alert.alert('Photo', undefined, [
         { text: 'Replace', onPress: () => choosePhotos(slot, 1) },
@@ -272,7 +307,6 @@ export default function StudioScreen() {
   };
 
   const ready = () => {
-    if (!title.trim()) return 'Tap the title on the slide to name your collection.';
     if (!items.length) return 'Add at least one song.';
     if (template === 'wall' && items.length < 4) return 'An album wall needs at least 4 albums.';
     if (photos.length < config.minPhotos) return `${config.name} needs ${config.minPhotos === 1 ? 'a photo' : `${config.minPhotos} photos`}.`;
@@ -285,7 +319,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, theme, titleFont, title, caption, items, photos });
+      const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos });
       setPostedId(id);
       if (draftId) deleteDraft(draftId);
       Alert.alert('Posted', 'Your collection is on your profile. Save the slides to share them on TikTok or Instagram too?', [
@@ -633,6 +667,33 @@ export default function StudioScreen() {
         </View>
       </Modal>
 
+      {/* Liner Notes cover: pick an album */}
+      <Modal visible={sheet === 'cover'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+        <View style={styles.sheet}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Cover</Text>
+            <Pressable onPress={() => setSheet(null)} hitSlop={10}>
+              <Text style={styles.done}>Done</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.coverGrid}>
+            {items.map((it) => (
+              <Pressable
+                key={it.id}
+                onPress={() => {
+                  setCoverArtId(it.id);
+                  setSheet(null);
+                }}
+                style={[styles.coverPick, coverArtId === it.id && styles.coverPickOn]}
+              >
+                {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={{ width: '100%', aspectRatio: 1, borderRadius: 6 }} /> : null}
+                <Text style={styles.coverPickTitle} numberOfLines={1}>{it.song}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
       {/* Title + caption, live on the slide */}
       <Modal visible={sheet === 'text'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -729,6 +790,10 @@ const styles = StyleSheet.create({
   draftTitle: { color: '#ffffff', fontSize: 16, fontFamily: SERIF },
   draftMeta: { color: '#888', fontSize: 12, marginTop: 3 },
   draftDelete: { color: '#888', fontSize: 14, fontWeight: '900', paddingHorizontal: 6 },
+  coverGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20, paddingBottom: 40 },
+  coverPick: { width: '30%', borderRadius: 8, padding: 3, borderWidth: 2, borderColor: 'transparent' },
+  coverPickOn: { borderColor: GREEN },
+  coverPickTitle: { color: '#ccc', fontSize: 11, fontWeight: '700', marginTop: 5 },
   stripItem: { width: 62, height: 62, borderRadius: 8, overflow: 'hidden' },
   stripOn: { borderWidth: 3, borderColor: GREEN },
   stripArt: { width: '100%', height: '100%', backgroundColor: '#1a1a1a' },

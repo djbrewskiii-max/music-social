@@ -35,6 +35,7 @@ export type CollectionMeta = {
   template: Template;
   theme?: string; // color theme key (see THEMES in CollectionSlides); 'auto' = from the album art
   titleFont?: 'serif' | 'bold'; // collection title style
+  coverArtId?: string | null; // Liner Notes: use this album's cover instead of a photo
   title: string;
   notes: Record<string, string>; // song id → note
   colors: Record<string, { bg: string; ink: string }>; // song id → art colors
@@ -133,6 +134,7 @@ export async function publishCollection(input: {
   template: Template;
   theme?: string;
   titleFont?: 'serif' | 'bold';
+  coverArtId?: string | null;
   title: string;
   caption: string;
   items: CollectionItem[];
@@ -144,7 +146,7 @@ export async function publishCollection(input: {
 
   // Only upload the photos this template actually shows (switching templates
   // in the editor keeps earlier photos around in case you switch back).
-  const usable = input.template === 'tracklist' ? 0 : input.template === 'moodboard' ? 5 : 1;
+  const usable = input.template === 'tracklist' || (input.template === 'liner' && input.coverArtId) ? 0 : input.template === 'moodboard' ? 5 : 1;
   const photoUrls: string[] = [];
   for (const photo of input.photos.slice(0, usable)) photoUrls.push(photo.url || (await uploadPhoto(user.id, photo)));
 
@@ -153,6 +155,7 @@ export async function publishCollection(input: {
     template: input.template,
     theme: input.theme || 'auto',
     titleFont: input.titleFont || 'serif',
+    coverArtId: input.coverArtId || null,
     title: input.title.trim().slice(0, 120),
     notes: Object.fromEntries(input.items.filter((i) => i.note.trim()).map((i) => [i.id, i.note.trim().slice(0, 240)])),
     colors: Object.fromEntries(input.items.map((i) => [i.id, { bg: i.bg, ink: i.ink }])),
@@ -202,6 +205,7 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
 
 export type DraftData = {
   template: Template;
+  coverArtId?: string | null;
   theme: string;
   titleFont: 'serif' | 'bold';
   title: string;
@@ -223,6 +227,7 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
   }
   const data: DraftData = {
     template: input.template,
+    coverArtId: input.coverArtId || null,
     theme: input.theme,
     titleFont: input.titleFont,
     title: input.title,

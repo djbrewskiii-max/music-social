@@ -52,7 +52,7 @@ export default function RootLayout() {
         <Stack.Screen name="notification-settings" />
         <Stack.Screen name="releases" />
         <Stack.Screen name="first-listen" />
-        <Stack.Screen name="studio" />
+        <Stack.Screen name="studio" options={{ gestureEnabled: false }} />
       </Stack>
       {pathname === '/now' && (
         <Pressable
