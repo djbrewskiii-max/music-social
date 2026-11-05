@@ -33,6 +33,7 @@ export type CollectionItem = {
 export type CollectionMeta = {
   template: Template;
   theme?: string; // color theme key (see THEMES in CollectionSlides); 'auto' = from the album art
+  titleFont?: 'serif' | 'bold'; // collection title style
   title: string;
   notes: Record<string, string>; // song id → note
   colors: Record<string, { bg: string; ink: string }>; // song id → art colors
@@ -107,6 +108,7 @@ async function uploadPhoto(userId: string, photo: LocalPhoto) {
 export async function publishCollection(input: {
   template: Template;
   theme?: string;
+  titleFont?: 'serif' | 'bold';
   title: string;
   caption: string;
   items: CollectionItem[];
@@ -126,6 +128,7 @@ export async function publishCollection(input: {
   const meta: CollectionMeta = {
     template: input.template,
     theme: input.theme || 'auto',
+    titleFont: input.titleFont || 'serif',
     title: input.title.trim().slice(0, 120),
     notes: Object.fromEntries(input.items.filter((i) => i.note.trim()).map((i) => [i.id, i.note.trim().slice(0, 240)])),
     colors: Object.fromEntries(input.items.map((i) => [i.id, { bg: i.bg, ink: i.ink }])),

@@ -191,7 +191,7 @@ export default function PostDetailScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 6 }}>
                   {slides.map((spec, i) => (
                     <View key={i} style={{ borderRadius: 10, overflow: 'hidden' }}>
-                      <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} />
+                      <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} titleFont={post.collection?.titleFont || 'serif'} />
                     </View>
                   ))}
                 </ScrollView>
@@ -210,7 +210,7 @@ export default function PostDetailScreen() {
                 <View style={styles.offscreen} pointerEvents="none">
                   {slides.map((spec, i) => (
                     <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
-                      <Slide spec={spec} width={SLIDE_W} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} />
+                      <Slide spec={spec} width={SLIDE_W} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} titleFont={post.collection?.titleFont || 'serif'} />
                     </View>
                   ))}
                 </View>

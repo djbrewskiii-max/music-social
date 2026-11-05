@@ -92,7 +92,7 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
     }
     case 'tracklist':
       return [
-        { kind: 'tracklistCover', title: t, caption, count: items.length, arts: items.slice(0, 6).map((i) => i.artworkUrl) },
+        { kind: 'tracklistCover', title: t, caption, count: items.length, arts: items.slice(0, 12).map((i) => i.artworkUrl) },
         { kind: 'tracklist', items: items.slice(0, 12), start: 0 },
       ];
   }
@@ -120,6 +120,38 @@ const COLLAGE: Record<number, [number, number, number, number][]> = {
   ],
 };
 
+/*
+  Typography system:
+  - The serif ("handwriting") is the person's voice: collection titles,
+    captions and song notes. Anything they wrote.
+  - The heavy sans is the data: song names, artists, counts, labels.
+  Titles can switch to the bold sans if someone prefers (titleFont).
+*/
+export type TitleFont = 'serif' | 'bold';
+
+/** Bigger for short titles, smaller for long ones, so every title fits beautifully. */
+function titleSize(text: string, base: number) {
+  const n = text.trim().length;
+  if (n <= 14) return base;
+  if (n <= 24) return base * 0.86;
+  if (n <= 40) return base * 0.72;
+  if (n <= 60) return base * 0.6;
+  return base * 0.52;
+}
+const captionSize = (text: string) => (text.length <= 40 ? 18 : text.length <= 90 ? 15.5 : 13.5);
+const noteSize = (text: string) => (text.length <= 40 ? 24 : text.length <= 100 ? 20 : 16.5);
+
+/* Album art arrangement for the Tracklist cover, by how many songs there are. */
+function artGrid(n: number): { cols: number; size: number } {
+  if (n <= 1) return { cols: 1, size: 210 };
+  if (n === 2) return { cols: 2, size: 150 };
+  if (n === 3) return { cols: 3, size: 100 };
+  if (n === 4) return { cols: 2, size: 128 };
+  if (n <= 6) return { cols: 3, size: 96 };
+  if (n <= 9) return { cols: 3, size: 76 };
+  return { cols: 4, size: 62 };
+}
+
 export type SlideEditing = {
   onTitle?: () => void;
   onPhoto?: (index: number) => void;
@@ -135,10 +167,11 @@ type Props = {
   index: number;
   total: number;
   theme?: ThemeKey;
+  titleFont?: TitleFont;
   editing?: SlideEditing;
 };
 
-export default function Slide({ spec, width, username, index, total, theme = 'auto', editing }: Props) {
+export default function Slide({ spec, width, username, index, total, theme = 'auto', titleFont = 'serif', editing }: Props) {
   const s = width / SLIDE_W;
   const u = (n: number) => n * s;
   const height = width * (SLIDE_H / SLIDE_W);
@@ -165,9 +198,27 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
       </Pressable>
     ) : null;
 
-  const Caption = ({ text, size = 17 }: { text: string; size?: number }) =>
+  // The collection title, in the chosen title font, sized to its length.
+  const Title = ({ text, base, lines = 4 }: { text: string; base: number; lines?: number }) => {
+    const size = titleSize(text, titleFont === 'serif' ? base : base * 0.78);
+    return (
+      <Text
+        onPress={editing?.onTitle}
+        numberOfLines={lines}
+        style={
+          titleFont === 'serif'
+            ? { fontFamily: SERIF, color: p.ink, fontSize: u(size), lineHeight: u(size * 1.04) }
+            : { color: p.ink, fontSize: u(size), lineHeight: u(size * 1.05), fontWeight: '900', letterSpacing: u(-0.6) }
+        }
+      >
+        {text}
+      </Text>
+    );
+  };
+
+  const Caption = ({ text }: { text: string; size?: number }) =>
     text ? (
-      <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(size), lineHeight: u(size * 1.15), marginTop: u(8) }} numberOfLines={2}>
+      <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(captionSize(text)), lineHeight: u(captionSize(text) * 1.2), marginTop: u(8) }} numberOfLines={4}>
         {text}
       </Text>
     ) : (
@@ -182,32 +233,32 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
 
   let body: React.ReactNode = null;
 
-  /* Liner Notes cover: the photo framed in the card, title set below it. */
+  /* Liner Notes cover: the photo framed in the card, words below. The photo
+     takes whatever room the words leave, so long and short titles both sit well. */
   if (spec.kind === 'cover') {
     const image = spec.photo || spec.fallbackArt;
     body = (
-      <>
-        <Photo uri={image} slot={0} label="Tap to add a cover photo" style={{ position: 'absolute', left: u(18), right: u(18), top: u(52), height: u(300), borderRadius: u(6) }} />
-        <View style={{ position: 'absolute', left: u(22), right: u(22), top: u(368) }}>
-          <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.ink, fontSize: u(40), lineHeight: u(41) }} numberOfLines={3}>
-            {spec.title}
-          </Text>
-          <Caption text={spec.caption} size={16} />
+      <View style={{ position: 'absolute', left: u(18), right: u(18), top: u(52), bottom: u(64) }}>
+        <Photo uri={image} slot={0} label="Tap to add a cover photo" style={{ flex: 1, minHeight: u(180), borderRadius: u(6) }} />
+        <View style={{ paddingTop: u(16), paddingHorizontal: u(4) }}>
+          <Title text={spec.title} base={44} lines={3} />
+          <Caption text={spec.caption} />
           <Text style={{ color: p.sub, fontSize: u(10.5), fontWeight: '700', marginTop: u(10), letterSpacing: u(0.4) }}>
             {spec.count} {spec.count === 1 ? 'song' : 'songs'}
             {handle ? ` · a collection by ${handle}` : ''}
           </Text>
         </View>
-      </>
+      </View>
     );
   }
 
   /* One slide per song. */
   if (spec.kind === 'song') {
     const { item } = spec;
+    const art = item.note.length > 100 ? 220 : item.note.length > 40 ? 248 : 268;
     body = (
       <View style={{ position: 'absolute', top: u(58), left: u(22), right: u(22), bottom: u(64) }}>
-        <Pressable disabled={!editing?.onSong} onPress={() => editing?.onSong?.(spec.index)} style={{ alignSelf: 'center', width: u(268), height: u(268), borderRadius: u(5), overflow: 'hidden', backgroundColor: p.tile }}>
+        <Pressable disabled={!editing?.onSong} onPress={() => editing?.onSong?.(spec.index)} style={{ alignSelf: 'center', width: u(art), height: u(art), borderRadius: u(5), overflow: 'hidden', backgroundColor: p.tile }}>
           {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: '100%', height: '100%' }} /> : null}
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: u(24) }}>
@@ -220,7 +271,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           {item.artist}
         </Text>
         {item.note ? (
-          <Text onPress={editing?.onNote ? () => editing.onNote!(spec.index) : undefined} style={{ fontFamily: SERIF, color: p.ink, fontSize: u(22), lineHeight: u(25), marginTop: u(18) }} numberOfLines={5}>
+          <Text onPress={editing?.onNote ? () => editing.onNote!(spec.index) : undefined} style={{ fontFamily: SERIF, color: p.ink, fontSize: u(noteSize(item.note)), lineHeight: u(noteSize(item.note) * 1.16), marginTop: u(16) }} numberOfLines={7}>
             “{item.note}”
           </Text>
         ) : (
@@ -259,10 +310,9 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           style={{ position: 'absolute', left: left + cell + gap, top: top + cell * 0.92 + gap, width: cell * 2 + gap, height: (cell * 0.92 + gap) * 4 - gap, borderRadius: u(4) }}
         />
         <View style={{ position: 'absolute', left: u(20), right: u(20), bottom: u(64) }}>
-          <Text onPress={editing?.onTitle} style={{ color: p.ink, fontSize: u(30), fontWeight: '900', letterSpacing: u(-0.8) }} numberOfLines={2}>
-            {spec.title}
-          </Text>
-          <Caption text={spec.caption} size={16} />
+          <Title text={spec.title} base={36} lines={2} />
+          {!!spec.caption && <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={1}>{spec.caption}</Text>}
+          {!spec.caption && <Caption text="" />}
         </View>
       </>
     );
@@ -276,61 +326,67 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
         {rects.map(([x, y, w, h], i) => (
           <Photo key={i} uri={spec.photos[i] || null} slot={i} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
         ))}
-        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(466) }}>
-          <Text onPress={editing?.onTitle} style={{ color: p.ink, fontSize: u(28), fontWeight: '900', letterSpacing: u(-0.6), lineHeight: u(30) }} numberOfLines={2}>
-            {spec.title}
-          </Text>
-          <Caption text={spec.caption} size={16} />
+        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
+          <Title text={spec.title} base={34} lines={2} />
+          <Caption text={spec.caption} />
         </View>
       </>
     );
   }
 
-  /* Tracklist cover. */
+  /* Tracklist cover: the words, then the covers arranged for how many songs
+     there are (one big cover for a single, a tidy grid for nine). */
   if (spec.kind === 'tracklistCover') {
+    const g = artGrid(spec.arts.length);
     body = (
-      <>
-        <View style={{ position: 'absolute', left: u(22), right: u(22), top: u(84) }}>
-          <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.ink, fontSize: u(50), lineHeight: u(51) }} numberOfLines={4}>
-            {spec.title}
-          </Text>
-          <Caption text={spec.caption} size={17} />
+      <View style={{ position: 'absolute', left: u(22), right: u(22), top: u(70), bottom: u(64) }}>
+        <View>
+          <Title text={spec.title} base={50} lines={spec.arts.length > 6 ? 3 : 4} />
+          <Caption text={spec.caption} />
           <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800', marginTop: u(12), letterSpacing: u(0.8) }}>
             {spec.count} {spec.count === 1 ? 'SONG' : 'SONGS'}
             {handle ? `  ·  ${handle.toUpperCase()}` : ''}
           </Text>
         </View>
-        <View style={{ position: 'absolute', left: u(22), right: u(22), bottom: u(70), flexDirection: 'row', flexWrap: 'wrap', gap: u(6) }}>
-          {spec.arts.map((a, i) => (
-            <View key={i} style={{ width: u(100), height: u(100), borderRadius: u(3), overflow: 'hidden', backgroundColor: p.tile }}>
-              {a ? <Image source={{ uri: a }} style={{ width: '100%', height: '100%' }} /> : null}
-            </View>
-          ))}
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: u(14) }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: u(8), width: u(g.cols * g.size + (g.cols - 1) * 8) }}>
+            {spec.arts.map((a, i) => (
+              <View key={i} style={{ width: u(g.size), height: u(g.size), borderRadius: u(4), overflow: 'hidden', backgroundColor: p.tile }}>
+                {a ? <Image source={{ uri: a }} style={{ width: '100%', height: '100%' }} /> : null}
+              </View>
+            ))}
+            {editing?.onAddSong && spec.arts.length === 0 && (
+              <Pressable onPress={editing.onAddSong} style={{ width: u(g.size), height: u(g.size), borderRadius: u(4), borderWidth: 1, borderStyle: 'dashed', borderColor: p.line, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: p.sub, fontSize: u(28), fontWeight: '300' }}>+</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </>
+      </View>
     );
   }
 
-  /* The full list. */
+  /* The full list: roomy for a few songs, compact for a lot. */
   if (spec.kind === 'tracklist') {
-    const rowH = u(40);
+    const n = spec.items.length;
+    const d = n <= 4 ? { row: 92, art: 70, title: 18, artist: 13 } : n <= 8 ? { row: 58, art: 44, title: 14.5, artist: 11 } : { row: 42, art: 30, title: 12.5, artist: 10 };
     body = (
-      <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(58) }}>
+      <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(56), bottom: u(64), justifyContent: n <= 6 ? 'center' : 'flex-start' }}>
         {spec.items.map((item, i) => (
-          <Pressable disabled={!editing} onPress={() => editing?.onSong?.(spec.start + i)} key={`${item.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', height: rowH, borderBottomWidth: Math.max(1, u(0.6)), borderBottomColor: p.line }}>
-            <Text style={{ width: u(22), color: p.sub, fontSize: u(10), fontWeight: '700', fontVariant: ['tabular-nums'] }}>{String(spec.start + i + 1).padStart(2, '0')}</Text>
-            <View style={{ width: u(30), height: u(30), borderRadius: u(3), overflow: 'hidden', backgroundColor: p.tile, marginRight: u(9) }}>
+          <Pressable disabled={!editing} onPress={() => editing?.onSong?.(spec.start + i)} key={`${item.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', height: u(d.row), borderBottomWidth: Math.max(1, u(0.6)), borderBottomColor: p.line }}>
+            <Text style={{ width: u(24), color: p.sub, fontSize: u(10), fontWeight: '700', fontVariant: ['tabular-nums'] }}>{String(spec.start + i + 1).padStart(2, '0')}</Text>
+            <View style={{ width: u(d.art), height: u(d.art), borderRadius: u(4), overflow: 'hidden', backgroundColor: p.tile, marginRight: u(12) }}>
               {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: '100%', height: '100%' }} /> : null}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: p.ink, fontSize: u(12.5), fontWeight: '800' }} numberOfLines={1}>{item.song}</Text>
-              <Text style={{ color: p.sub, fontSize: u(10), marginTop: u(1) }} numberOfLines={1}>{item.artist}</Text>
+              <Text style={{ color: p.ink, fontSize: u(d.title), fontWeight: '800' }} numberOfLines={n <= 4 ? 2 : 1}>{item.song}</Text>
+              <Text style={{ color: p.sub, fontSize: u(d.artist), marginTop: u(2) }} numberOfLines={1}>{item.artist}</Text>
             </View>
           </Pressable>
         ))}
-        {editing?.onAddSong && spec.items.length < 12 && (
-          <Pressable onPress={editing.onAddSong} style={{ height: rowH, flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={{ color: p.accent, fontSize: u(12), fontWeight: '900', marginLeft: u(22) }}>+ Add a song</Text>
+        {editing?.onAddSong && n < 12 && (
+          <Pressable onPress={editing.onAddSong} style={{ height: u(Math.min(d.row, 56)), flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ color: p.accent, fontSize: u(12), fontWeight: '900', marginLeft: u(24) }}>+ Add a song</Text>
           </Pressable>
         )}
       </View>

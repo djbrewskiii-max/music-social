@@ -41,7 +41,7 @@ export default function CollectionPreview({ post, username, slideWidth = 150 }: 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {slides.map((spec, i) => (
           <Pressable key={i} onPress={open} style={styles.slide}>
-            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} theme={(post.collection.theme as ThemeKey) || 'auto'} />
+            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} theme={(post.collection.theme as ThemeKey) || 'auto'} titleFont={post.collection.titleFont || 'serif'} />
           </Pressable>
         ))}
       </ScrollView>

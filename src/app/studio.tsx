@@ -40,6 +40,7 @@ export default function StudioScreen() {
   const [picking, setPicking] = useState(true); // template picker first
   const [template, setTemplate] = useState<Template>('liner');
   const [theme, setTheme] = useState<ThemeKey>('auto');
+  const [titleFont, setTitleFont] = useState<'serif' | 'bold'>('serif');
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [items, setItems] = useState<CollectionItem[]>([]);
@@ -217,7 +218,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, theme, title, caption, items, photos });
+      const id = await publishCollection({ template, theme, titleFont, title, caption, items, photos });
       setPostedId(id);
       Alert.alert('Posted', 'Your collection is on your profile. Save the slides to share them on TikTok or Instagram too?', [
         { text: 'Not now', style: 'cancel', onPress: () => router.replace({ pathname: '/post', params: { postId: id } }) },
@@ -349,7 +350,7 @@ export default function StudioScreen() {
         style={{ flexGrow: 0, marginTop: 6 }}
         renderItem={({ item, index }) => (
           <View style={styles.canvasSlide}>
-            <Slide spec={item} width={CANVAS_W} username={username} index={index} total={finalSlides.length} theme={theme} editing={editing} />
+            <Slide spec={item} width={CANVAS_W} username={username} index={index} total={finalSlides.length} theme={theme} titleFont={titleFont} editing={editing} />
           </View>
         )}
       />
@@ -414,7 +415,7 @@ export default function StudioScreen() {
       <View style={styles.offscreen} pointerEvents="none">
         {finalSlides.map((spec, i) => (
           <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
-            <Slide spec={spec} width={SLIDE_W} username={username} index={i} total={finalSlides.length} theme={theme} />
+            <Slide spec={spec} width={SLIDE_W} username={username} index={i} total={finalSlides.length} theme={theme} titleFont={titleFont} />
           </View>
         ))}
       </View>
@@ -428,7 +429,7 @@ export default function StudioScreen() {
               <Text style={styles.done}>Done</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingBottom: 12 }}>
+          <View style={styles.sourceRow}>
             {([
               ['recent', 'Recently played'],
               ['posted', 'You posted'],
@@ -441,7 +442,7 @@ export default function StudioScreen() {
                   <Text style={[styles.chipText, source === key && styles.chipTextOn]}>{label}</Text>
                 </Pressable>
               ))}
-          </ScrollView>
+          </View>
           {source === 'search' && (
             <View style={styles.searchWrap}>
               <TextInput value={query} onChangeText={setQuery} placeholder="Search any song" placeholderTextColor="#666" autoFocus autoCorrect={false} style={styles.search} />
@@ -507,7 +508,17 @@ export default function StudioScreen() {
             </Pressable>
           </View>
           <View style={{ paddingHorizontal: 20 }}>
-            <TextInput value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor="#555" maxLength={80} multiline autoFocus style={styles.titleInput} />
+            <TextInput value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor="#555" maxLength={80} multiline autoFocus style={[styles.titleInput, titleFont === 'bold' && styles.titleInputBold]} />
+            <View style={styles.fontRow}>
+              {([
+                ['serif', 'Handwritten'],
+                ['bold', 'Bold'],
+              ] as const).map(([key, label]) => (
+                <Pressable key={key} onPress={() => setTitleFont(key)} style={[styles.chip, titleFont === key && styles.chipOn]}>
+                  <Text style={[styles.chipText, titleFont === key && styles.chipTextOn, key === 'serif' && { fontFamily: SERIF, fontSize: 15, fontWeight: '400' }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
             <Text style={styles.label}>CAPTION</Text>
             <TextInput
               value={caption}
@@ -567,7 +578,8 @@ const styles = StyleSheet.create({
   templateBlurb: { color: '#9a9a9a', fontSize: 13, lineHeight: 18, marginTop: 5 },
   chev: { color: '#555', fontSize: 26 },
   canvasHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingRight: 8 },
-  chip: { borderWidth: 1, borderColor: '#2f2f2f', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  chip: { borderWidth: 1, borderColor: '#2f2f2f', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8, alignSelf: 'flex-start' },
+  sourceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingBottom: 14 },
   chipOn: { backgroundColor: '#ffffff', borderColor: '#ffffff' },
   chipText: { color: '#bbbbbb', fontSize: 12, fontWeight: '800' },
   chipTextOn: { color: '#000000' },
@@ -609,5 +621,7 @@ const styles = StyleSheet.create({
   empty: { color: '#888888', fontSize: 14, textAlign: 'center', marginTop: 30 },
   titleInput: { color: '#ffffff', fontFamily: SERIF, fontSize: 32, lineHeight: 36, paddingVertical: 6 },
   label: { color: '#777777', fontSize: 10, fontWeight: '900', letterSpacing: 1.8, marginTop: 26, marginBottom: 10 },
+  titleInputBold: { fontFamily: undefined, fontWeight: '900', fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
+  fontRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   caption: { color: '#ffffff', fontSize: 15, lineHeight: 21, backgroundColor: '#141414', borderRadius: 14, padding: 14, minHeight: 80 },
 });
