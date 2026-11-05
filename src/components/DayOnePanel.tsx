@@ -70,7 +70,9 @@ export default function DayOnePanel({ roomId, opensAt, now, currentAverage, curr
         </Text>
         {currentCount > 0 && (
           <Text style={styles.pendingSub}>
-            So far: {currentAverage ?? '–'} from {currentCount} {currentCount === 1 ? 'person' : 'people'}
+            {currentCount >= 50
+              ? `So far: ${currentAverage ?? '–'} from ${currentCount} ${currentCount === 1 ? 'person' : 'people'}`
+              : `So far: ${currentAverage ?? '–'} · Day One impression`}
           </Text>
         )}
       </View>
@@ -88,9 +90,17 @@ export default function DayOnePanel({ roomId, opensAt, now, currentAverage, curr
           <Text style={styles.score}>{record.day_one_score ?? '–'}</Text>
         </View>
         <View style={styles.stats}>
-          <Text style={styles.stat}><Text style={styles.statNum}>{record.raters}</Text> first impressions</Text>
-          {record.listeners > 0 && <Text style={styles.stat}><Text style={styles.statNum}>{record.listeners}</Text> listened live</Text>}
-          <Text style={styles.stat}><Text style={styles.statNum}>{record.messages}</Text> messages</Text>
+          {record.raters >= 50 ? (
+            <Text style={styles.stat}><Text style={styles.statNum}>{record.raters}</Text> first impressions</Text>
+          ) : (
+            <Text style={styles.stat}>Day One community impression</Text>
+          )}
+          {record.listeners >= 50 && (
+            <Text style={styles.stat}><Text style={styles.statNum}>{record.listeners}</Text> listened live</Text>
+          )}
+          {record.messages >= 50 && (
+            <Text style={styles.stat}><Text style={styles.statNum}>{record.messages}</Text> messages</Text>
+          )}
         </View>
       </View>
 
@@ -140,6 +150,8 @@ export default function DayOnePanel({ roomId, opensAt, now, currentAverage, curr
     </View>
   );
 }
+
+export { DayOnePanel };
 
 const styles = StyleSheet.create({
   pending: { borderWidth: 1, borderColor: '#2b5a33', backgroundColor: '#0d150f', borderRadius: 18, padding: 16, marginBottom: 16 },
