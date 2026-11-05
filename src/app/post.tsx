@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CollectionMeta, itemsFromPost } from '../collection';
-import Slide, { buildSlides, SLIDE_H, SLIDE_W } from '../components/CollectionSlides';
+import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey } from '../components/CollectionSlides';
 import { captureSlides, saveSlides } from '../export-slides';
 import { addToRotation } from '../music-card';
 import { supabase } from '../supabase';
@@ -191,7 +191,7 @@ export default function PostDetailScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 6 }}>
                   {slides.map((spec, i) => (
                     <View key={i} style={{ borderRadius: 10, overflow: 'hidden' }}>
-                      <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} />
+                      <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} />
                     </View>
                   ))}
                 </ScrollView>
@@ -210,7 +210,7 @@ export default function PostDetailScreen() {
                 <View style={styles.offscreen} pointerEvents="none">
                   {slides.map((spec, i) => (
                     <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
-                      <Slide spec={spec} width={SLIDE_W} username={author.username} index={i} total={slides.length} />
+                      <Slide spec={spec} width={SLIDE_W} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} />
                     </View>
                   ))}
                 </View>

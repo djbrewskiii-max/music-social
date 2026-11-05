@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CollectionMeta, itemsFromPost } from '../collection';
-import Slide, { buildSlides } from './CollectionSlides';
+import Slide, { buildSlides, ThemeKey } from './CollectionSlides';
 
 /*
   How a collection appears in the feed and on profiles: its title in the
@@ -41,7 +41,7 @@ export default function CollectionPreview({ post, username, slideWidth = 150 }: 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {slides.map((spec, i) => (
           <Pressable key={i} onPress={open} style={styles.slide}>
-            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} />
+            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} theme={(post.collection.theme as ThemeKey) || 'auto'} />
           </Pressable>
         ))}
       </ScrollView>

@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 
 import { CollectionItem, LocalPhoto, publishCollection, searchSongs, Template, TEMPLATES } from '../collection';
-import Slide, { buildSlides, SLIDE_H, SLIDE_W } from '../components/CollectionSlides';
+import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
 import { supabase } from '../supabase';
@@ -33,12 +33,13 @@ const SCREEN_H = Dimensions.get('window').height;
 // The live canvas: as big as fits while leaving room for the toolbar.
 const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16));
 
-type Sheet = null | 'songs' | 'text' | { note: number };
+type Sheet = null | 'songs' | 'text' | 'color' | { note: number };
 
 export default function StudioScreen() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const [picking, setPicking] = useState(true); // template picker first
   const [template, setTemplate] = useState<Template>('liner');
+  const [theme, setTheme] = useState<ThemeKey>('auto');
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [items, setItems] = useState<CollectionItem[]>([]);
@@ -216,7 +217,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, title, caption, items, photos });
+      const id = await publishCollection({ template, theme, title, caption, items, photos });
       setPostedId(id);
       Alert.alert('Posted', 'Your collection is on your profile. Save the slides to share them on TikTok or Instagram too?', [
         { text: 'Not now', style: 'cancel', onPress: () => router.replace({ pathname: '/post', params: { postId: id } }) },
@@ -348,7 +349,7 @@ export default function StudioScreen() {
         style={{ flexGrow: 0, marginTop: 6 }}
         renderItem={({ item, index }) => (
           <View style={styles.canvasSlide}>
-            <Slide spec={item} width={CANVAS_W} username={username} index={index} total={finalSlides.length} editing={editing} />
+            <Slide spec={item} width={CANVAS_W} username={username} index={index} total={finalSlides.length} theme={theme} editing={editing} />
           </View>
         )}
       />
@@ -367,9 +368,38 @@ export default function StudioScreen() {
         </Pressable>
         <Pressable onPress={() => setSheet('text')} style={styles.tool}>
           <Text style={styles.toolIcon}>Aa</Text>
-          <Text style={styles.toolText}>Title</Text>
+          <Text style={styles.toolText}>Text</Text>
+        </Pressable>
+        <Pressable onPress={() => setSheet(sheet === 'color' ? null : 'color')} style={[styles.tool, sheet === 'color' && styles.toolOn]}>
+          <View style={styles.toolSwatch}>
+            {theme === 'auto' ? <View style={styles.autoSwatch}><View style={[styles.autoHalf, { backgroundColor: '#C65B7C' }]} /><View style={[styles.autoHalf, { backgroundColor: '#3E7CB1' }]} /></View> : <View style={[styles.swatchFill, { backgroundColor: THEMES.find((t) => t.key === theme)!.swatch }]} />}
+          </View>
+          <Text style={styles.toolText}>Color</Text>
         </Pressable>
       </View>
+
+      {sheet === 'color' && (
+        <View style={styles.colorTray}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 20 }}>
+            {THEMES.map((t) => (
+              <Pressable key={t.key} onPress={() => setTheme(t.key)} style={{ alignItems: 'center' }} accessibilityLabel={`${t.name} color`}>
+                <View style={[styles.swatch, theme === t.key && styles.swatchOn]}>
+                  {t.key === 'auto' ? (
+                    <View style={styles.autoSwatch}>
+                      <View style={[styles.autoHalf, { backgroundColor: '#C65B7C' }]} />
+                      <View style={[styles.autoHalf, { backgroundColor: '#3E7CB1' }]} />
+                    </View>
+                  ) : (
+                    <View style={[styles.swatchFill, { backgroundColor: t.swatch, borderColor: t.ring || 'transparent', borderWidth: t.ring ? 1 : 0 }]} />
+                  )}
+                </View>
+                <Text style={[styles.swatchName, theme === t.key && { color: '#ffffff' }]}>{t.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Text style={styles.colorHint}>{theme === 'auto' ? 'Album: each slide takes its color from the album art.' : 'One color across every slide.'}</Text>
+        </View>
+      )}
 
       <View style={styles.finalRow}>
         <Pressable onPress={() => exportNow()} disabled={exporting} style={[styles.secondaryBtn, exporting && { opacity: 0.5 }]}>
@@ -384,7 +414,7 @@ export default function StudioScreen() {
       <View style={styles.offscreen} pointerEvents="none">
         {finalSlides.map((spec, i) => (
           <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
-            <Slide spec={spec} width={SLIDE_W} username={username} index={i} total={finalSlides.length} />
+            <Slide spec={spec} width={SLIDE_W} username={username} index={i} total={finalSlides.length} theme={theme} />
           </View>
         ))}
       </View>
@@ -471,7 +501,7 @@ export default function StudioScreen() {
       <Modal visible={sheet === 'text'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Title</Text>
+            <Text style={styles.sheetTitle}>Title & caption</Text>
             <Pressable onPress={() => setSheet(null)} hitSlop={10}>
               <Text style={styles.done}>Done</Text>
             </Pressable>
@@ -547,6 +577,16 @@ const styles = StyleSheet.create({
   tool: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, backgroundColor: '#121212', borderWidth: 1, borderColor: '#242424' },
   toolIcon: { color: GREEN, fontSize: 16, fontWeight: '900' },
   toolText: { color: '#ffffff', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  toolOn: { borderColor: GREEN },
+  toolSwatch: { width: 18, height: 18, borderRadius: 9, overflow: 'hidden' },
+  colorTray: { marginTop: 12 },
+  swatch: { width: 40, height: 40, borderRadius: 20, padding: 3, borderWidth: 2, borderColor: 'transparent' },
+  swatchOn: { borderColor: '#ffffff' },
+  swatchFill: { flex: 1, borderRadius: 20 },
+  autoSwatch: { flex: 1, borderRadius: 20, overflow: 'hidden', flexDirection: 'row' },
+  autoHalf: { flex: 1 },
+  swatchName: { color: '#888888', fontSize: 10, fontWeight: '800', marginTop: 5 },
+  colorHint: { color: '#777777', fontSize: 11, textAlign: 'center', marginTop: 8 },
   finalRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginTop: 12, marginBottom: 10 },
   primaryBtn: { flex: 1, backgroundColor: GREEN, borderRadius: 16, paddingVertical: 15, alignItems: 'center' },
   primaryText: { color: '#000000', fontSize: 12, fontWeight: '900', letterSpacing: 1.3 },
