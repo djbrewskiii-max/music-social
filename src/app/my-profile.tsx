@@ -28,6 +28,8 @@ import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
 import FirstListenShelf from '../components/FirstListenShelf';
+import CollectionPreview from '../components/CollectionPreview';
+import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
@@ -84,7 +86,9 @@ type PostRow = {
   artist_name: string;
   artwork_url: string | null;
   photo_url: string | null;
+  photo_urls?: string[] | null;
   music_items: { id?: string; song: string; artist: string; artworkUrl?: string }[] | null;
+  collection?: CollectionMeta | null;
 };
 
 type ConcertRow = {
@@ -296,7 +300,7 @@ export default function MyProfileScreen() {
             supabase
               .from('posts')
               .select(
-                'id, created_at, body, song_title, artist_name, artwork_url, photo_url, music_items'
+                'id, created_at, body, song_title, artist_name, artwork_url, photo_url, photo_urls, music_items, collection'
               )
               .eq(
                 'user_id',
@@ -1722,7 +1726,7 @@ export default function MyProfileScreen() {
                     styles.sectionTitleNoMargin
                   }
                 >
-                  On NOW.
+                  Posts.
                 </Text>
               </View>
 
@@ -1833,13 +1837,15 @@ export default function MyProfileScreen() {
                         </Text>
                       )}
 
-                      {!!post.photo_url && <Image source={{ uri: post.photo_url }}
+                      {post.collection ? (
+                        <CollectionPreview post={{ ...post, collection: post.collection }} username={profile?.username || ''} slideWidth={130} />
+                      ) : !!post.photo_url && <Image source={{ uri: post.photo_url }}
                         style={{ width: '100%', height: 220, borderRadius: 12, marginVertical: 10 }} resizeMode="cover" />}
-                      {Array.isArray(post.music_items) && post.music_items.length > 1 &&
+                      {!post.collection && Array.isArray(post.music_items) && post.music_items.length > 1 &&
                         <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
                           COLLECTION · {post.music_items.length} TRACKS
                         </Text>}
-                      <View
+                      {!post.collection && (<View
                         style={
                           styles.postMusic
                         }
@@ -1901,7 +1907,7 @@ export default function MyProfileScreen() {
                             }
                           </Text>
                         </View>
-                      </View>
+                      </View>)}
                     </Pressable>
                   )
                 )}
@@ -2012,7 +2018,7 @@ export default function MyProfileScreen() {
               }
             >
               Your sound changes.
-              NOW remembers it.
+              OVRLEE remembers it.
             </Text>
 
             <Text
@@ -2100,7 +2106,7 @@ export default function MyProfileScreen() {
             }
           >
             YOUR MUSIC. YOUR PEOPLE.
-            RIGHT NOW.
+            OVRLEE.
           </Text>
         </ScrollView>
 

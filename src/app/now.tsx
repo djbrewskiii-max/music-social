@@ -29,6 +29,8 @@ import {
 } from 'react-native';
 
 import ActivityBell from '../components/ActivityBell';
+import CollectionPreview from '../components/CollectionPreview';
+import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
@@ -58,6 +60,7 @@ type PostRow = {
   photo_url: string | null;
   photo_urls: string[] | null;
   music_items: { id?: string; song: string; artist: string; artworkUrl?: string }[] | null;
+  collection?: CollectionMeta | null;
 };
 
 type ProfileRow = {
@@ -698,7 +701,7 @@ export default function NowScreen() {
           } = await supabase
             .from('posts')
             .select(
-              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items'
+              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection'
             )
             .order(
               'created_at',
@@ -2840,7 +2843,9 @@ export default function NowScreen() {
                       </Text>
                     )}
 
-                    {(() => {
+                    {post.collection ? (
+                      <CollectionPreview post={{ ...post, collection: post.collection }} username={post.username || ''} />
+                    ) : (() => {
                       const gallery = Array.isArray(post.photo_urls)
                         ? post.photo_urls.filter((url): url is string => typeof url === 'string' && url.length > 0)
                         : [];
@@ -2882,7 +2887,7 @@ export default function NowScreen() {
                         </View>
                       );
                     })()}
-                    {Array.isArray(post.music_items) && post.music_items.length > 1 ? (
+                    {post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
                       <View style={styles.collectionContainer}>
                         <Text style={styles.collectionHeading}>
                           COLLECTION · {post.music_items.length} TRACKS

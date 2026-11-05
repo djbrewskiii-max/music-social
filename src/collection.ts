@@ -114,8 +114,11 @@ export async function publishCollection(input: {
   if (!user) throw new Error('Not signed in');
   if (!input.items.length) throw new Error('Add at least one song.');
 
+  // Only upload the photos this template actually shows (switching templates
+  // in the editor keeps earlier photos around in case you switch back).
+  const usable = input.template === 'tracklist' ? 0 : input.template === 'moodboard' ? 5 : 1;
   const photoUrls: string[] = [];
-  for (const photo of input.photos) photoUrls.push(await uploadPhoto(user.id, photo));
+  for (const photo of input.photos.slice(0, usable)) photoUrls.push(await uploadPhoto(user.id, photo));
 
   const first = input.items[0];
   const meta: CollectionMeta = {

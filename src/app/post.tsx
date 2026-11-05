@@ -173,7 +173,7 @@ export default function PostDetailScreen() {
     {loading && !post ? <ActivityIndicator color={green} style={{ marginTop: 45 }} /> : null}
     {!!error && <Text style={styles.error}>{error}</Text>}
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: 140 }]}>
         {post && <>
           <Pressable style={styles.author} onPress={() => openProfile(post.user_id)}>
             {author.avatar ? <Image source={{ uri: author.avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={{ color: '#fff' }}>{author.name[0]}</Text></View>}

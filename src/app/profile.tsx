@@ -23,6 +23,8 @@ import { supabase } from '../supabase';
 import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
 import FirstListenShelf from '../components/FirstListenShelf';
+import CollectionPreview from '../components/CollectionPreview';
+import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
 
 type Profile = {
@@ -84,6 +86,10 @@ type PostRow = {
   album_name: string | null;
   artwork_url: string | null;
   apple_music_id: string | null;
+  photo_url?: string | null;
+  photo_urls?: string[] | null;
+  music_items?: any[] | null;
+  collection?: CollectionMeta | null;
 };
 
 type ConcertRow = {
@@ -317,7 +323,7 @@ export default function ProfileScreen() {
             supabase
               .from('posts')
               .select(
-                'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id'
+                'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection'
               )
               .eq(
                 'user_id',
@@ -1570,7 +1576,9 @@ export default function ProfileScreen() {
                       </Text>
                     )}
 
-                    <View
+                    {post.collection ? (
+                      <CollectionPreview post={{ ...post, music_items: post.music_items || [], collection: post.collection }} username={profile.username || ''} slideWidth={130} />
+                    ) : (<View
                       style={
                         styles.postMusic
                       }
@@ -1632,7 +1640,7 @@ export default function ProfileScreen() {
                           }
                         </Text>
                       </View>
-                    </View>
+                    </View>)}
                   </Pressable>
                 )
               )}
