@@ -38,8 +38,16 @@ export default function SpotifyCallbackScreen() {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let connectionListener: { remove: () => void } | undefined;
+    let playlistListener: { remove: () => void } | undefined;
     let errorListener: { remove: () => void } | undefined;
     let urlListener: { remove: () => void } | undefined;
+
+    const playlistReady = () => {
+      if (!active || settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      router.replace('/spotify-library');
+    };
 
     const fail = (reason: string) => {
       if (!active || settled) return;
@@ -73,6 +81,10 @@ export default function SpotifyCallbackScreen() {
       setMessage('Processing Spotify authorization…');
       console.log('Spotify callback diagnostic: callback received from', source);
       try {
+        if (SpotifyRemote.getPlaylistAccessToken()) {
+          playlistReady();
+          return;
+        }
         if (SpotifyRemote.isConnected()) {
           await succeed();
           return;
@@ -84,12 +96,18 @@ export default function SpotifyCallbackScreen() {
           fail('Spotify returned, but the native SDK rejected its authorization response. Check that Spotify and OVRLEE use the same registered redirect URI.');
           return;
         }
-        if (SpotifyRemote.isConnected()) await succeed();
-        else setMessage('Authorization received. Waiting for Spotify App Remote to connect…');
+        if (SpotifyRemote.getPlaylistAccessToken()) playlistReady();
+        else if (SpotifyRemote.isConnected()) await succeed();
+        else setMessage('Authorization received. Waiting for Spotify to finish connecting…');
       } catch (error) {
         fail(`Spotify callback processing failed: ${String(error)}`);
       }
     };
+
+    playlistListener = SpotifyRemote.onPlaylistAuthorized(({ authorized }) => {
+      if (authorized && SpotifyRemote.getPlaylistAccessToken()) playlistReady();
+    });
+    if (SpotifyRemote.getPlaylistAccessToken()) { playlistReady(); return () => { playlistListener?.remove(); }; }
 
     connectionListener = SpotifyRemote.onConnection(({ connected }) => {
       console.log('Spotify callback diagnostic: native connection event:', connected);
@@ -100,7 +118,9 @@ export default function SpotifyCallbackScreen() {
     });
 
     timer = setTimeout(() => {
-      if (SpotifyRemote.isConnected()) {
+      if (SpotifyRemote.getPlaylistAccessToken()) {
+        playlistReady();
+      } else if (SpotifyRemote.isConnected()) {
         void succeed();
       } else if (!started.current) {
         fail('OVRLEE opened the callback screen, but Expo did not deliver Spotify authorization parameters.');
@@ -124,6 +144,7 @@ export default function SpotifyCallbackScreen() {
       active = false;
       if (timer) clearTimeout(timer);
       connectionListener?.remove();
+      playlistListener?.remove();
       errorListener?.remove();
       urlListener?.remove();
     };
