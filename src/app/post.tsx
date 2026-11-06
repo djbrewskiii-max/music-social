@@ -29,6 +29,7 @@ export default function PostDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewer, setViewer] = useState<number | null>(null);
+  const [collectionViewer, setCollectionViewer] = useState<number | null>(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
@@ -187,16 +188,16 @@ export default function PostDetailScreen() {
           {!!post.collection && fontsLoaded && (() => {
             const items = itemsFromPost(post);
             const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId });
-            const slideW = Math.min(260, width - 110);
+            const slideW = width - 36;
             return (
               <View style={{ marginBottom: 20 }}>
                 <Text style={styles.collectionTitle}>{post.collection.title}</Text>
                 {!!post.body && <Text style={styles.caption}>{post.body}</Text>}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 6 }}>
+                <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6 }}>
                   {slides.map((spec, i) => (
-                    <View key={i} style={{ borderRadius: 10, overflow: 'hidden' }}>
+                    <Pressable key={i} accessibilityLabel={`View collection slide ${i + 1} of ${slides.length}`} onPress={() => setCollectionViewer(i)} style={{ width: slideW, borderRadius: 10, overflow: 'hidden' }}>
                       <Slide spec={spec} width={slideW} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} titleFont={post.collection?.titleFont || 'serif'} />
-                    </View>
+                    </Pressable>
                   ))}
                 </ScrollView>
                 <View style={styles.collectionActions}>
@@ -275,6 +276,27 @@ export default function PostDetailScreen() {
         </Pressable>
       </View>}
     </KeyboardAvoidingView>
+    <Modal visible={collectionViewer !== null} onRequestClose={() => setCollectionViewer(null)} animationType="fade" statusBarTranslucent>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#080808', justifyContent: 'center' }}>
+        <View style={{ paddingHorizontal: 18, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{post?.collection?.title || 'Collection'}</Text>
+          <Pressable accessibilityLabel="Close collection viewer" onPress={() => setCollectionViewer(null)}><Text style={{ color: '#fff', fontSize: 30 }}>×</Text></Pressable>
+        </View>
+        {collectionViewer !== null && post?.collection && fontsLoaded && (() => {
+          const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items: itemsFromPost(post), photos, coverArtId: post.collection.coverArtId });
+          const slideWidth = width - 32;
+          return <>
+            <Text style={{ textAlign: 'center', color: '#aaa', marginBottom: 12 }}>{collectionViewer + 1} / {slides.length}</Text>
+            <ScrollView key={`${post.id}-slides`} horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: width * collectionViewer, y: 0 }} onMomentumScrollEnd={(e) => setCollectionViewer(Math.max(0, Math.min(slides.length - 1, Math.round(e.nativeEvent.contentOffset.x / width))))}>
+              {slides.map((spec, i) => <View key={i} style={{ width, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }}>
+                <Slide spec={spec} width={slideWidth} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} titleFont={post.collection?.titleFont || 'serif'} />
+              </View>)}
+            </ScrollView>
+            <Text style={{ textAlign: 'center', color: '#aaa', padding: 16 }}>Swipe to view each card · Tap a song below the collection to open it in your music app.</Text>
+          </>;
+        })()}
+      </SafeAreaView>
+    </Modal>
     <Modal visible={viewer !== null} onRequestClose={() => setViewer(null)} animationType="fade" statusBarTranslucent>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }}>
         <View style={{ position: 'absolute', top: 55, left: 20, right: 20, zIndex: 3, flexDirection: 'row', justifyContent: 'space-between' }}>
