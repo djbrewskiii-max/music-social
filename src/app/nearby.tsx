@@ -6,7 +6,7 @@ import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { isInNearbyArea } from '../city-locations';
 
-type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null };
+type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null; nearby_visible: boolean };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
 type Trend = { artist: string; count: number; listeners: number };
 type SongTrend = { song: string; artist: string; count: number; listeners: number };
@@ -36,7 +36,7 @@ export default function NearbyScreen() {
       setMyId(user.id);
       const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult] = await Promise.all([
         supabase.from('profiles').select('city').eq('user_id', user.id).maybeSingle(),
-        supabase.from('profiles').select('user_id,display_name,username,avatar_url,city').limit(500),
+        supabase.from('profiles').select('user_id,display_name,username,avatar_url,city,nearby_visible').limit(500),
         supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
         supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
         supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
@@ -65,7 +65,7 @@ export default function NearbyScreen() {
         ...(blockedByResult.data || []).map(row => row.blocker_id),
       ]);
       const localProfiles = ((profilesResult.data || []) as Profile[])
-        .filter(p => p.user_id && !excluded.has(p.user_id) && isInNearbyArea(p.city || '', myCity));
+        .filter(p => p.user_id && p.nearby_visible && !excluded.has(p.user_id) && isInNearbyArea(p.city || '', myCity));
       const ids = localProfiles.map(p => p.user_id!) as string[];
       if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
 
