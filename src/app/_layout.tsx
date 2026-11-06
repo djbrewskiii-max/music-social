@@ -1,6 +1,6 @@
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ShareIntentProvider } from 'expo-share-intent';
 
@@ -13,7 +13,6 @@ import { PreviewPlayerProvider } from '../preview-player';
 import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
-  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -60,16 +59,6 @@ export default function RootLayout() {
         <Stack.Screen name="studio" options={{ gestureEnabled: false }} />
         <Stack.Screen name="archive" />
       </Stack>
-      {pathname === '/now' && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open Connect Music"
-          onPress={() => router.push('/connect-music')}
-          style={({ pressed }) => [styles.connectButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.connectText}>Connect Music</Text>
-        </Pressable>
-      )}
       <PartyMiniBar />
       <ShareIntentHandler />
       <OverlyIntro active={pathname === '/now'} />
@@ -80,23 +69,4 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  connectButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 88,
-    zIndex: 100,
-    elevation: 10,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    backgroundColor: '#1ED760',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-  },
-  pressed: { opacity: 0.75 },
-  connectText: { fontSize: 14, fontWeight: '800', color: '#080808' },
-});
+const styles = StyleSheet.create({ root: { flex: 1 } });
