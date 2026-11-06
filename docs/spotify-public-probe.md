@@ -36,3 +36,8 @@ Do **not** connect this probe to production imports, automatic Spotify song sync
 
 Official rule: https://www.spotify.com/us/legal/user-guidelines/
 Developer migration guide: https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide
+
+
+## One-off GitHub hosted validation
+
+The repository has a one-off GitHub Actions CI job guarded by an **exact commit-message match**. It visits the single publicly provided test profile without login and attempts to read the profile's playlist links, followed by the standard public embed hydration for up to three playlists. It does not persist to Supabase or enable a recurring monitor. A report artifact is retained for seven days if generated. This is an experiment, not a permitted commercial data source. The profile is not asserted to have granted direct consent.
