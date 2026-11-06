@@ -18,6 +18,7 @@ export default function NearbyScreen() {
   const [people, setPeople] = useState<Person[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
+  const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
   const [tab, setTab] = useState<'nearby' | 'following'>('nearby');
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +43,18 @@ export default function NearbyScreen() {
       if (profilesResult.error) throw profilesResult.error;
       const myCity = (mine.data?.city || '').trim();
       setCity(myCity);
+      const followingIds = (followResult.data || []).map(row => row.following_id).filter(id => !new Set([
+        ...(blockResult.data || []).map(row => row.blocked_id),
+        ...(blockedByResult.data || []).map(row => row.blocker_id),
+      ]).has(id));
+      if (followingIds.length) {
+        const followedResult = await supabase.from('posts')
+          .select('id,user_id,artist_name,song_title,artwork_url,created_at,collection,music_items')
+          .in('user_id', followingIds.slice(0, 100))
+          .order('created_at', { ascending: false }).limit(40);
+        if (followedResult.error) console.log('Following music posts:', followedResult.error.message);
+        setFollowingPosts((followedResult.data || []) as Post[]);
+      } else setFollowingPosts([]);
       if (!myCity) { setPeople([]); setTrends([]); setRecentPosts([]); return; }
       const excluded = new Set<string>([
         user.id,
@@ -157,7 +170,21 @@ export default function NearbyScreen() {
               </Pressable>
             )) : <Text style={styles.emptyText}>No music has been posted in this city yet.</Text>}
           </>}
-          <Text style={styles.section}>{tab === 'following' ? 'PEOPLE YOU FOLLOW' : 'MUSIC PEOPLE NEAR YOU'}</Text>
+          {tab === 'following' && <>
+            <Text style={styles.section}>MUSIC FROM PEOPLE YOU FOLLOW</Text>
+            {followingPosts.map(post => (
+              <Pressable key={post.id} style={styles.post} onPress={() => router.push({ pathname: '/post', params: { postId: post.id } })}>
+                {post.artwork_url ? <Image source={{ uri: post.artwork_url }} style={styles.art} /> : <View style={[styles.art, styles.avatarEmpty]}><Text style={{ color: green, fontSize: 23 }}>♫</Text></View>}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trendName} numberOfLines={1}>{post.collection?.title || post.song_title}</Text>
+                  <Text style={styles.muted} numberOfLines={1}>{post.artist_name || 'Collection'} · Following</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+            {!followingPosts.length && <Text style={styles.emptyText}>Follow listeners to see what they share.</Text>}
+          </>}
+          <Text style={styles.section}>{tab === 'following' ? 'PEOPLE YOU FOLLOW IN YOUR CITY' : 'MUSIC PEOPLE NEAR YOU'}</Text>
           <Text style={styles.helper}>Shared artists are shown by name, never as a compatibility percentage.</Text>
           {shown.map(person => (
             <View key={person.user_id} style={styles.personCard}>
