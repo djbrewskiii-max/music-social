@@ -94,6 +94,9 @@ export default function SettingsScreen() {
           <SettingRow icon="magnifyingglass" label="Explore a public Spotify playlist"
             detail="Try the Spotify player and an OVRLEE music match"
             onPress={() => router.push('/spotify-explore')} />
+          <SettingRow icon="square.and.arrow.down" label="Import playlist songs"
+            detail="Read a playlist export and suggest songs for In Rotation"
+            onPress={() => router.push('/playlist-import')} />
         </View>
 
         <Text style={styles.section}>HOW OVRLEE WORKS</Text>
