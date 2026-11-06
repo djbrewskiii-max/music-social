@@ -6,6 +6,7 @@ import { CollectionMeta, itemsFromPost } from '../collection';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey } from '../components/CollectionSlides';
 import { captureSlides, saveSlides } from '../export-slides';
 import { addToRotation, openMusicCard } from '../music-card';
+import { previewKey, useSongPreview } from '../preview-player';
 import { supabase } from '../supabase';
 import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music-provider';
 
@@ -22,6 +23,7 @@ export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ postId?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
+  const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [author, setAuthor] = useState<{ name: string; username: string; avatar: string | null }>({ name: 'Listener', username: '', avatar: null });
   const [replies, setReplies] = useState<Reply[]>([]);
   const [body, setBody] = useState('');
@@ -233,18 +235,38 @@ export default function PostDetailScreen() {
           </View>}
           <View style={styles.musicCard}>
             <Text style={styles.musicLabel}>{music.length > 1 ? `COLLECTION · ${music.length} TRACKS` : 'MUSIC'}</Text>
-            {music.map((track, i) => <Pressable key={`${track.id || track.song}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]} onPress={() => openMusic(track)}>
-              {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.cover} /> : <View style={styles.cover}><Text style={{ color: '#fff' }}>♪</Text></View>}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
-                <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
-                {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
-                <Pressable onPress={() => pin(track)} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                  <Text style={styles.rotationLink}>+ ADD TO MY ROTATION</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.play}>▶</Text>
-            </Pressable>)}
+            {music.map((track, i) => {
+              const key = previewKey(track);
+              const playing = previewActiveKey === key;
+              const loadingPreview = previewLoadingKey === key;
+              return (
+                <View key={`${track.id || track.song}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Open ${track.song} in your music service`}
+                    onPress={() => openMusic(track)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.cover} /> : <View style={styles.cover}><Text style={{ color: '#fff' }}>♪</Text></View>}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
+                      <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
+                      {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
+                    </View>
+                  </Pressable>
+                  <View style={{ alignItems: 'center', gap: 7 }}>
+                    <Pressable accessibilityRole="button" hitSlop={8}
+                      accessibilityLabel={loadingPreview ? `Loading ${track.song} preview` : playing ? `Stop ${track.song} preview` : `Preview ${track.song}`}
+                      disabled={loadingPreview}
+                      onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist, kind: (track as any).kind === 'album' ? 'album' : 'song' })}
+                      style={{ paddingHorizontal: 9, minHeight: 35, minWidth: 40, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={[styles.play, { color: green }]}>{loadingPreview ? '…' : playing ? '■' : '▶'}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Add ${track.song} to rotation`}
+                      onPress={() => pin(track)} hitSlop={5}>
+                      <Text style={[styles.rotationLink, { fontSize: 9 }]}>+ ROTATION</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+
           </View>
           <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}>
             <Text style={{ color: liked ? green : '#aaa', fontSize: 22 }}>{liked ? '♥' : '♡'}</Text>
