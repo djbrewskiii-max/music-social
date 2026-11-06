@@ -17,11 +17,11 @@ export type WorldCity = {
  * https://open-meteo.com/en/terms
  * Search data is only sent as the city query the user types, never GPS.
  */
-export async function searchWorldwideCities(term: string, signal?: AbortSignal): Promise<WorldCity[]> {
+export async function searchWorldwideCities(term: string, signal?: AbortSignal, countryCode?: string, region?: string): Promise<WorldCity[]> {
   const query = term.trim();
   if (query.length < 2) return [];
   const local: WorldCity[] = CITY_LOCATIONS
-    .filter(c => [c.name, cityLabel(c), c.state, ...(c.aliases || [])]
+    .filter(c => (!countryCode || countryCode === 'US') && (!region || c.state.toLowerCase() === region.toLowerCase()) && [c.name, cityLabel(c), c.state, ...(c.aliases || [])]
       .some(t => t.toLowerCase().includes(query.toLowerCase())))
     .map(c => ({
       id: `curated:${cityLabel(c)}`,
@@ -39,13 +39,17 @@ export async function searchWorldwideCities(term: string, signal?: AbortSignal):
   try {
     const separator = baseUrl.includes('?') ? '&' : '?';
     const response = await fetch(
-      baseUrl + separator + 'count=30&language=en&format=json&name=' +
-      encodeURIComponent(query), { signal }
+      baseUrl + separator + 'count=100&language=en&format=json&name=' +
+      encodeURIComponent(region ? query + ', ' + region : query) +
+      (countryCode ? '&countryCode=' + encodeURIComponent(countryCode) : ''), { signal }
     );
     if (!response.ok) throw new Error('Geocoding request failed: ' + response.status);
     const json = await response.json();
     const remote: WorldCity[] = (json?.results || [])
-      .filter((x: any) => Number.isFinite(x.latitude) && Number.isFinite(x.longitude) && x.name && x.country)
+      .filter((x: any) => Number.isFinite(x.latitude) && Number.isFinite(x.longitude) && x.name && x.country
+        && /^PPL(A[2-5]?|C|G|S|F)?$/.test(String(x.feature_code || ''))
+        && (!countryCode || String(x.country_code).toUpperCase() === countryCode)
+        && (!region || String(x.admin1 || '').toLowerCase() === region.toLowerCase()))
       .map((x: any) => ({
         id: `open-meteo:${x.id}`,
         label: [x.name, x.admin1 && String(x.admin1).toLowerCase() !== String(x.name).toLowerCase() ? x.admin1 : '', x.country].filter(Boolean).join(', '),
@@ -57,7 +61,7 @@ export async function searchWorldwideCities(term: string, signal?: AbortSignal):
         source: 'open-meteo' as const,
       }));
     const found = new Set<string>();
-    return [...remote, ...local].filter(c => {
+    return [...remote.sort((a,b) => (b.population || 0) - (a.population || 0)), ...local].filter(c => {
       const key = `${c.lat.toFixed(2)}:${c.lon.toFixed(2)}`;
       if (found.has(key)) return false;
       found.add(key);
