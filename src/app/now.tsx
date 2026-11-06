@@ -2961,7 +2961,7 @@ export default function NowScreen() {
                                 disabled={loading}
                                 onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist })}
                                 style={styles.collectionPlayCircle}>
-                                <Text style={styles.collectionPlayIcon}>{loading ? '…' : playing ? '■' : '▶'}</Text>
+                                <Text style={styles.collectionPlayIcon}>{loading ? '…' : playing ? '❚❚' : '▶'}</Text>
                               </Pressable>
                             </View>
                           );
@@ -2990,7 +2990,7 @@ export default function NowScreen() {
                           disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
                           onPress={() => toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
                           style={styles.playCircle}>
-                          <Text style={styles.play}>{previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '■' : '▶'}</Text>
+                          <Text style={styles.play}>{previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '❚❚' : '▶'}</Text>
                         </Pressable>
                       </View>
                     )}
