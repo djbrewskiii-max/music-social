@@ -38,6 +38,7 @@ type Profile = {
   username: string | null;
   city: string | null;
   bio: string | null;
+  overly_trait: string | null;
   avatar_url: string | null;
   header_url: string | null;
   profile_color: string | null;
@@ -267,7 +268,7 @@ export default function MyProfileScreen() {
             supabase
               .from('profiles')
               .select(
-                'display_name, username, city, bio, avatar_url, header_url, profile_color'
+                'display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color'
               )
               .eq(
                 'user_id',
@@ -1091,6 +1092,12 @@ export default function MyProfileScreen() {
                 {profile?.username ||
                   'nowuser'}
               </Text>
+
+              {!!profile?.overly_trait && (
+                <View style={{ alignSelf: 'flex-start', marginTop: 9, borderRadius: 20, borderWidth: 1, borderColor: '#37723E', backgroundColor: '#14281A', paddingHorizontal: 12, paddingVertical: 7 }}>
+                  <Text style={{ color: '#BAF5BE', fontWeight: '800', fontSize: 12 }}>{profile.overly_trait}</Text>
+                </View>
+              )}
 
               {!!profile?.city && (
                 <Text
