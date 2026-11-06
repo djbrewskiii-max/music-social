@@ -30,7 +30,8 @@ const toTrack = (song: any): Track => ({
   artworkUrl: artwork(song?.artworkUrl || song?.artwork?.url),
 });
 export default function CreatePostScreen() {
-  const [step, setStep] = useState<'compose' | 'music'>('compose');
+  const { sharedUrl, musicPicker } = useLocalSearchParams<{ sharedUrl?: string; musicPicker?: string }>();
+  const [step, setStep] = useState<'compose' | 'music'>(musicPicker === '1' ? 'music' : 'compose');
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -172,7 +173,6 @@ export default function CreatePostScreen() {
   };
 
   // Shared into OVRLEE from Apple Music or Spotify: attach it automatically.
-  const { sharedUrl } = useLocalSearchParams<{ sharedUrl?: string }>();
   const [sharedNote, setSharedNote] = useState('');
   useEffect(() => {
     if (typeof sharedUrl !== 'string' || !sharedUrl) return;
