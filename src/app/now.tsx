@@ -60,7 +60,7 @@ type PostRow = {
   apple_music_id: string | null;
   photo_url: string | null;
   photo_urls: string[] | null;
-  music_items: { id?: string; song: string; artist: string; artworkUrl?: string }[] | null;
+  music_items: { id?: string; song: string; artist: string; artworkUrl?: string; kind?: 'song' | 'album'; sourceUrl?: string | null }[] | null;
   collection?: CollectionMeta | null;
 };
 
@@ -1581,11 +1581,12 @@ export default function NowScreen() {
     };
 
   // Each song in a collection is independently selectable; the first is not privileged.
-  const openCollectionTrack = async (track: { id?: string; song: string; artist: string }) => {
+  const openCollectionTrack = async (track: { id?: string; song: string; artist: string; sourceUrl?: string | null }) => {
     try {
-      const url = track.id
-        ? trackLink(musicProvider, track.song, track.artist, track.id)
-        : trackLink(musicProvider, track.song, track.artist);
+      const url = await resolveTrackLink(
+        musicProvider, track.song, track.artist, track.id,
+        track.sourceUrl?.startsWith('https://open.spotify.com/') ? track.sourceUrl : null
+      );
       await Linking.openURL(url);
     } catch (error) {
       console.log('Collection track link error:', error);
@@ -1597,7 +1598,12 @@ export default function NowScreen() {
       post: FeedPost
     ) => {
       try {
-        if (musicProvider === 'spotify') { await Linking.openURL(await resolveTrackLink('spotify', post.song_title, post.artist_name, post.apple_music_id)); return; }
+        if (musicProvider === 'spotify') {
+          const original = post.music_items?.[0]?.sourceUrl || null;
+          await Linking.openURL(await resolveTrackLink('spotify', post.song_title, post.artist_name, post.apple_music_id,
+            original?.startsWith('https://open.spotify.com/') ? original : null));
+          return;
+        }
         if (
           post.apple_music_id
         ) {
@@ -2995,6 +3001,14 @@ export default function NowScreen() {
                       </View>
                     )}
 
+                    {!!post.artist_name && (
+                      <Pressable accessibilityRole="button"
+                        accessibilityLabel={`Discover listeners and posts for ${post.artist_name}`}
+                        onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
+                        style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: '#112315' }}>
+                        <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '900' }}>EXPLORE {post.artist_name.toUpperCase()} →</Text>
+                      </Pressable>
+                    )}
                     <View
                       style={
                         styles.actions
