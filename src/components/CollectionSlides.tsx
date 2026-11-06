@@ -121,23 +121,62 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
  */
 export function moodboardRects(aspects: number[], slots: number): [number, number, number, number][] {
   const count = Math.max(1, Math.min(5, slots));
-  const a = aspects[0] || 1;
-  const landscapes = aspects.slice(0, count).filter(v => v > 1.2).length;
-  if (count === 1) return [[0, 0, 324, 400]];
-  if (count === 2) return landscapes === 2
-    ? [[0, 0, 324, 197], [0, 203, 324, 197]]
-    : [[0, 0, 159, 400], [165, 0, 159, 400]];
-  if (count === 3) return a > 1.15
-    ? [[0, 0, 324, 220], [0, 226, 159, 174], [165, 226, 159, 174]]
-    : [[0, 0, 192, 400], [198, 0, 126, 197], [198, 203, 126, 197]];
-  if (count === 4) return landscapes >= 3
-    ? [[0, 0, 159, 197], [165, 0, 159, 197], [0, 203, 159, 197], [165, 203, 159, 197]]
-    : a < 0.9
-      ? [[0, 0, 194, 400], [200, 0, 124, 127], [200, 133, 124, 127], [200, 266, 124, 134]]
-      : [[0, 0, 159, 197], [165, 0, 159, 197], [0, 203, 159, 197], [165, 203, 159, 197]];
-  return a > 1.15
-    ? [[0, 0, 324, 198], [0, 204, 159, 95], [165, 204, 159, 95], [0, 305, 159, 95], [165, 305, 159, 95]]
-    : [[0, 0, 193, 237], [199, 0, 125, 115], [199, 121, 125, 116], [0, 243, 130, 157], [136, 243, 188, 157]];
+  const W = 324, H = 400, gap = 6;
+  // A justified editorial collage: choose the row grouping with the least
+  // cropping, then allocate tile widths using every photo's real aspect.
+  // Enumerating all contiguous row partitions is tiny at five photos.
+  const ratios = Array.from({ length: count }, (_, i) =>
+    Math.max(0.45, Math.min(2.6, Number(aspects[i]) || 1)));
+
+  let best: number[][] = [[...Array(count).keys()]];
+  let bestScore = Infinity;
+  for (let mask = 0; mask < 1 << (count - 1); mask++) {
+    const groups: number[][] = [[]];
+    for (let i = 0; i < count; i++) {
+      groups[groups.length - 1].push(i);
+      if (i < count - 1 && (mask & (1 << i))) groups.push([]);
+    }
+    const ideals = groups.map(group =>
+      (W - (group.length - 1) * gap) /
+      group.reduce((sum, i) => sum + ratios[i], 0));
+    const availableH = H - (groups.length - 1) * gap;
+    const idealTotal = ideals.reduce((sum, h) => sum + h, 0);
+    const scale = availableH / idealTotal;
+    const heights = ideals.map(h => h * scale);
+    // Avoid rows so tiny their artwork no longer feels intentional.
+    const tinyPenalty = heights.reduce((score, h) =>
+      score + (h < 90 ? (90 - h) / 30 : 0) + (h > 340 && count > 1 ? (h - 340) / 40 : 0), 0);
+    const widthPenalty = groups.reduce((score, group) => {
+      const sum = group.reduce((v, i) => v + ratios[i], 0);
+      return score + group.reduce((v, i) => {
+        const width = (W - (group.length - 1) * gap) * ratios[i] / sum;
+        return v + (width < 68 ? (68 - width) / 18 : 0);
+      }, 0);
+    }, 0);
+    const score = Math.abs(Math.log(scale)) * 4 + tinyPenalty + widthPenalty +
+      (groups.length === 1 && count >= 4 ? 1.5 : 0);
+    if (score < bestScore) { bestScore = score; best = groups; }
+  }
+
+  const availableH = H - (best.length - 1) * gap;
+  const ideal = best.map(group => (W - (group.length - 1) * gap) /
+    group.reduce((sum, i) => sum + ratios[i], 0));
+  const sumIdeal = ideal.reduce((total, h) => total + h, 0);
+  const positions: [number, number, number, number][] = Array(count);
+  let y = 0;
+  best.forEach((group, row) => {
+    const rowH = row === best.length - 1 ? H - y : ideal[row] * availableH / sumIdeal;
+    const totalRatio = group.reduce((sum, i) => sum + ratios[i], 0);
+    const availableW = W - (group.length - 1) * gap;
+    let x = 0;
+    group.forEach((i, col) => {
+      const tileW = col === group.length - 1 ? W - x : availableW * ratios[i] / totalRatio;
+      positions[i] = [x, y, tileW, rowH];
+      x += tileW + gap;
+    });
+    y += rowH + gap;
+  });
+  return positions;
 }
 
 export function photoSlotAspect(template: Template, photoAspects: number[], index = 0): number {
