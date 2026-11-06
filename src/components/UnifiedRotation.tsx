@@ -333,10 +333,9 @@ export default function UnifiedRotation({
       );
       if (active) {
         setActivityTracks(unique);
-        const reviewed = await AsyncStorage.getItem('ovrlee.rotationReviewed.' + accountId);
-        const cutoff = reviewed ? Date.parse(reviewed) : 0;
+        const recentThreshold = Date.now() - 7 * 86400000;
         setFreshImportKeys((imports.data ?? [])
-          .filter(t => !!t.song && !!t.artist && Date.parse(t.created_at) > cutoff)
+          .filter(t => !!t.song && !!t.artist && Date.parse(t.created_at) > recentThreshold)
           .map(t => trackKey(t)));
       }
       // Resolve only the initially visible suggestions; bounded batches prevent
@@ -820,7 +819,7 @@ export default function UnifiedRotation({
 
       <View style={{alignItems:'flex-end',gap:6}}>
         {freshImportKeys.includes(trackKey(item))&&
-          <Text style={{color:GREEN,fontSize:9,fontWeight:'900'}}>NEW IMPORT</Text>}
+          <Text style={{color:GREEN,fontSize:9,fontWeight:'900'}}>RECENT IMPORT</Text>}
         <Text style={[styles.plus,pins.length===5&&!editingId&&{fontSize:12,fontWeight:'900'}]}>
           {pins.length===5&&!editingId?'SWAP':'+'}
         </Text>
