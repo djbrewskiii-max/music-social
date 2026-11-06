@@ -1,5 +1,6 @@
 
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -47,6 +48,35 @@ type Suggestion = Track & {
 };
 
 const GREEN = '#39E75F';
+const catalogArtCache = new Map<string, string>();
+// Apple Music metadata is used to decorate user-reviewed imports, not to infer listening.
+async function matchCatalogArtwork(track: Track): Promise<string> {
+  const key = trackKey(track);
+  if (catalogArtCache.has(key)) return catalogArtCache.get(key)!;
+  const token = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN;
+  if (!token) return '';
+  try {
+    const term = [track.song, track.artist].join(' ');
+    const url = 'https://api.music.apple.com/v1/catalog/us/search?' +
+      new URLSearchParams({ term, types: 'songs', limit: '8' }).toString();
+    const response = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (!response.ok) return '';
+    const result = await response.json();
+    const norm = (s: string) => (s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const match = (result?.results?.songs?.data || []).find((entry: any) => {
+      const a = entry?.attributes || {};
+      const songMatch = norm(a.name) === norm(track.song);
+      const expected = norm(track.artist).split(',')[0].trim();
+      const artistMatch = norm(a.artistName) === norm(track.artist) ||
+        (!!expected && norm(a.artistName).split(',')[0].trim() === expected);
+      return songMatch && artistMatch;
+    });
+    const image = match?.attributes?.artwork?.url;
+    const art = typeof image === 'string' ? image.replace(/\{w\}/g,'180').replace(/\{h\}/g,'180') : '';
+    if (art) catalogArtCache.set(key, art);
+    return art;
+  } catch { return ''; }
+}
 
 const clean = (s: string) =>
   (s || '')
@@ -85,6 +115,8 @@ export default function UnifiedRotation({
   fallbackTracks = [],
   hideHeading = false,
 }: Props) {
+  const params = useLocalSearchParams<{ openRotation?: string }>();
+  const [newSuggestionCount, setNewSuggestionCount] = useState(0);
   const [accountId, setAccountId] =
     useState<string | null>(userId ?? null);
 
@@ -154,6 +186,28 @@ export default function UnifiedRotation({
       active = false;
     };
   }, []);
+
+  // An unread marker is based only on newly imported private suggestions.
+  useEffect(() => {
+    if (!owner || !accountId) return;
+    let active = true;
+    (async () => {
+      const [{data}, reviewed] = await Promise.all([
+        supabase.from('music_import_tracks').select('created_at')
+          .eq('user_id', accountId).order('created_at', {ascending: false}).limit(300),
+        AsyncStorage.getItem('ovrlee.rotationReviewed.' + accountId),
+      ]);
+      const time = reviewed ? Date.parse(reviewed) : 0;
+      if (active) setNewSuggestionCount((data || []).filter(t => Date.parse(t.created_at) > time).length);
+    })().catch(() => {});
+    return () => { active = false; };
+  }, [owner, accountId, editing]);
+
+  useEffect(() => {
+    if (!owner || !accountId || params.openRotation !== '1') return;
+    edit();
+    router.setParams({ openRotation: undefined });
+  }, [owner, accountId, params.openRotation]);
 
   // Read existing OVRLEE activity. Never change music_dna
   // or Apple Music authorization/presence collection.
@@ -251,6 +305,21 @@ export default function UnifiedRotation({
       );
 
       if (active) setActivityTracks(unique);
+      // Resolve only the initially visible suggestions; bounded batches prevent
+      // dozens of unnecessary catalog lookups on every editor opening.
+      const first = unique.slice(0, 15).filter(t => !t.artworkUrl);
+      for (let offset = 0; offset < first.length && active; offset += 4) {
+        const batch = first.slice(offset, offset + 4);
+        const enriched = await Promise.all(batch.map(async t => ({
+          key: trackKey(t), art: await matchCatalogArtwork(t)
+        })));
+        if (!active) return;
+        const updates = new Map(enriched.filter(x => x.art).map(x => [x.key, x.art]));
+        if (updates.size) setActivityTracks(previous => previous.map(t =>
+          updates.has(trackKey(t)) && !t.artworkUrl
+            ? {...t, artworkUrl: updates.get(trackKey(t))} : t
+        ));
+      }
     })().catch(e =>
       console.log('Rotation search activity:', e)
     );
@@ -441,6 +510,10 @@ export default function UnifiedRotation({
 
   const edit = (pin?: Pin) => {
     setEditing(true);
+    if (owner && accountId && !pin) {
+      setNewSuggestionCount(0);
+      void AsyncStorage.setItem('ovrlee.rotationReviewed.' + accountId, new Date().toISOString()).catch(() => {});
+    }
     setEditingId(pin?.id ?? null);
     setQueue([]);
 
@@ -704,7 +777,7 @@ export default function UnifiedRotation({
               style={styles.add}
             >
               <Text style={styles.addText}>
-                EDIT / ADD +
+                EDIT / ADD +{newSuggestionCount > 0 ? ' · ' + newSuggestionCount + ' NEW' : ''}
               </Text>
             </Pressable>
           )}
