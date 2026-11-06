@@ -17,6 +17,7 @@ export type SharedMusic = {
   artworkUrl: string;
   kind: 'song' | 'album';
   source: 'apple_music' | 'spotify';
+  sourceUrl?: string;
 };
 
 const API = 'https://api.music.apple.com/v1/catalog/us';
@@ -27,9 +28,19 @@ export function firstUrl(text: string | null | undefined): string | null {
   return match ? match[0].replace(/[).,]+$/, '') : null;
 }
 
-export const isMusicLink = (url: string) => /music\.apple\.com|open\.spotify\.com|spotify\.link|spotify\.app\.link/i.test(url);
+export function isMusicLink(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === 'music.apple.com' || hostname.endsWith('.music.apple.com')
+      || hostname === 'open.spotify.com' || hostname === 'spotify.link'
+      || hostname === 'spotify.app.link';
+  } catch {
+    return false;
+  }
+}
 
 async function catalog(path: string) {
+  if (!developerToken) throw new Error('MusicKit catalog token unavailable');
   const response = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${developerToken}` } });
   if (!response.ok) throw new Error(`Apple Music returned ${response.status}`);
   return response.json();
@@ -81,6 +92,37 @@ function parseApple(url: string): { kind: 'song' | 'album'; id: string } | null 
   return null;
 }
 
+
+// Apple provides public catalog metadata through its iTunes lookup API.
+// This is a fallback when the MusicKit token is unavailable or expired.
+async function publicAppleItem(id: string, kind: 'song' | 'album'): Promise<SharedMusic | null> {
+  const response = await fetch('https://itunes.apple.com/lookup?id=' + encodeURIComponent(id) + '&country=us');
+  if (!response.ok) return null;
+  const json = await response.json();
+  const row = (json?.results || []).find((item: any) =>
+    kind === 'album' ? item.wrapperType === 'collection' : item.wrapperType === 'track');
+  if (!row) return null;
+  return {
+    id,
+    song: String(kind === 'album' ? row.collectionName || '' : row.trackName || ''),
+    artist: String(row.artistName || ''),
+    album: String(row.collectionName || ''),
+    artworkUrl: String(row.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+    kind,
+    source: 'apple_music',
+  };
+}
+
+async function resolveAppleItem(id: string, kind: 'song' | 'album'): Promise<SharedMusic | null> {
+  if (developerToken) {
+    try {
+      const result = kind === 'album' ? await appleAlbum(id, 'apple_music') : await appleSong(id, 'apple_music');
+      if (result) return result;
+    } catch (error) { console.log('Apple catalog lookup fallback:', error); }
+  }
+  return publicAppleItem(id, kind);
+}
+
 async function fromSpotify(url: string): Promise<SharedMusic | null> {
   const response = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}&userCountry=US`);
   if (!response.ok) throw new Error(`Songlink returned ${response.status}`);
@@ -91,8 +133,8 @@ async function fromSpotify(url: string): Promise<SharedMusic | null> {
   if (appleKey) {
     const [type, id] = appleKey.split('::');
     try {
-      const found = /ALBUM/i.test(type) ? await appleAlbum(id, 'spotify') : await appleSong(id, 'spotify');
-      if (found) return found;
+      const found = await resolveAppleItem(id, /ALBUM/i.test(type) ? 'album' : 'song');
+      if (found) return { ...found, source: 'spotify', sourceUrl: url };
     } catch {
       /* fall back to Spotify's own details */
     }
@@ -110,15 +152,18 @@ async function fromSpotify(url: string): Promise<SharedMusic | null> {
     artworkUrl: String(entity.thumbnailUrl || ''),
     kind: entity.type === 'album' ? 'album' : 'song',
     source: 'spotify',
+    sourceUrl: url,
   };
 }
 
-export async function resolveSharedMusic(url: string): Promise<SharedMusic | null> {
-  if (/music\.apple\.com/i.test(url)) {
+export async function resolveSharedMusic(textOrUrl: string): Promise<SharedMusic | null> {
+  const url = firstUrl(textOrUrl) || textOrUrl.trim();
+  if (!isMusicLink(url)) return null;
+  if (/music\\.apple\\.com/i.test(url)) {
     const parsed = parseApple(url);
     if (!parsed) return null;
-    return parsed.kind === 'song' ? appleSong(parsed.id, 'apple_music') : appleAlbum(parsed.id, 'apple_music');
+    const item = await resolveAppleItem(parsed.id, parsed.kind);
+    return item ? { ...item, sourceUrl: url } : null;
   }
-  if (/spotify/i.test(url)) return fromSpotify(url);
-  return null;
+  return fromSpotify(url);
 }
