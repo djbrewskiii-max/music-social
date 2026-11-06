@@ -163,7 +163,7 @@ export default function UnifiedRotation({
     let active = true;
 
     (async () => {
-      const [dna, posts] = await Promise.all([
+      const [dna, posts, imports] = await Promise.all([
         supabase
           .from('music_dna')
           .select('top_songs,recent_tracks')
@@ -176,6 +176,13 @@ export default function UnifiedRotation({
           .eq('user_id', accountId)
           .order('created_at', { ascending: false })
           .limit(60),
+
+        supabase
+          .from('music_import_tracks')
+          .select('song,artist')
+          .eq('user_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(300),
       ]);
 
       const found: Track[] = [];
@@ -230,6 +237,13 @@ export default function UnifiedRotation({
         ) {
           add(t.song, t.artist, t.artworkUrl, t.id);
         }
+      }
+
+      // Imported songs are proposals, not actual listening history.
+      // The editor combines them with music activity, but never
+      // writes music_dna or pins tracks until the user approves.
+      for (const t of imports.data ?? []) {
+        add(t.song, t.artist, undefined);
       }
 
       const unique = Array.from(
@@ -912,7 +926,7 @@ export default function UnifiedRotation({
                     ✦ SUGGEST MY ROTATION
                   </Text>
                   <Text style={{ color: '#B5B5B5', fontSize: 11, lineHeight: 17, marginTop: 5 }}>
-                    Fill from music you've shared or connected in OVRLEE. Review these picks before saving.
+                    Fill from songs you've shared, connected or imported into OVRLEE. Review before saving.
                   </Text>
                 </Pressable>
               )}
