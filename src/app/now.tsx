@@ -2594,6 +2594,16 @@ export default function NowScreen() {
                             }
                           </Text>
                         </View>
+                        <Pressable accessibilityRole="button" hitSlop={10}
+                          accessibilityLabel={previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Pause conversation song preview' : 'Play conversation song preview'}
+                          disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
+                          onPress={() => void toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
+                          style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#39E75F', alignItems: 'center', justifyContent: 'center', marginLeft: 10 }}>
+                          <Text style={{ color: '#39E75F', fontSize: 20, fontWeight: '900' }}>
+                            {previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…'
+                              : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '❚❚' : '▶'}
+                          </Text>
+                        </Pressable>
                       </View>
 
                       <View
@@ -2874,14 +2884,8 @@ export default function NowScreen() {
                       </Text>
                     </View>
 
-                    {!!post.body && (
-                      <Text
-                        style={
-                          styles.body
-                        }
-                      >
-                        {post.body}
-                      </Text>
+                    {!!post.body && !post.collection && (
+                      <Text style={styles.body}>{post.body}</Text>
                     )}
 
                     {post.collection ? (
