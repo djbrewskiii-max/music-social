@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import { OVERLY_TRAITS, normalizeOverlyTrait } from '../overly-traits';
 
 type Profile = {
   display_name: string | null;
   username: string | null;
   city: string | null;
   bio: string | null;
+  overly_trait: string | null;
   avatar_url: string | null;
   header_url: string | null;
 };
@@ -47,6 +49,7 @@ export default function EditProfileScreen() {
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
   const [bio, setBio] = useState('');
+  const [overlyTrait, setOverlyTrait] = useState<string | null>(null);
 
   const [avatarUrl, setAvatarUrl] =
     useState<string | null>(null);
@@ -75,7 +78,7 @@ export default function EditProfileScreen() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'display_name, username, city, bio, avatar_url, header_url'
+          'display_name, username, city, bio, overly_trait, avatar_url, header_url'
         )
         .eq('user_id', user.id)
         .maybeSingle();
@@ -104,6 +107,7 @@ export default function EditProfileScreen() {
       setUsername(profile.username || '');
       setCity(profile.city || '');
       setBio(profile.bio || '');
+      setOverlyTrait(normalizeOverlyTrait(profile.overly_trait));
       setAvatarUrl(profile.avatar_url || null);
       setHeaderUrl(profile.header_url || null);
     } catch (error) {
@@ -483,6 +487,7 @@ export default function EditProfileScreen() {
             cleanCity || null,
           bio:
             cleanBio || null,
+          overly_trait: overlyTrait,
           avatar_url:
             avatarUrl,
           header_url:
@@ -495,7 +500,7 @@ export default function EditProfileScreen() {
           user.id
         )
         .select(
-          'user_id, display_name, username, city, bio, avatar_url, header_url, profile_color'
+          'user_id, display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color'
         )
         .single();
 
@@ -1050,6 +1055,23 @@ export default function EditProfileScreen() {
                 maxLength={160}
                 textAlignVertical="top"
               />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>YOUR OVERLY</Text>
+              <Text style={{ color: '#999', fontSize: 13, marginTop: 8, marginBottom: 14 }}>
+                Choose a word that feels like you. It appears beneath your name.
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {OVERLY_TRAITS.map((trait) => (
+                  <Pressable key={trait} accessibilityRole="radio"
+                    accessibilityState={{ selected: overlyTrait === trait }}
+                    onPress={() => setOverlyTrait(overlyTrait === trait ? null : trait)}
+                    style={{ borderRadius: 20, borderWidth: 1, borderColor: overlyTrait === trait ? NOW_GREEN : '#3b3b3b', backgroundColor: overlyTrait === trait ? '#16351d' : '#151515', paddingVertical: 10, paddingHorizontal: 13 }}>
+                    <Text style={{ color: overlyTrait === trait ? '#fff' : '#bbb', fontSize: 12, fontWeight: '700' }}>{trait}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             <View
