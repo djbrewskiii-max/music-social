@@ -270,6 +270,8 @@ export default function NowScreen() {
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [collectionHighlights, setCollectionHighlights] = useState<Array<{ id: string; title: string; artwork: string | null }>>([]);
 
   const [
     listeningPeople,
@@ -675,6 +677,7 @@ export default function NowScreen() {
         }
 
         try {
+          setFeedError(null);
           const {
             data: { user },
             error: userError,
@@ -715,12 +718,24 @@ export default function NowScreen() {
 
           if (regularResult.error) {
             console.log('Feed post error:', regularResult.error.message);
+            setFeedError('Posts could not load. Pull down to retry.');
             setPosts([]);
             return;
           }
           if (collectionResult.error) {
             console.log('Feed collections error:', collectionResult.error.message);
+            setFeedError('Collections could not load. Pull down to retry.');
           }
+          const collectionRows = (collectionResult.data as PostRow[]) || [];
+          setCollectionHighlights(collectionRows
+            .filter((post) => !relationships.hidden.has(post.user_id) && !!post.collection)
+            .slice(0, 5)
+            .map((post) => ({
+              id: post.id,
+              title: post.collection?.title || 'Music collection',
+              artwork: post.artwork_url,
+            })));
+
 
           const mergedPosts = new Map<string, PostRow>();
           for (const row of [
@@ -987,6 +1002,7 @@ export default function NowScreen() {
           }
           setPosts(ordered);
         } catch (error) {
+          setFeedError('Unable to refresh your feed. Pull down to retry.');
           console.log(
             'Feed error:',
             error
@@ -2011,6 +2027,36 @@ export default function NowScreen() {
               worth jumping into.
             </Text>
           </View>
+
+          {!!feedError && (
+            <Pressable onPress={refresh} accessibilityRole="button"
+              style={{ marginHorizontal: 20, marginBottom: 12, padding: 12, borderWidth: 1, borderRadius: 12, borderColor: '#654141', backgroundColor: '#251515' }}>
+              <Text style={{ color: '#FFC6C6', fontSize: 13 }}>{feedError} Tap to retry.</Text>
+            </Pressable>
+          )}
+          {collectionHighlights.length > 0 && (
+            <View style={{ marginBottom: 18 }}>
+              <View style={{ marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#FFF', fontSize: 19, fontWeight: '900' }}>From the Crate</Text>
+                <Text style={{ color: '#9A9A9A', fontSize: 11 }}>RECENT COLLECTIONS</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+                {collectionHighlights.map((item) => (
+                  <Pressable key={item.id}
+                    accessibilityRole="button" accessibilityLabel={`Open collection: ${item.title}`}
+                    onPress={() => router.push({ pathname: '/post', params: { postId: item.id } })}
+                    style={{ width: 162, borderWidth: 1, borderColor: '#2B2B2B', backgroundColor: '#111', borderRadius: 15, overflow: 'hidden' }}>
+                    {item.artwork ? <Image source={{ uri: item.artwork }} style={{ width: 162, height: 106 }} resizeMode="cover" /> :
+                      <View style={{ height: 106, alignItems: 'center', justifyContent: 'center', backgroundColor: '#193020' }}>
+                        <Text style={{ color: '#39E75F', fontSize: 32 }}>♫</Text>
+                      </View>}
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, marginHorizontal: 10, marginTop: 10, marginBottom: 4 }} numberOfLines={2}>{item.title}</Text>
+                    <Text style={{ color: '#39E75F', fontSize: 10, fontWeight: '700', marginHorizontal: 10, marginBottom: 12 }}>OPEN COLLECTION →</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           <Pressable
             style={styles.feedComposer}
