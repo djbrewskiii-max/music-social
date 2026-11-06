@@ -59,7 +59,7 @@ async function matchCatalogArtwork(track: Track): Promise<string> {
     .replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   const desiredSong = normalize(track.song);
-  const desiredArtists = normalize(track.artist).split(/\s+(?:feat|ft|and|x)\s+|\s*,\s*/).filter(Boolean);
+  const desiredArtists = track.artist.split(/,|\s+(?:feat\.?|ft\.?|and|x|&)\s+/i).map(normalize).filter(Boolean);
   const terms = [track.song + ' ' + track.artist, track.song];
   try {
     for (const term of terms) {
@@ -801,7 +801,7 @@ export default function UnifiedRotation({
         </Text>
       </View>
 
-      <Text style={styles.plus}>{pins.length === 5 && !editingId ? 'SWAP' : '+'}</Text>
+      <Text style={[styles.plus, pins.length === 5 && !editingId && { fontSize: 12, fontWeight: '900' }]}>{pins.length === 5 && !editingId ? 'SWAP' : '+'}</Text>
     </Pressable>
   );
 
