@@ -97,7 +97,7 @@ export default function SpotifyPublicLibrary() {
    <Text style={s.body}>Paste your Spotify profile link once. OVRLEE will try to find playlists you share publicly and read their visible song titles and artists. No Spotify login or Premium required for this experiment.</Text>
    {!chosen&&<>
     <Text style={s.section}>YOUR SPOTIFY PROFILE</Text>
-    <TextInput value={url} onChangeText={setUrl} keyboardType="url" autoCapitalize="none" autoCorrect={false}
+    <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
     {__DEV__&&<Pressable onPress={()=>setUrl(SAMPLE)} style={s.sample}><Text style={s.sampleText}>USE TEST PROFILE (LEOSKEPI) →</Text></Pressable>}
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
