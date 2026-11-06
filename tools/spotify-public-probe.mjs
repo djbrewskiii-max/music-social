@@ -17,8 +17,8 @@ import { writeFile } from 'node:fs/promises';
 import { parseSpotifyEmbedHtml } from './spotify-embed-parser.mjs';
 
 const PROFILE_ID_PATTERN = /^[a-zA-Z0-9_]{3,64}$/;
-const MAX_PLAYLISTS = 3;
-const MAX_VISIBLE_TRACKS = 100;
+const MAX_PLAYLISTS = 25;
+const MAX_VISIBLE_TRACKS = 50;
 const MAX_PAGE_MS = 30000;
 const args = process.argv.slice(2);
 const raw = args[0];
@@ -65,6 +65,7 @@ async function main() {
     profileUrl: profile.url,
     collectedAt: new Date().toISOString(),
     publicPlaylists: [],
+    inventoryComplete: false,
     warnings: [
       'Spotify prohibits automated scraping in its User Guidelines.',
       'This output is not licensed for OVRLEE recommendations or user profiling.',
@@ -89,6 +90,7 @@ async function main() {
       l => l.url
     );
     result.profilePlaylistLinksFound = playlists.length;
+    result.inventoryComplete = Boolean(res?.ok()) && playlists.length > 0 && playlists.length <= MAX_PLAYLISTS;
     if (!playlists.length) {
       result.warnings.push('No playlist anchors were visible in the public page DOM. Profile might require Spotify app authentication, more rendering, or may be unavailable to browser automation.');
     }
