@@ -151,6 +151,7 @@ const formatArtworkUrl = (
 };
 
 export default function MyProfileScreen() {
+  const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
   const [
     profile,
     setProfile,
@@ -942,7 +943,7 @@ export default function MyProfileScreen() {
                   styles.logo
                 }
               >
-                NOW
+                OVRLEE
               </Text>
 
               <View
@@ -1144,138 +1145,6 @@ export default function MyProfileScreen() {
               )}
             </View>
           </View>
-
-          {hasPresenceSong && (
-            <View
-              style={
-                styles.section
-              }
-            >
-              <Text
-                style={[
-                  styles.eyebrow,
-                  listeningNow && {
-                    color:
-                      profileColor,
-                  },
-                ]}
-              >
-                {listeningNow
-                  ? 'PLAYING NOW'
-                  : 'LAST PLAYED'}
-              </Text>
-
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                {listeningNow
-                  ? 'Right now.'
-                  : 'Last played.'}
-              </Text>
-
-              <View
-                style={
-                  styles.currentCard
-                }
-              >
-                {presence?.artwork_url ? (
-                  <Image
-                    source={{
-                      uri:
-                        presence.artwork_url,
-                    }}
-                    style={
-                      styles.currentArtwork
-                    }
-                  />
-                ) : (
-                  <View
-                    style={
-                      styles.currentArtworkPlaceholder
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.musicNote
-                      }
-                    >
-                      ♪
-                    </Text>
-                  </View>
-                )}
-
-                <View
-                  style={
-                    styles.currentInfo
-                  }
-                >
-                  <Text
-                    style={
-                      styles.currentSong
-                    }
-                    numberOfLines={
-                      2
-                    }
-                  >
-                    {
-                      presence
-                        ?.song_title
-                    }
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.currentArtist
-                    }
-                    numberOfLines={
-                      1
-                    }
-                  >
-                    {
-                      presence
-                        ?.artist_name
-                    }
-                  </Text>
-                </View>
-
-                {listeningNow && (
-                  <View
-                    style={[
-                      styles.livePill,
-                      {
-                        borderColor:
-                          `${profileColor}55`,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.livePillDot,
-                        {
-                          backgroundColor:
-                            profileColor,
-                        },
-                      ]}
-                    />
-
-                    <Text
-                      style={[
-                        styles.livePillText,
-                        {
-                          color:
-                            profileColor,
-                        },
-                      ]}
-                    >
-                      LIVE
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
 
           <CoreFourSection owner />
 
@@ -1488,229 +1357,209 @@ export default function MyProfileScreen() {
               )}
             </Pressable>
           </View>
-
           <View
             style={
-              styles.section
+              styles.eraSection
             }
           >
-            <View
+            <Text
               style={
-                styles.sectionHeadingRow
+                styles.eyebrow
               }
             >
-              <View>
-                <Text
-                  style={
-                    styles.eyebrow
-                  }
-                >
-                  LIVE
-                </Text>
+              ERAS
+            </Text>
 
-                <Text
-                  style={
-                    styles.sectionTitleNoMargin
-                  }
-                >
-                  Going.
-                </Text>
-              </View>
+            <Text
+              style={
+                styles.eraTitle
+              }
+            >
+              Your sound changes.
+              OVRLEE remembers it.
+            </Text>
 
-              {shows.length >
-                0 && (
-                <Text
-                  style={
-                    styles.sectionCount
-                  }
-                >
-                  {shows.length}{' '}
-                  {shows.length ===
-                  1
-                    ? 'SHOW'
-                    : 'SHOWS'}
-                </Text>
-              )}
+            <Text
+              style={
+                styles.eraCopy
+              }
+            >
+              The artists, albums,
+              shows and moments that
+              defined a chapter of
+              your life.
+            </Text>
+
+            <View
+              style={[
+                styles.eraCard,
+                {
+                  borderColor:
+                    `${profileColor}35`,
+                },
+              ]}
+            >
+              <Text
+                style={
+                  styles.eraSeason
+                }
+              >
+                FALL '26
+              </Text>
+
+              <Text
+                style={[
+                  styles.eraComing,
+                  {
+                    color:
+                      profileColor,
+                  },
+                ]}
+              >
+                COMING SOON
+              </Text>
             </View>
+          </View>
+          {hasPresenceSong && (
+            <View
+              style={
+                styles.section
+              }
+            >
+              <Text
+                style={[
+                  styles.eyebrow,
+                  listeningNow && {
+                    color:
+                      profileColor,
+                  },
+                ]}
+              >
+                {listeningNow
+                  ? 'PLAYING NOW'
+                  : 'LAST PLAYED'}
+              </Text>
 
-            {shows.length ===
-            0 ? (
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                {listeningNow
+                  ? 'Right now.'
+                  : 'Last played.'}
+              </Text>
+
               <View
                 style={
-                  styles.emptyCard
+                  styles.currentCard
                 }
               >
-                <Text
+                {presence?.artwork_url ? (
+                  <Image
+                    source={{
+                      uri:
+                        presence.artwork_url,
+                    }}
+                    style={
+                      styles.currentArtwork
+                    }
+                  />
+                ) : (
+                  <View
+                    style={
+                      styles.currentArtworkPlaceholder
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.musicNote
+                      }
+                    >
+                      ♪
+                    </Text>
+                  </View>
+                )}
+
+                <View
                   style={
-                    styles.emptyText
+                    styles.currentInfo
                   }
                 >
-                  Shows you mark as
-                  going will live here.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={
-                  false
-                }
-                contentContainerStyle={
-                  styles.showRow
-                }
-              >
-                {shows.map(
-                  (
-                    concert
-                  ) => (
-                    <Pressable
-                      key={
-                        concert.id
-                      }
-                      style={({
-                        pressed,
-                      }) => [
-                        styles.showCard,
-                        pressed &&
-                          styles.pressed,
+                  <Text
+                    style={
+                      styles.currentSong
+                    }
+                    numberOfLines={
+                      2
+                    }
+                  >
+                    {
+                      presence
+                        ?.song_title
+                    }
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.currentArtist
+                    }
+                    numberOfLines={
+                      1
+                    }
+                  >
+                    {
+                      presence
+                        ?.artist_name
+                    }
+                  </Text>
+                </View>
+
+                {listeningNow && (
+                  <View
+                    style={[
+                      styles.livePill,
+                      {
+                        borderColor:
+                          `${profileColor}55`,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.livePillDot,
+                        {
+                          backgroundColor:
+                            profileColor,
+                        },
                       ]}
-                      onPress={() => {
-                        const startsAt =
-                          new Date(
-                            concert.starts_at
-                          );
+                    />
 
-                        router.push({
-                          pathname:
-                            '/concert-detail',
-                          params: {
-                            externalId:
-                              concert.external_id ||
-                              concert.id,
-                            name:
-                              concert.event_name ||
-                              concert.artist_name,
-                            artist:
-                              concert.artist_name,
-                            venue:
-                              concert.venue_name,
-                            city:
-                              concert.city,
-                            region:
-                              concert.region ||
-                              '',
-                            date:
-                              formatShowDate(
-                                concert.starts_at
-                              ),
-                            time:
-                              startsAt.toLocaleTimeString(
-                                'en-US',
-                                {
-                                  hour:
-                                    'numeric',
-                                  minute:
-                                    '2-digit',
-                                }
-                              ),
-                            dateTime:
-                              concert.starts_at,
-                            artworkUrl:
-                              concert.artwork_url ||
-                              '',
-                            ticketUrl:
-                              concert.ticket_url ||
-                              '',
-                          },
-                        });
-                      }}
+                    <Text
+                      style={[
+                        styles.livePillText,
+                        {
+                          color:
+                            profileColor,
+                        },
+                      ]}
                     >
-                      {concert.artwork_url ? (
-                        <Image
-                          source={{
-                            uri:
-                              concert.artwork_url,
-                          }}
-                          style={
-                            styles.showArtwork
-                          }
-                        />
-                      ) : (
-                        <View
-                          style={
-                            styles.showArtworkPlaceholder
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.musicNote
-                            }
-                          >
-                            ♪
-                          </Text>
-                        </View>
-                      )}
-
-                      <View
-                        style={
-                          styles.showInfo
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.showDate,
-                            {
-                              color:
-                                profileColor,
-                            },
-                          ]}
-                        >
-                          {formatShowDate(
-                            concert.starts_at
-                          )}
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.showArtist
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            concert.artist_name
-                          }
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.showVenue
-                          }
-                          numberOfLines={
-                            1
-                          }
-                        >
-                          {
-                            concert.venue_name
-                          }
-                        </Text>
-                      </View>
-                    </Pressable>
-                  )
+                      LIVE
+                    </Text>
+                  </View>
                 )}
-              </ScrollView>
-            )}
-          </View>
-
-            {posts.some((p) => p.collection) && (
-              <View style={{ marginTop: 34 }}>
-                <Text style={[styles.eyebrow, { paddingHorizontal: 20 }]}>YOUR CRATE</Text>
-                <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '900', paddingHorizontal: 20, marginTop: 6 }}>Collections.</Text>
-                <CollectionGrid posts={posts} username={profile?.username || ''} emptyText="" />
               </View>
-            )}
-
+            </View>
+          )}
+          <View style={styles.tabBar}>
+            {([['posts', 'Posts'], ['collections', 'Collections'], ['shows', 'Shows']] as const).map(([key, label]) => (
+              <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: profileTab === key }}
+                onPress={() => setProfileTab(key)} style={[styles.tab, profileTab === key && styles.tabActive]}>
+                <Text style={[styles.tabText, profileTab === key && styles.tabTextActive]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {profileTab === 'posts' && (
           <View
             style={
               styles.section
@@ -1924,7 +1773,227 @@ export default function MyProfileScreen() {
             )}
 
           </View>
+          )}
+          {profileTab === 'collections' && (
+            <View style={{ marginTop: 24 }}>
+              <CollectionGrid posts={posts} username={profile?.username || ''} emptyText="You haven't made a collection yet." />
+            </View>
+          )}
+          {profileTab === 'shows' && (
+          <View
+            style={
+              styles.section
+            }
+          >
+            <View
+              style={
+                styles.sectionHeadingRow
+              }
+            >
+              <View>
+                <Text
+                  style={
+                    styles.eyebrow
+                  }
+                >
+                  LIVE
+                </Text>
 
+                <Text
+                  style={
+                    styles.sectionTitleNoMargin
+                  }
+                >
+                  Going.
+                </Text>
+              </View>
+
+              {shows.length >
+                0 && (
+                <Text
+                  style={
+                    styles.sectionCount
+                  }
+                >
+                  {shows.length}{' '}
+                  {shows.length ===
+                  1
+                    ? 'SHOW'
+                    : 'SHOWS'}
+                </Text>
+              )}
+            </View>
+
+            {shows.length ===
+            0 ? (
+              <View
+                style={
+                  styles.emptyCard
+                }
+              >
+                <Text
+                  style={
+                    styles.emptyText
+                  }
+                >
+                  Shows you mark as
+                  going will live here.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={
+                  false
+                }
+                contentContainerStyle={
+                  styles.showRow
+                }
+              >
+                {shows.map(
+                  (
+                    concert
+                  ) => (
+                    <Pressable
+                      key={
+                        concert.id
+                      }
+                      style={({
+                        pressed,
+                      }) => [
+                        styles.showCard,
+                        pressed &&
+                          styles.pressed,
+                      ]}
+                      onPress={() => {
+                        const startsAt =
+                          new Date(
+                            concert.starts_at
+                          );
+
+                        router.push({
+                          pathname:
+                            '/concert-detail',
+                          params: {
+                            externalId:
+                              concert.external_id ||
+                              concert.id,
+                            name:
+                              concert.event_name ||
+                              concert.artist_name,
+                            artist:
+                              concert.artist_name,
+                            venue:
+                              concert.venue_name,
+                            city:
+                              concert.city,
+                            region:
+                              concert.region ||
+                              '',
+                            date:
+                              formatShowDate(
+                                concert.starts_at
+                              ),
+                            time:
+                              startsAt.toLocaleTimeString(
+                                'en-US',
+                                {
+                                  hour:
+                                    'numeric',
+                                  minute:
+                                    '2-digit',
+                                }
+                              ),
+                            dateTime:
+                              concert.starts_at,
+                            artworkUrl:
+                              concert.artwork_url ||
+                              '',
+                            ticketUrl:
+                              concert.ticket_url ||
+                              '',
+                          },
+                        });
+                      }}
+                    >
+                      {concert.artwork_url ? (
+                        <Image
+                          source={{
+                            uri:
+                              concert.artwork_url,
+                          }}
+                          style={
+                            styles.showArtwork
+                          }
+                        />
+                      ) : (
+                        <View
+                          style={
+                            styles.showArtworkPlaceholder
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.musicNote
+                            }
+                          >
+                            ♪
+                          </Text>
+                        </View>
+                      )}
+
+                      <View
+                        style={
+                          styles.showInfo
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.showDate,
+                            {
+                              color:
+                                profileColor,
+                            },
+                          ]}
+                        >
+                          {formatShowDate(
+                            concert.starts_at
+                          )}
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.showArtist
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            concert.artist_name
+                          }
+                        </Text>
+
+                        <Text
+                          style={
+                            styles.showVenue
+                          }
+                          numberOfLines={
+                            1
+                          }
+                        >
+                          {
+                            concert.venue_name
+                          }
+                        </Text>
+                      </View>
+                    </Pressable>
+                  )
+                )}
+              </ScrollView>
+            )}
+          </View>
+          )}
           <View
             style={
               styles.section
@@ -2007,71 +2076,6 @@ export default function MyProfileScreen() {
               </Text>
             </View>
           </View>
-
-          <View
-            style={
-              styles.eraSection
-            }
-          >
-            <Text
-              style={
-                styles.eyebrow
-              }
-            >
-              ERAS
-            </Text>
-
-            <Text
-              style={
-                styles.eraTitle
-              }
-            >
-              Your sound changes.
-              OVRLEE remembers it.
-            </Text>
-
-            <Text
-              style={
-                styles.eraCopy
-              }
-            >
-              The artists, albums,
-              shows and moments that
-              defined a chapter of
-              your life.
-            </Text>
-
-            <View
-              style={[
-                styles.eraCard,
-                {
-                  borderColor:
-                    `${profileColor}35`,
-                },
-              ]}
-            >
-              <Text
-                style={
-                  styles.eraSeason
-                }
-              >
-                FALL '26
-              </Text>
-
-              <Text
-                style={[
-                  styles.eraComing,
-                  {
-                    color:
-                      profileColor,
-                  },
-                ]}
-              >
-                COMING SOON
-              </Text>
-            </View>
-          </View>
-
           <Pressable
             style={({
               pressed,
@@ -2129,6 +2133,11 @@ export default function MyProfileScreen() {
 
 const styles =
   StyleSheet.create({
+    tabBar: { flexDirection: 'row', marginHorizontal: 20, marginTop: 28, borderBottomWidth: 1, borderBottomColor: '#222222' },
+    tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    tabActive: { borderBottomColor: '#39E75F' },
+    tabText: { color: '#777777', fontSize: 12, fontWeight: '800' },
+    tabTextActive: { color: '#ffffff' },
     screen: {
       flex: 1,
       backgroundColor:
