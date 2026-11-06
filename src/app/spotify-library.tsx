@@ -10,6 +10,7 @@ import {
   type PublicPlaylist, type PublicProfileResult
 } from '../spotify-public-reader';
 import { trackKey } from '../playlist-import';
+import { compareSpotifyScans, type SpotifyScanHistory } from '../spotify-scan-diff';
 import { supabase } from '../supabase';
 const GREEN='#39E75F';
 const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
@@ -17,6 +18,8 @@ const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 export default function SpotifyPublicLibrary() {
  const [url,setUrl]=useState('');
  const [scan,setScan]=useState<PublicProfileResult|null>(null);
+ const [changes,setChanges]=useState<Record<string,string[]>>({});
+ const [firstScan,setFirstScan]=useState(true);
  const [chosen,setChosen]=useState<PublicPlaylist|null>(null);
  const [checked,setChecked]=useState<string[]>([]);
  const [progress,setProgress]=useState('');
@@ -42,17 +45,35 @@ export default function SpotifyPublicLibrary() {
   })().catch(()=>{});
   return ()=>{active=false;};
  },[]);
- useEffect(()=>{setChecked(chosen?.tracks.map(trackKey)||[]);},[chosen]);
+ useEffect(()=>{
+  if (!chosen) { setChecked([]); return; }
+  const newlySeen = changes[chosen.id] || [];
+  setChecked(newlySeen.length ? newlySeen : chosen.tracks.map(trackKey));
+ },[chosen,changes]);
  const run=async()=>{
   if(loading)return;
   if(!consent){Alert.alert('Confirm before reading','Only connect a Spotify profile you own or are authorized to use for OVRLEE music suggestions.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
-  setLoading(true);setScan(null);setChosen(null);setError('');setProgress('');
+  setLoading(true);setScan(null);setChosen(null);setChanges({});setError('');setProgress('');
   try{
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
     if(accountId){
       await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
         JSON.stringify({url:result.url,confirmed:true})).catch(()=>{});
+    }
+    // Compare only this account's observations for this exact Spotify profile.
+    // No automatic import, no inferred timestamps, and no background scraping.
+    if(accountId){
+      const historyKey='ovrlee.spotifyScanHistory.'+accountId+'.'+result.userId;
+      let previous:SpotifyScanHistory|null=null;
+      try {
+        const raw=await AsyncStorage.getItem(historyKey);
+        if(raw)previous=JSON.parse(raw) as SpotifyScanHistory;
+      }catch{/* Reset only malformed local snapshots. */}
+      const comparison=compareSpotifyScans(result,previous);
+      setChanges(comparison.newByPlaylist);
+      setFirstScan(comparison.firstScan);
+      await AsyncStorage.setItem(historyKey,JSON.stringify(comparison.history)).catch(()=>{});
     }
     setScan(result);
     if(result.playlists.every(p=>p.status==='unavailable'))setError('Playlist links were found, but Spotify did not expose any readable tracks to this device. The experimental GitHub browser reader may behave differently.');
@@ -111,12 +132,15 @@ export default function SpotifyPublicLibrary() {
     {!!error&&<Text style={s.error}>{error}</Text>}
     {scan&&<>
      <View style={s.resultHeader}><Text style={s.section}>PLAYLISTS ({scan.playlists.length})</Text><Text style={s.small}>{scan.playlists.filter(p=>p.status==='ready').length} readable</Text></View>
+     {!firstScan&&Object.values(changes).some(items=>items.length>0)&&
+       <Text style={s.freshSummary}>{Object.values(changes).reduce((sum,items)=>sum+items.length,0)} NEWLY VISIBLE SONGS SINCE YOUR LAST SCAN</Text>}
      {scan.playlists.map(p=><Pressable key={p.id} onPress={()=>{if(p.status==='ready')setChosen(p);}} style={s.playlist}
        accessibilityRole="button" disabled={p.status!=='ready'}>
        <View style={s.listIcon}><Text style={{color:GREEN,fontSize:24}}>♪</Text></View>
        <View style={{flex:1}}>
          <Text style={s.playlistName} numberOfLines={2}>{p.title}</Text>
          <Text style={s.sub}>{p.status==='ready'?p.tracks.length+' visible songs'+(p.limited?' · may be more':''):'Song list unavailable'}</Text>
+         {!!changes[p.id]?.length&&<Text style={s.newText}>{changes[p.id].length} NEW SINCE LAST SCAN</Text>}
        </View><Text style={s.arrow}>{p.status==='ready'?'›':'–'}</Text>
      </Pressable>)}
      {scan.warnings.map((w,i)=><Text key={i} style={s.warning}>{w}</Text>)}
@@ -126,16 +150,21 @@ export default function SpotifyPublicLibrary() {
      <Pressable onPress={()=>setChosen(null)} style={s.backTo}><Text style={s.backToText}>‹ ALL PLAYLISTS</Text></Pressable>
      <Text style={s.section}>{chosen.title}</Text>
      <Text style={s.body}>{chosen.tracks.length} visible song{chosen.tracks.length===1?'':'s'} found. Choose what you want OVRLEE to remember as private music suggestions.</Text>
+     {!!changes[chosen.id]?.length&&<Text style={s.freshSummary}>{changes[chosen.id].length} newly visible since your previous scan. Only those songs are preselected.</Text>}
      {chosen.limited&&<Text style={s.warning}>Spotify's public embed may stop at 50 songs. These results are partial; waiting a week doesn't necessarily reveal the rest.</Text>}
+     {!!changes[chosen.id]?.length&&<Pressable onPress={()=>setChecked(changes[chosen.id])} style={s.selectAll}>
+      <Text style={s.newText}>SELECT {changes[chosen.id].length} NEWLY VISIBLE SONGS</Text>
+     </Pressable>}
      <Pressable onPress={()=>setChecked(checkedCount===chosen.tracks.length?[]:chosen.tracks.map(trackKey))} style={s.selectAll}>
       <Text style={s.selectAllText}>{checkedCount===chosen.tracks.length?'DESELECT ALL':'SELECT ALL'} · {checkedCount} SELECTED</Text>
      </Pressable>
-     {chosen.tracks.map((t,i)=>{
+     {[...chosen.tracks].sort((a,b)=>Number((changes[chosen.id]||[]).includes(trackKey(b)))-Number((changes[chosen.id]||[]).includes(trackKey(a)))).map((t,i)=>{
       const key=trackKey(t),selected=checked.includes(key);
       return <Pressable key={key+String(i)} accessibilityRole="checkbox" accessibilityState={{checked:selected}}
        onPress={()=>setChecked(prev=>selected?prev.filter(x=>x!==key):[...prev,key])} style={s.track}>
         <View style={[s.check,selected&&s.checkActive]}><Text style={s.checkMark}>{selected?'✓':''}</Text></View>
-        <View style={{flex:1}}><Text style={s.song}>{t.song}</Text><Text style={s.sub}>{t.artist}</Text></View>
+        <View style={{flex:1}}><Text style={s.song}>{t.song}</Text><Text style={s.sub}>{t.artist}</Text>
+        {(changes[chosen.id]||[]).includes(key)&&<Text style={s.newText}>NEWLY VISIBLE</Text>}</View>
        </Pressable>;
      })}
      <Pressable accessibilityRole="button" disabled={saving||!checkedCount} onPress={()=>void save()} style={[s.primary,(saving||!checkedCount)&&{opacity:.5}]}>
@@ -148,7 +177,7 @@ export default function SpotifyPublicLibrary() {
 }
 const s=StyleSheet.create({
  screen:{flex:1,backgroundColor:'#090909'},header:{height:60,borderBottomWidth:1,borderColor:'#242424',flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:20},back:{color:'#fff',fontSize:30},headTitle:{fontSize:11,fontWeight:'900',letterSpacing:1.1,color:'#fff'},
- content:{padding:21,paddingBottom:105},eyebrow:{color:GREEN,fontWeight:'900',letterSpacing:1.5,fontSize:11},title:{color:'#fff',fontWeight:'900',fontSize:29,lineHeight:36,marginTop:12},body:{color:'#aaa',fontSize:13,lineHeight:21,marginTop:12},
+ content:{padding:21,paddingBottom:105},freshSummary:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:18},newText:{color:GREEN,fontSize:10,fontWeight:'900',marginTop:5},eyebrow:{color:GREEN,fontWeight:'900',letterSpacing:1.5,fontSize:11},title:{color:'#fff',fontWeight:'900',fontSize:29,lineHeight:36,marginTop:12},body:{color:'#aaa',fontSize:13,lineHeight:21,marginTop:12},
  section:{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:.8,marginTop:28,marginBottom:14},input:{borderColor:'#343434',borderWidth:1,backgroundColor:'#181818',borderRadius:12,color:'#fff',padding:15,fontSize:14},
  sample:{paddingVertical:12},sampleText:{color:GREEN,fontSize:11,fontWeight:'900'},consentRow:{flexDirection:'row',gap:12,alignItems:'center',paddingVertical:14},consentCopy:{color:'#aaa',fontSize:12,lineHeight:19,flex:1},
  check:{height:25,width:25,borderWidth:1,borderColor:'#555',borderRadius:7,alignItems:'center',justifyContent:'center'},checkActive:{backgroundColor:GREEN,borderColor:GREEN},checkMark:{color:'#000',fontWeight:'900'},
