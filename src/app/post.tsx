@@ -256,7 +256,7 @@ export default function PostDetailScreen() {
                       disabled={loadingPreview}
                       onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist, kind: (track as any).kind === 'album' ? 'album' : 'song' })}
                       style={{ paddingHorizontal: 9, minHeight: 35, minWidth: 40, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={[styles.play, { color: green }]}>{loadingPreview ? '…' : playing ? '■' : '▶'}</Text>
+                      <Text style={[styles.play, { color: green }]}>{loadingPreview ? '…' : playing ? '❚❚' : '▶'}</Text>
                     </Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Add ${track.song} to rotation`}
                       onPress={() => pin(track)} hitSlop={5}>
