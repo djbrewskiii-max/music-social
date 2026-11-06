@@ -34,6 +34,13 @@ export default function SettingsScreen() {
           </View>
           <Text style={s.chevron}>›</Text>
         </Pressable>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/connect-music')} style={[s.row, { marginTop: 10 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowTitle}>Connect Apple Music</Text>
+            <Text style={s.rowSub}>Authorize your library or refresh your connection</Text>
+          </View>
+          <Text style={s.chevron}>›</Text>
+        </Pressable>
         <Text style={s.note}>Your posts, replies, and connections stay the same when you switch music services.</Text>
         <Text style={[s.label, { marginTop: 36 }]}>NOTIFICATIONS</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push('/notification-settings')} style={s.row}>
@@ -51,14 +58,24 @@ export default function SettingsScreen() {
           </View>
           <Text style={s.rowSub}>{introEnabled ? 'ON' : 'OFF'}</Text>
         </Pressable>
-        <Text style={[s.label, { marginTop: 36 }]}>EXPERIMENTS</Text>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/shazam-lab')} style={s.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>Shazam Lab</Text>
-            <Text style={s.rowSub}>Test microphone music recognition</Text>
-          </View>
-          <Text style={s.chevron}>›</Text>
-        </Pressable>
+        {__DEV__ && <>
+          <Text style={[s.label, { marginTop: 36 }]}>DEVELOPER TOOLS</Text>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/shazam-lab')} style={s.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>Shazam Lab</Text>
+              <Text style={s.rowSub}>Experimental microphone recognition</Text>
+            </View>
+            <Text style={s.chevron}>›</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/system-music-test')}
+            style={[s.row, { marginTop: 10 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>System Music Test</Text>
+              <Text style={s.rowSub}>Playback diagnostics for development</Text>
+            </View>
+            <Text style={s.chevron}>›</Text>
+          </Pressable>
+        </>}
         <Pressable style={{ marginTop: 45, paddingVertical: 18 }} onPress={async () => { await unregisterPushNotifications(); await supabase.auth.signOut(); router.replace('/login'); }}>
           <Text style={{ color: '#999999', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 }}>SIGN OUT</Text>
         </Pressable>
