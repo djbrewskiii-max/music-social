@@ -75,7 +75,7 @@ export default function OverlyIntro({ active }: { active: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 1000, backgroundColor: '#090909' },
+  backdrop: { ...StyleSheet.absoluteFill, zIndex: 1000, backgroundColor: '#090909' },
   pressable: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   center: { alignItems: 'center', gap: 18, paddingHorizontal: 22 },
   eyebrow: { color: '#999', fontWeight: '700', fontSize: 10, letterSpacing: 2 },
