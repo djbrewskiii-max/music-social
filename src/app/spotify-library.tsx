@@ -140,17 +140,28 @@ export default function SpotifyPublicLibrary() {
     album:'',source_label:('Public Spotify: '+chosen.title).slice(0,100),
     track_key:trackKey(t)
    }));
-   let submitted=0;
+   // Report actual new suggestions, not the number of attempted upserts.
+   const existing=new Set<string>();
    for(let i=0;i<rows.length;i+=50){
-    const {error:writeError}=await supabase.from('music_import_tracks')
-      .upsert(rows.slice(i,i+50),{onConflict:'user_id,track_key',ignoreDuplicates:true});
-    if(writeError)throw writeError;
-    submitted+=Math.min(50,rows.length-i);
+     const batch=rows.slice(i,i+50);
+     const {data:already,error:readError}=await supabase.from('music_import_tracks')
+       .select('track_key').eq('user_id',user.id).in('track_key',batch.map(t=>t.track_key));
+     if(readError)throw readError;
+     for(const t of already||[])existing.add(t.track_key);
    }
-   Alert.alert('Music suggestions saved',
-    submitted+' song'+(submitted===1?'':'s')+' ready in your private suggestions. Open In Rotation to choose what appears on your profile.',
-    [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
-     {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
+   const fresh=rows.filter(t=>!existing.has(t.track_key));
+   for(let i=0;i<fresh.length;i+=50){
+     const {error:writeError}=await supabase.from('music_import_tracks')
+       .upsert(fresh.slice(i,i+50),{onConflict:'user_id,track_key',ignoreDuplicates:true});
+     if(writeError)throw writeError;
+   }
+   const duplicateCount=rows.length-fresh.length;
+   Alert.alert('Music suggestions updated',
+     fresh.length+' new song'+(fresh.length===1?'':'s')+' saved. '+duplicateCount+
+     ' already in your library. Your public rotation stays unchanged until you choose songs.',
+     [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
+      {text:'Browse imported music',onPress:()=>router.push('/imported-music')},
+      {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
   }catch(e){Alert.alert('Could not save suggestions',e instanceof Error?e.message:'Try again.');}
   finally{setSaving(false);}
  };
