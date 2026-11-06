@@ -60,6 +60,7 @@ export default function EditProfileScreen() {
 
   const [bio, setBio] = useState('');
   const [overlyTrait, setOverlyTrait] = useState<string | null>(null);
+  const [customOverly, setCustomOverly] = useState(false);
 
   const [avatarUrl, setAvatarUrl] =
     useState<string | null>(null);
@@ -120,6 +121,7 @@ export default function EditProfileScreen() {
       setNearbyVisible(!!profile.nearby_visible);
       setBio(profile.bio || '');
       setOverlyTrait(normalizeOverlyTrait(profile.overly_trait));
+      setCustomOverly(!!profile.overly_trait && !OVERLY_TRAITS.some(trait => trait === profile.overly_trait));
       setAvatarUrl(profile.avatar_url || null);
       setHeaderUrl(profile.header_url || null);
     } catch (error) {
@@ -1082,12 +1084,31 @@ export default function EditProfileScreen() {
                 {OVERLY_TRAITS.map((trait) => (
                   <Pressable key={trait} accessibilityRole="radio"
                     accessibilityState={{ selected: overlyTrait === trait }}
-                    onPress={() => setOverlyTrait(overlyTrait === trait ? null : trait)}
+                    onPress={() => { setCustomOverly(false); setOverlyTrait(overlyTrait === trait ? null : trait); }}
                     style={{ borderRadius: 20, borderWidth: 1, borderColor: overlyTrait === trait ? NOW_GREEN : '#3b3b3b', backgroundColor: overlyTrait === trait ? '#16351d' : '#151515', paddingVertical: 10, paddingHorizontal: 13 }}>
                     <Text style={{ color: overlyTrait === trait ? '#fff' : '#bbb', fontSize: 12, fontWeight: '700' }}>{trait}</Text>
                   </Pressable>
                 ))}
+                <Pressable accessibilityRole="radio" accessibilityState={{ selected: customOverly }}
+                  onPress={() => { setCustomOverly(true); if (OVERLY_TRAITS.some(t => t === overlyTrait)) setOverlyTrait(null); }}
+                  style={{ borderRadius: 20, borderWidth: 1, borderColor: customOverly ? NOW_GREEN : '#3b3b3b',
+                    backgroundColor: customOverly ? '#16351d' : '#151515', paddingVertical: 10, paddingHorizontal: 13 }}>
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Custom +</Text>
+                </Pressable>
               </View>
+              {customOverly && <View style={{ marginTop: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center',
+                  borderRadius: 12, borderWidth: 1, borderColor: '#3d573f', backgroundColor: '#151515',
+                  paddingHorizontal: 14, paddingVertical: 5 }}>
+                  <Text style={{ color: NOW_GREEN, fontWeight: '900', fontSize: 16 }}>Overly </Text>
+                  <TextInput accessibilityLabel="Your custom Overly description" maxLength={33}
+                    value={overlyTrait?.replace(/^Overly\s+/i, '') || ''}
+                    placeholder="whatever feels like you" placeholderTextColor="#777"
+                    onChangeText={next => setOverlyTrait(next.trim() ? 'Overly ' + next.slice(0,33) : null)}
+                    style={{ flex: 1, color: '#fff', fontSize: 16, minHeight: 44 }} />
+                </View>
+                <Text style={{ color: '#888', fontSize: 11, marginTop: 7 }}>Your phrase appears underneath your name. Up to 33 characters after Overly.</Text>
+              </View>}
             </View>
 
             <View
