@@ -238,8 +238,9 @@ function FitPhoto(props: {
   emptyColor?: string;
   emptyBg?: string;
   onPress?: () => void;
+  focus?: PhotoFocus;
 }) {
-  const { uri, scale: s, mat = null, radius = 6, tilt, emptyLabel, emptyColor = '#999', emptyBg = 'rgba(0,0,0,0.08)', onPress } = props;
+  const { uri, scale: s, mat = null, radius = 6, tilt, emptyLabel, emptyColor = '#999', emptyBg = 'rgba(0,0,0,0.08)', onPress, focus } = props;
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const aspect = useAspect(uri);
   const pad = mat ? 6 * s : 0;
@@ -267,7 +268,8 @@ function FitPhoto(props: {
             tilt ? { transform: [{ rotate: tilt }] } : null,
           ]}
         >
-          <Image source={{ uri }} style={{ width: w, height: h, borderRadius: radius * s }} resizeMode="cover" />
+          <ExpoImage source={{ uri }} style={{ width: w, height: h, borderRadius: radius * s, transform: [{ scale: focus?.zoom || 1 }] }}
+              contentFit="cover" contentPosition={{ left: `${focus?.x ?? 50}%`, top: `${focus?.y ?? 50}%` }} />
         </Pressable>
       ) : null}
     </View>
@@ -315,7 +317,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
 
   const artBg = spec.kind === 'song' ? spec.item.bg : spec.kind === 'cover' || spec.kind === 'moodboard' ? spec.tint : undefined;
   const p = paletteFor(theme, spec.kind, artBg);
-  const tag = spec.kind === 'wall' ? 'OVRLEE · ALBUM WALL' : 'OVRLEE · COLLECTION';
+  // The standalone wordmark replaces the old black collection label.
 
   const Dashed = ({ label, onPress, serif }: { label: string; onPress?: () => void; serif?: boolean }) =>
     editing && onPress ? (
@@ -352,9 +354,10 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
       <Dashed label="Tap to add a caption" onPress={editing?.onTitle} serif />
     );
 
-  const Photo = ({ uri, style, slot, label = '+ Photo' }: { uri: string | null; style: any; slot: number; label?: string }) => (
+  const Photo = ({ uri, style, slot, focus, label = '+ Photo' }: { uri: string | null; style: any; slot: number; focus?: PhotoFocus; label?: string }) => (
     <Pressable disabled={!editing} onPress={() => editing?.onPhoto?.(slot)} style={[{ overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style]}>
-      {uri ? <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" /> : editing ? <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800' }}>{label}</Text> : null}
+      {uri ? <ExpoImage source={{ uri }} style={{ width: '100%', height: '100%', transform: [{ scale: focus?.zoom || 1 }] }}
+          contentFit="cover" contentPosition={{ left: `${focus?.x ?? 50}%`, top: `${focus?.y ?? 50}%` }} /> : editing ? <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800' }}>{label}</Text> : null}
     </Pressable>
   );
 
@@ -400,6 +403,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
             emptyLabel={editing ? 'Tap to add a cover photo' : ''}
             emptyColor={p.sub}
             emptyBg={p.tile}
+            focus={spec.focus}
             onPress={editing ? () => editing.onPhoto?.(0) : undefined}
           />
         </View>
@@ -496,6 +500,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
                 emptyLabel={editing ? 'Tap to add your photo' : ''}
                 emptyColor={p.sub}
                 emptyBg={p.tile}
+            focus={spec.focus}
                 onPress={editing ? () => editing.onPhoto?.(0) : undefined}
               />
             </View>
@@ -518,10 +523,10 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     body = (
       <>
         {rects.map(([x, y, w, h], i) => (
-          <Photo key={i} uri={spec.photos[i] || null} slot={i} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
+          <Photo key={i} uri={spec.photos[i] || null} slot={i} focus={spec.focus?.[i]} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
         ))}
-        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
-          <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={34} lines={2} />
+        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(472), bottom: u(64), justifyContent: 'center' }}>
+          <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={38} lines={2} />
           <Caption text={spec.caption} />
         </View>
       </>
@@ -602,9 +607,21 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
   return (
     <View style={{ width, height, backgroundColor: p.bg, overflow: 'hidden' }}>
       {body}
+      {editing?.arranging && spec.kind === 'song' && (
+        <Pressable accessibilityRole="button" accessibilityLabel={`Select the entire ${spec.item.song} card for arrangement`}
+          onPress={() => editing.onSong?.(spec.index)}
+          style={{ position: 'absolute', top: u(50), left: u(12), right: u(12), bottom: u(58), zIndex: 5,
+            borderRadius: u(8), borderWidth: u(editing.selected === spec.index ? 3 : 1.5),
+            borderColor: editing.selected === spec.index ? '#39E75F' : 'rgba(57,231,95,0.55)' }}>
+          <View style={{ position: 'absolute', top: u(7), right: u(7), backgroundColor: '#173C20', borderRadius: u(6), paddingHorizontal: u(9), paddingVertical: u(5) }}>
+            <Text style={{ color: '#fff', fontSize: u(10), fontWeight: '900' }}>{editing.selected === spec.index ? 'SELECTED · TAP ANOTHER' : 'TAP CARD TO MOVE'}</Text>
+          </View>
+        </Pressable>
+      )}
       <View style={[styles.row, { position: 'absolute', top: u(18), left: u(18), right: u(18) }]}>
-        <View style={{ backgroundColor: p.ink, borderRadius: u(20), paddingHorizontal: u(9), paddingVertical: u(5) }}>
-          <Text style={{ color: p.bg, fontSize: u(8.5), fontWeight: '900', letterSpacing: u(1.4) }}>{tag}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: u(5) }}>
+          <Image source={SPARK} style={{ width: u(13), height: u(13), tintColor: p.ink, marginRight: u(6) }} />
+          <Text style={{ color: p.ink, fontSize: u(10.5), fontWeight: '900', letterSpacing: u(2.2) }}>OVRLEE</Text>
         </View>
         <Text style={{ color: p.ink, fontSize: u(10), fontWeight: '700', fontVariant: ['tabular-nums'] }}>
           {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
