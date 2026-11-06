@@ -2083,43 +2083,6 @@ export default function MyProfileScreen() {
               </Text>
             </View>
           </View>
-          <Pressable
-            style={({
-              pressed,
-            }) => [
-              styles.labButton,
-              pressed &&
-                styles.pressed,
-            ]}
-            onPress={() =>
-              router.push(
-                '/system-music-test'
-              )
-            }
-          >
-            <View>
-              <Text
-                style={[
-                  styles.labEyebrow,
-                  {
-                    color:
-                      profileColor,
-                  },
-                ]}
-              >
-                NOW LAB
-              </Text>
-
-              <Text
-                style={
-                  styles.labText
-                }
-              >
-                SYSTEM MUSIC TEST →
-              </Text>
-            </View>
-          </Pressable>
-
           <Text
             style={
               styles.footer
