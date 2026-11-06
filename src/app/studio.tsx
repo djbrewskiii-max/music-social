@@ -20,7 +20,8 @@ import {
   View,
 } from 'react-native';
 
-import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
+import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, PhotoFocus, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
+import PhotoReframeEditor from '../components/PhotoReframeEditor';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
@@ -46,6 +47,8 @@ export default function StudioScreen() {
   const [caption, setCaption] = useState('');
   const [items, setItems] = useState<CollectionItem[]>([]);
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [photoFocus, setPhotoFocus] = useState<PhotoFocus[]>([]);
+  const [reframingSlot, setReframingSlot] = useState<number | null>(null);
   const [username, setUsername] = useState('');
   const [userId, setUserId] = useState('');
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -91,7 +94,7 @@ export default function StudioScreen() {
     if (savingDraft) return;
     setSavingDraft(true);
     try {
-      const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos });
+      const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
       setDraftId(saved.id);
       setPhotos(saved.photos);
       if (thenLeave) router.back();
@@ -108,7 +111,7 @@ export default function StudioScreen() {
     if (picking || postedId || !hasWork) return;
     const timer = setTimeout(async () => {
       try {
-        const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos });
+        const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
         if (!draftId) setDraftId(saved.id);
         // Swap in uploaded photo urls without disturbing what's on screen.
         if (saved.photos.some((p, i) => p.url && !photos[i]?.url)) setPhotos(saved.photos);
@@ -118,7 +121,7 @@ export default function StudioScreen() {
     }, 4000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [template, theme, titleFont, coverArtId, title, caption, items, photos, picking, postedId]);
+  }, [template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
 
   const leave = () => {
     if (!hasWork || postedId) return router.back();
@@ -147,6 +150,7 @@ export default function StudioScreen() {
     setCaption(data.caption || '');
     setItems(data.items || []);
     setPhotos((data.photoUrls || []).map((url) => ({ uri: url, url })));
+    setPhotoFocus(data.photoFocus || []);
     setPicking(false);
   };
 
@@ -193,11 +197,11 @@ export default function StudioScreen() {
   }, [query]);
 
   const editingSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId }, true),
-    [template, title, caption, items, photos, coverArtId]
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus }, true),
+    [template, title, caption, items, photos, coverArtId, photoFocus]
   );
   const finalSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId }),
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus }),
     [template, title, caption, items, photos, coverArtId]
   );
 
@@ -265,15 +269,17 @@ export default function StudioScreen() {
     if (template === 'liner' && slot === 0) {
       const options: any[] = [{ text: photos[0] ? 'Choose a different photo' : 'Choose a photo', onPress: () => { setCoverArtId(null); choosePhotos(0, 1); } }];
       if (items.length) options.push({ text: 'Use an album cover', onPress: () => setSheet('cover') });
-      if (photos[0] && !coverArtId) options.push({ text: 'Remove photo', style: 'destructive', onPress: () => setPhotos((prev) => prev.slice(1)) });
+      if (photos[0] && !coverArtId) options.push({ text: 'Reframe photo', onPress: () => setReframingSlot(0) });
+      if (photos[0] && !coverArtId) options.push({ text: 'Remove photo', style: 'destructive', onPress: () => { setPhotos((prev) => prev.slice(1)); setPhotoFocus((prev) => prev.slice(1)); } });
       options.push({ text: 'Cancel', style: 'cancel' });
       Alert.alert('Cover', 'Your own photo, or one of the albums in this collection.', options);
       return;
     }
     if (photos[slot]) {
       Alert.alert('Photo', undefined, [
+        { text: 'Reframe / zoom', onPress: () => setReframingSlot(slot) },
         { text: 'Replace', onPress: () => choosePhotos(slot, 1) },
-        { text: 'Remove', style: 'destructive', onPress: () => setPhotos((prev) => prev.filter((_, i) => i !== slot)) },
+        { text: 'Remove', style: 'destructive', onPress: () => { setPhotos((prev) => prev.filter((_, i) => i !== slot)); setPhotoFocus((prev) => prev.filter((_, i) => i !== slot)); } },
         { text: 'Cancel', style: 'cancel' },
       ]);
       return;
@@ -306,6 +312,12 @@ export default function StudioScreen() {
       else next.push(...added);
       return next.slice(0, maxPhotos);
     });
+    setPhotoFocus(prev => {
+      const next = [...prev];
+      if (slot < photos.length) next[slot] = { x: 50, y: 50, zoom: 1 };
+      else for (let i = 0; i < added.length; i++) next.push({ x: 50, y: 50, zoom: 1 });
+      return next.slice(0, maxPhotos);
+    });
   };
 
   const ready = () => {
@@ -323,7 +335,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos });
+      const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
       setPostedId(id);
       if (draftId) await deleteDraft(draftId);
       Alert.alert('Collection published', 'Your collection is now a post in For You and on your profile. Want to save its slides for sharing elsewhere?', [
@@ -495,7 +507,7 @@ export default function StudioScreen() {
         <Text style={styles.hint} numberOfLines={1}>
           {arranging
             ? selected === null
-              ? 'Tap a cover, then another to swap · ✕ removes'
+              ? 'Tap anywhere on a song card to select it, then another card to swap'
               : `Now tap where #${selected + 1} should go`
             : `${editingSlides.length > 1 ? `${page + 1} of ${editingSlides.length} · ` : ''}Tap anything to change it`}
         </Text>
@@ -580,7 +592,20 @@ export default function StudioScreen() {
         ))}
       </View>
 
-      {/* Songs: pick from your music, or search */}
+      <PhotoReframeEditor
+        uri={reframingSlot !== null ? photos[reframingSlot]?.uri || null : null}
+        initial={reframingSlot !== null ? photoFocus[reframingSlot] : undefined}
+        onClose={() => setReframingSlot(null)}
+        onSave={(focus) => {
+          if (reframingSlot !== null) setPhotoFocus(prev => {
+            const next = [...prev];
+            next[reframingSlot] = focus;
+            return next;
+          });
+          setReframingSlot(null);
+        }}
+      />
+            {/* Songs: pick from your music, or search */}
       <Modal visible={sheet === 'songs'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>
