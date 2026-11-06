@@ -15,7 +15,7 @@ export type PublicProfileResult = {
  userId: string; url: string; playlists: PublicPlaylist[];
  totalVisibleLinks: number; warnings: string[];
 };
-const MAX_PLAYLISTS=12;
+const MAX_PLAYLISTS=30;
 const MAX_TRACKS=50;
 const LIMIT_BYTES=5_000_000;
 const timeout=18000;
