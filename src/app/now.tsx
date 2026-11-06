@@ -695,33 +695,44 @@ export default function NowScreen() {
             loadOrbitRecommendation(user.id, relationships.following, relationships.hidden),
           ]);
 
-          const {
-            data: postData,
-            error: postError,
-          } = await supabase
-            .from('posts')
-            .select(
-              'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection'
-            )
-            .order(
-              'created_at',
-              {
-                ascending: false,
-              }
-            )
-            .limit(50);
+          const postFields =
+            'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
 
-          if (postError) {
-            console.log(
-              'Feed post error:',
-              postError.message
-            );
+          // Collections are first-class posts. Fetching a second, recent
+          // collection window prevents active standard posts from pushing
+          // collections out of the initial feed batch.
+          const [regularResult, collectionResult] = await Promise.all([
+            supabase.from('posts')
+              .select(postFields)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            supabase.from('posts')
+              .select(postFields)
+              .not('collection', 'is', null)
+              .order('created_at', { ascending: false })
+              .limit(20),
+          ]);
+
+          if (regularResult.error) {
+            console.log('Feed post error:', regularResult.error.message);
+            setPosts([]);
             return;
           }
+          if (collectionResult.error) {
+            console.log('Feed collections error:', collectionResult.error.message);
+          }
 
-          const postRows = ((postData as PostRow[]) || []).filter(
-            (post) => !relationships.hidden.has(post.user_id)
-          );
+          const mergedPosts = new Map<string, PostRow>();
+          for (const row of [
+            ...((regularResult.data as PostRow[]) || []),
+            ...((collectionResult.data as PostRow[]) || []),
+          ]) {
+            mergedPosts.set(row.id, row);
+          }
+
+          const postRows = [...mergedPosts.values()]
+            .filter((post) => !relationships.hidden.has(post.user_id))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
           if (
             postRows.length === 0
@@ -956,6 +967,8 @@ export default function NowScreen() {
               Math.min(post.likeCount, 12) * 0.10 +
               (post.likedByMe ? 0.3 : 0) +
               (post.body?.trim() ? 0.35 : 0) +
+              // Give original, designed music collections a modest discovery boost.
+              (post.collection ? 0.9 * Math.exp(-ageHours / (24 * 14)) : 0) +
               2.2 * Math.exp(-ageHours / 36) +
               (uniqueParticipants > 0 ? 1.1 * Math.exp(-activityAgeHours / 24) : 0) -
               index * 0.018;
