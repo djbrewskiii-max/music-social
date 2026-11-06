@@ -4,9 +4,10 @@ import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, Scro
 
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
-import { isInNearbyArea } from '../city-locations';
+import { isInNearbyArea, resolveCity } from '../city-locations';
+import { distanceMiles } from '../world-cities';
 
-type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null; nearby_visible: boolean };
+type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null; city_lat: number | null; city_lon: number | null; nearby_visible: boolean };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
 type Trend = { artist: string; count: number; listeners: number };
 type SongTrend = { song: string; artist: string; count: number; listeners: number };
@@ -35,8 +36,8 @@ export default function NearbyScreen() {
       if (authError || !user) { router.replace('/login'); return; }
       setMyId(user.id);
       const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult] = await Promise.all([
-        supabase.from('profiles').select('city').eq('user_id', user.id).maybeSingle(),
-        supabase.from('profiles').select('user_id,display_name,username,avatar_url,city,nearby_visible').limit(500),
+        supabase.from('profiles').select('city,city_lat,city_lon').eq('user_id', user.id).maybeSingle(),
+        supabase.from('profiles').select('user_id,display_name,username,avatar_url,city,city_lat,city_lon,nearby_visible').eq('nearby_visible',true).limit(500),
         supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
         supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
         supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
@@ -64,8 +65,18 @@ export default function NearbyScreen() {
         ...(blockResult.data || []).map(row => row.blocked_id),
         ...(blockedByResult.data || []).map(row => row.blocker_id),
       ]);
+      const userCity = mine.data?.city_lat != null && mine.data?.city_lon != null
+        ? { lat: mine.data.city_lat, lon: mine.data.city_lon }
+        : resolveCity(myCity);
       const localProfiles = ((profilesResult.data || []) as Profile[])
-        .filter(p => p.user_id && p.nearby_visible && !excluded.has(p.user_id) && isInNearbyArea(p.city || '', myCity));
+        .filter(p => {
+          if (!p.user_id || !p.nearby_visible || excluded.has(p.user_id)) return false;
+          const otherCity = p.city_lat != null && p.city_lon != null
+            ? { lat: p.city_lat, lon: p.city_lon }
+            : resolveCity(p.city || '');
+          if (userCity && otherCity) return distanceMiles(userCity, otherCity) <= 35;
+          return isInNearbyArea(p.city || '', myCity, 35);
+        });
       const ids = localProfiles.map(p => p.user_id!) as string[];
       if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
 
@@ -154,7 +165,7 @@ export default function NearbyScreen() {
         <Text style={styles.eyebrow}>MUSIC IS LOCAL</Text>
         <Text style={styles.title}>Around you.</Text>
         <Text style={styles.subtitle}>{city || 'Your city'} · Discover what your community is sharing.</Text>
-        <Text style={styles.notice}>Approximate 35-mile vicinity around your selected city, based on voluntarily shared profile cities and posts—not GPS or live playback.</Text>
+        <Text style={styles.notice}>Approximate 35-mile (56 km) vicinity around your selected city, including other nearby towns. Based on opt-in profile cities and posted music—not GPS or live listening.</Text>
         <View style={styles.tabs}>
           <Pressable onPress={() => router.push('/now')} style={styles.tab}><Text style={styles.tabOff}>FOR YOU</Text></Pressable>
           <Pressable onPress={() => setTab('nearby')} style={[styles.tab, tab === 'nearby' && styles.tabActive]}>
