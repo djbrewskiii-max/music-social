@@ -193,7 +193,7 @@ export default function NearbyScreen() {
           <Pressable onPress={() => router.push('/concerts')} style={styles.button}><Text style={styles.buttonText}>EXPLORE CONCERTS ON RADAR →</Text></Pressable>
         </>}
       </ScrollView>
-      <BottomNav active="home" />
+      <BottomNav active="now" />
     </SafeAreaView>
   );
 }
