@@ -525,7 +525,11 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
         {rects.map(([x, y, w, h], i) => (
           <Photo key={i} uri={spec.photos[i] || null} slot={i} focus={spec.focus?.[i]} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
         ))}
-        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(472), bottom: u(64), justifyContent: 'center' }}>
+        <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: u(10) }}>
+            <View style={{ width: u(22), height: Math.max(1, u(2)), backgroundColor: p.accent, marginRight: u(8) }} />
+            <Text style={{ color: p.sub, fontSize: u(8), letterSpacing: u(2), fontWeight: '900' }}>A MOOD IN MUSIC</Text>
+          </View>
           <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={38} lines={2} />
           <Caption text={spec.caption} />
         </View>
