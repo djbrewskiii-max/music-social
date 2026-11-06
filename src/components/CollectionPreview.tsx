@@ -33,7 +33,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
     (u): u is string => typeof u === 'string' && !!u
   );
   const items = itemsFromPost({ music_items: post.music_items, collection: post.collection });
-  const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId });
+  const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId, photoFocus: post.collection.photoFocus });
   const open = () => router.push({ pathname: '/post', params: { postId: post.id } });
 
   return (
