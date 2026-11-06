@@ -216,13 +216,25 @@ export default function UnifiedRotation({
     if (!owner || !accountId) return;
     let active = true;
     (async () => {
-      const [{data}, reviewed] = await Promise.all([
+      const [imports, remote, local] = await Promise.all([
         supabase.from('music_import_tracks').select('created_at')
-          .eq('user_id', accountId).order('created_at', {ascending: false}).limit(300),
+          .eq('user_id', accountId).order('created_at', {ascending: false }).limit(300),
+        supabase.from('music_suggestion_review_state').select('last_reviewed_at')
+          .eq('user_id', accountId).maybeSingle(),
         AsyncStorage.getItem('ovrlee.rotationReviewed.' + accountId),
       ]);
-      const time = reviewed ? Date.parse(reviewed) : 0;
-      if (active) setNewSuggestionCount((data || []).filter(t => Date.parse(t.created_at) > time).length);
+      const localTime = local ? Date.parse(local) || 0 : 0;
+      const remoteTime = remote.data?.last_reviewed_at
+        ? Date.parse(remote.data.last_reviewed_at) || 0 : 0;
+      const time = Math.max(localTime, remoteTime);
+      if (active && !editing) setNewSuggestionCount((imports.data || [])
+        .filter(t => Date.parse(t.created_at) > time).length);
+      // Carry forward existing device-only review status on first connection.
+      if (!remote.error && localTime > remoteTime) {
+        await supabase.from('music_suggestion_review_state').upsert({
+          user_id: accountId, last_reviewed_at: new Date(localTime).toISOString(),
+        },{onConflict:'user_id'});
+      }
     })().catch(() => {});
     return () => { active = false; };
   }, [owner, accountId, editing]);
@@ -547,7 +559,13 @@ export default function UnifiedRotation({
     setEditing(true);
     if (owner && accountId && !pin) {
       setNewSuggestionCount(0);
-      void AsyncStorage.setItem('ovrlee.rotationReviewed.' + accountId, new Date().toISOString()).catch(() => {});
+      const reviewedAt = new Date().toISOString();
+      void AsyncStorage.setItem('ovrlee.rotationReviewed.' + accountId, reviewedAt).catch(() => {});
+      void supabase.from('music_suggestion_review_state').upsert({
+        user_id: accountId, last_reviewed_at: reviewedAt,
+      },{onConflict:'user_id'}).then(({error}) => {
+        if (error) console.log('Rotation reviewed sync:',error.message);
+      });
     }
     setEditingId(pin?.id ?? null);
     setQueue([]);
