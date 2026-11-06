@@ -325,10 +325,10 @@ export default function StudioScreen() {
     try {
       const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos });
       setPostedId(id);
-      if (draftId) deleteDraft(draftId);
-      Alert.alert('Posted', 'Your collection is on your profile. Save the slides to share them on TikTok or Instagram too?', [
-        { text: 'Not now', style: 'cancel', onPress: () => router.replace({ pathname: '/post', params: { postId: id } }) },
-        { text: 'Save slides', onPress: () => exportNow(id) },
+      if (draftId) await deleteDraft(draftId);
+      Alert.alert('Collection published', 'Your collection is now a post in For You and on your profile. Want to save its slides for sharing elsewhere?', [
+        { text: 'View post', onPress: () => router.replace({ pathname: '/post', params: { postId: id } }) },
+        { text: 'Save slides', onPress: () => void exportNow(id) },
       ]);
     } catch (e: any) {
       Alert.alert("Couldn't post", e?.message || 'Try again.');
