@@ -912,6 +912,20 @@ export default function UnifiedRotation({
 
               {!editingId && (
                 <Pressable accessibilityRole="button"
+                  accessibilityLabel="Connect Spotify and discover my own playlists"
+                  onPress={() => { clearEditor(); router.push('/spotify-library'); }}
+                  style={{ paddingVertical: 13, marginBottom: 8 }}>
+                  <Text style={{ color: GREEN, fontWeight: '900', fontSize: 12 }}>
+                    ♫ SUGGEST FROM MY SPOTIFY PLAYLISTS →
+                  </Text>
+                  <Text style={{ color: '#999', fontSize: 11, marginTop: 5 }}>
+                    Read songs from your playlists, including tracks beyond the first 50.
+                  </Text>
+                </Pressable>
+              )}
+
+              {!editingId && (
+                <Pressable accessibilityRole="button"
                   accessibilityLabel="Import songs from a playlist track list"
                   onPress={() => { clearEditor(); router.push('/playlist-import'); }}
                   style={{ paddingVertical: 13, marginBottom: 10 }}>
