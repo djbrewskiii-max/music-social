@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView,
@@ -24,7 +25,23 @@ export default function SpotifyPublicLibrary() {
  const [error,setError]=useState('');
  const [consent,setConsent]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
+ const [accountId,setAccountId]=useState<string|null>(null);
 
+ useEffect(()=>{
+  let active=true;
+  (async()=>{
+   const {data:{user}}=await supabase.auth.getUser();
+   if(!active||!user)return;
+   setAccountId(user.id);
+   const saved=await AsyncStorage.getItem('ovrlee.spotifyPublicProfile.'+user.id);
+   if(!active||!saved)return;
+   try{
+    const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean};
+    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);}
+   }catch{/* Ignore a stale or invalid saved profile. */}
+  })().catch(()=>{});
+  return ()=>{active=false;};
+ },[]);
  useEffect(()=>{setChecked(chosen?.tracks.map(trackKey)||[]);},[chosen]);
  const run=async()=>{
   if(loading)return;
@@ -33,6 +50,10 @@ export default function SpotifyPublicLibrary() {
   setLoading(true);setScan(null);setChosen(null);setError('');setProgress('');
   try{
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
+    if(accountId){
+      await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
+        JSON.stringify({url:result.url,confirmed:true})).catch(()=>{});
+    }
     setScan(result);
     if(result.playlists.every(p=>p.status==='unavailable'))setError('Playlist links were found, but Spotify did not expose any readable tracks to this device. The experimental GitHub browser reader may behave differently.');
   }catch(e){setError(e instanceof Error?e.message:'Spotify public profile reading failed.');}
