@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
-import type { CollectionItem, Template } from '../collection';
+import type { CollectionItem, Template, PhotoFocus } from '../collection';
 
 /*
   OVRLEE collection slides, designed on a 360×640 canvas (9:16) and scaled to
@@ -53,22 +54,23 @@ const FIXED: Record<Exclude<ThemeKey, 'auto'>, Palette> = {
 /** The palette for one slide. "Album" picks per slide from the album art. */
 function paletteFor(theme: ThemeKey, kind: SlideSpec['kind'], artBg?: string): Palette {
   if (theme !== 'auto') return FIXED[theme];
-  if (kind === 'song' || kind === 'cover' || kind === 'moodboard') return dark(artBg || '#1c1c1c', '#FFFFFF', 'rgba(255,255,255,0.78)');
+  if (kind === 'moodboard') return FIXED.cream;
+  if (kind === 'song' || kind === 'cover') return dark(artBg || '#1c1c1c', '#FFFFFF', 'rgba(255,255,255,0.78)');
   return FIXED.cream; // wall, tracklist
 }
 
 /* --------------------------------- slides --------------------------------- */
 
 export type SlideSpec =
-  | { kind: 'cover'; title: string; caption: string; count: number; photo: string | null; fallbackArt: string | null; tint: string }
+  | { kind: 'cover'; title: string; caption: string; count: number; photo: string | null; fallbackArt: string | null; tint: string; focus?: PhotoFocus }
   | { kind: 'song'; item: CollectionItem; index: number }
-  | { kind: 'wall'; title: string; caption: string; photo: string | null; arts: string[]; artIdx: number[] }
-  | { kind: 'moodboard'; title: string; caption: string; photos: string[]; tint: string; slots: number }
+  | { kind: 'wall'; title: string; caption: string; photo: string | null; arts: string[]; artIdx: number[]; focus?: PhotoFocus }
+  | { kind: 'moodboard'; title: string; caption: string; photos: string[]; tint: string; slots: number; focus?: PhotoFocus[] }
   | { kind: 'tracklistCover'; title: string; caption: string; count: number; arts: string[] }
   | { kind: 'tracklist'; items: CollectionItem[]; start: number }
   | { kind: 'add' };
 
-type BuildInput = { title: string; caption: string; items: CollectionItem[]; photos: string[]; coverArtId?: string | null };
+type BuildInput = { title: string; caption: string; items: CollectionItem[]; photos: string[]; coverArtId?: string | null; photoFocus?: PhotoFocus[] };
 
 export function buildSlides(template: Template, input: BuildInput, editing = false): SlideSpec[] {
   const slides = buildBase(template, input, editing);
@@ -85,7 +87,7 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
     case 'liner': {
       // The cover can be your photo or any album cover in the collection.
       const chosenArt = input.coverArtId ? items.find((i) => i.id === input.coverArtId)?.artworkUrl || null : null;
-      return [{ kind: 'cover', title: t, caption, count: items.length, photo: chosenArt || photos[0] || null, fallbackArt: items[0]?.artworkUrl || null, tint }, ...songs];
+      return [{ kind: 'cover', title: t, caption, count: items.length, photo: chosenArt || photos[0] || null, fallbackArt: items[0]?.artworkUrl || null, tint, focus: input.photoFocus?.[0] }, ...songs];
     }
     case 'wall':
     {
@@ -98,12 +100,12 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
           artIdx.push(i);
         }
       });
-      return [{ kind: 'wall', title: t, caption, photo: photos[0] || null, arts, artIdx }, { kind: 'tracklist', items: items.slice(0, 12), start: 0 }];
+      return [{ kind: 'wall', title: t, caption, photo: photos[0] || null, arts, artIdx, focus: input.photoFocus?.[0] }, { kind: 'tracklist', items: items.slice(0, 12), start: 0 }];
     }
     case 'moodboard': {
       // The editor always shows five spots; posts use the layout for the photos you added.
-      const slots = editing ? 5 : Math.max(3, Math.min(5, photos.length));
-      return [{ kind: 'moodboard', title: t, caption, photos: photos.slice(0, 5), tint, slots }, ...songs];
+      const slots = editing ? Math.min(5, Math.max(3, photos.length + 1)) : Math.max(3, Math.min(5, photos.length));
+      return [{ kind: 'moodboard', title: t, caption, photos: photos.slice(0, 5), tint, slots, focus: input.photoFocus }, ...songs];
     }
     case 'tracklist':
       return [
@@ -115,23 +117,24 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
 
 /* Moodboard collage layouts (x, y, w, h) inside a 324 × 400 area. */
 const COLLAGE: Record<number, [number, number, number, number][]> = {
+  // Balanced editorial collage. Small 6px gutters; no oversized empty tiles.
   3: [
-    [0, 0, 324, 220],
-    [0, 226, 159, 174],
-    [165, 226, 159, 174],
+    [0, 0, 193, 400],
+    [199, 0, 125, 197],
+    [199, 203, 125, 197],
   ],
   4: [
-    [0, 0, 159, 197],
-    [165, 0, 159, 197],
-    [0, 203, 159, 197],
-    [165, 203, 159, 197],
+    [0, 0, 193, 255],
+    [199, 0, 125, 255],
+    [0, 261, 130, 139],
+    [136, 261, 188, 139],
   ],
   5: [
-    [0, 0, 198, 236],
-    [204, 0, 120, 115],
-    [204, 121, 120, 115],
-    [0, 242, 120, 158],
-    [126, 242, 198, 158],
+    [0, 0, 193, 237],
+    [199, 0, 125, 115],
+    [199, 121, 125, 116],
+    [0, 243, 130, 157],
+    [136, 243, 188, 157],
   ],
 };
 
