@@ -8,6 +8,7 @@ import { supabase } from '../supabase';
 type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
 type Trend = { artist: string; count: number; listeners: number };
+type SongTrend = { song: string; artist: string; count: number; listeners: number };
 type Person = Profile & { sharedArtists: string[]; isFollowing: boolean; recentArtist: string | null };
 
 const green = '#39E75F';
@@ -17,6 +18,7 @@ export default function NearbyScreen() {
   const [city, setCity] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
+  const [songTrends, setSongTrends] = useState<SongTrend[]>([]);
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
   const [tab, setTab] = useState<'nearby' | 'following'>('nearby');
@@ -55,7 +57,7 @@ export default function NearbyScreen() {
         if (followedResult.error) console.log('Following music posts:', followedResult.error.message);
         setFollowingPosts((followedResult.data || []) as Post[]);
       } else setFollowingPosts([]);
-      if (!myCity) { setPeople([]); setTrends([]); setRecentPosts([]); return; }
+      if (!myCity) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
       const excluded = new Set<string>([
         user.id,
         ...(blockResult.data || []).map(row => row.blocked_id),
@@ -64,7 +66,7 @@ export default function NearbyScreen() {
       const localProfiles = ((profilesResult.data || []) as Profile[])
         .filter(p => p.user_id && !excluded.has(p.user_id) && norm(p.city || '') === norm(myCity));
       const ids = localProfiles.map(p => p.user_id!) as string[];
-      if (!ids.length) { setPeople([]); setTrends([]); setRecentPosts([]); return; }
+      if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
 
       // Only public posts exposed under the existing posts RLS policy are used.
       // This is posted music, not inferred real-time playback.
@@ -94,11 +96,24 @@ export default function NearbyScreen() {
         || Number(b.isFollowing) - Number(a.isFollowing)
         || (a.display_name || '').localeCompare(b.display_name || '')));
       const counts = new Map<string, { name: string; posts: Set<string>; listeners: Set<string> }>();
+      const songCounts = new Map<string, { song: string; artist: string; posts: Set<string>; listeners: Set<string> }>();
       for (const post of posts) {
         const artistNames = new Set([
           post.artist_name,
           ...((Array.isArray(post.music_items) ? post.music_items : []).map(item => item.artist || '')),
         ].map(s => s.trim()).filter(Boolean));
+        const songs = new Map<string, { song: string; artist: string }>();
+        for (const item of [{ song: post.song_title, artist: post.artist_name }, ...(Array.isArray(post.music_items) ? post.music_items : [])]) {
+          const song = (item.song || '').trim();
+          const artist = (item.artist || '').trim();
+          if (!song || !artist) continue;
+          songs.set(norm(artist) + '::' + norm(song), { song, artist });
+        }
+        for (const [key, item] of songs) {
+          if (!songCounts.has(key)) songCounts.set(key, { ...item, posts: new Set(), listeners: new Set() });
+          songCounts.get(key)!.posts.add(post.id);
+          songCounts.get(key)!.listeners.add(post.user_id);
+        }
         for (const name of artistNames) {
           const key = norm(name);
           if (!counts.has(key)) counts.set(key, { name, posts: new Set(), listeners: new Set() });
@@ -109,6 +124,8 @@ export default function NearbyScreen() {
       setTrends([...counts.values()].map(x => ({
         artist: x.name, count: x.posts.size, listeners: x.listeners.size,
       })).sort((a,b) => b.count - a.count || b.listeners - a.listeners).slice(0, 12));
+      setSongTrends([...songCounts.values()].map(x => ({ song: x.song, artist: x.artist, count: x.posts.size, listeners: x.listeners.size }))
+        .sort((a,b) => b.count-a.count || b.listeners-a.listeners).slice(0, 8));
       setRecentPosts(posts.slice(0, 12));
     } catch (e: any) {
       console.log('Nearby discovery error:', e);
@@ -183,6 +200,22 @@ export default function NearbyScreen() {
               </Pressable>
             ))}
             {!followingPosts.length && <Text style={styles.emptyText}>Follow listeners to see what they share.</Text>}
+          </>}
+          {tab === 'nearby' && <>
+            <Text style={styles.section}>SONGS BEING SHARED</Text>
+            <Text style={styles.helper}>Ranked by recent local posts, not inferred playback.</Text>
+            {songTrends.map((item, index) => (
+              <Pressable key={item.artist + item.song} style={styles.trend}
+                onPress={() => router.push({ pathname: '/music-discovery', params: { artist: item.artist, song: item.song } })}>
+                <Text style={styles.rank}>{String(index + 1).padStart(2, '0')}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trendName} numberOfLines={1}>{item.song}</Text>
+                  <Text style={styles.muted} numberOfLines={1}>{item.artist} · {item.count} {item.count === 1 ? 'post' : 'posts'}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+            {!songTrends.length && <Text style={styles.emptyText}>Songs will appear as people share music in your city.</Text>}
           </>}
           <Text style={styles.section}>{tab === 'following' ? 'PEOPLE YOU FOLLOW IN YOUR CITY' : 'MUSIC PEOPLE NEAR YOU'}</Text>
           <Text style={styles.helper}>Shared artists are shown by name, never as a compatibility percentage.</Text>
