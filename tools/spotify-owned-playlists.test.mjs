@@ -15,7 +15,7 @@ try{
   const url=new URL(input);calls.push(url.pathname+url.search);
   assert.match(String(opts?.headers?.Authorization),/^Bearer /);
   let value;
-  if(url.pathname==='/v1/me') value={id:owner,display_name:'Test'};
+  if(url.pathname==='/v1/me') throw Error('No profile call should be required for playlist reading');
   else if(url.pathname==='/v1/me/playlists'){
    value={items:[
     {id:playlist,name:'My 102 Songs',owner:{id:owner},items:{total:102},images:[]},
@@ -29,8 +29,9 @@ try{
   return {ok:true,status:200,json:async()=>value};
  };
  const owned=await getOwnedSpotifyPlaylists('testtoken');
- assert.equal(owned.length,1,'Followed playlists must not appear in own-playlists importer');
+ assert.equal(owned.length,2,'The playlist listing can include followed playlists; item access is the secure authorization gate');
  assert.equal(owned[0].total,102);
+ assert.equal(calls.some(x=>x==='/v1/me'),false,'Do not request GET /me without user-read-private scope');
  const progress=[];
  const songs=await getEntireOwnedPlaylist('testtoken',owned[0],undefined,n=>progress.push(n));
  assert.equal(songs.length,102,'All 102 songs must be returned, not only the embed first 50');
