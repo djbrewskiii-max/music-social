@@ -18,6 +18,7 @@ jobs:
       - run: node tools/playlist-snapshot-diff.test.mjs
       - run: node tools/spotify-embed-parser.test.mjs
       - run: node tools/weekly-spotify-report.test.mjs
+      - run: node --experimental-strip-types tools/spotify-owned-playlists.test.mjs
 
   spotify_probe_once:
     if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify public profile feasibility probe'
@@ -41,3 +42,10 @@ jobs:
           path: spotify-public-probe-result.json
           if-no-files-found: warn
           retention-days: 7
+
+  spotify-native-swift-parse:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Spotify bridge Swift syntax
+        run: xcrun swiftc -frontend -parse now-spotify/ios/NowSpotifyModule.swift
