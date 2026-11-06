@@ -386,6 +386,11 @@ export default function ListenersScreen() {
               </Text>
             </View>
 
+            <Pressable style={styles.tab} accessibilityRole="button" accessibilityLabel="Discover nearby listeners"
+              onPress={() => router.push('/nearby')}>
+              <Text style={styles.tabText}>NEARBY</Text>
+            </Pressable>
+
             <Pressable
               style={({ pressed }) => [
                 styles.tab,
