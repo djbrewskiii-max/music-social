@@ -165,14 +165,14 @@ export default function NearbyScreen() {
         </View>
         {busy && <ActivityIndicator color={green} style={{ marginTop: 35 }} />}
         {!!error && <Pressable onPress={() => { setBusy(true); void load(); }} style={styles.empty}><Text style={styles.error}>{error}</Text></Pressable>}
-        {!busy && !error && !city && (
+        {!busy && !error && !city && tab === 'nearby' && (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>Choose your city.</Text>
             <Text style={styles.muted}>Add a city to your profile to discover music and people sharing from the same area.</Text>
             <Pressable onPress={() => router.push('/edit-profile')} style={styles.button}><Text style={styles.buttonText}>SET MY CITY →</Text></Pressable>
           </View>
         )}
-        {!busy && !error && !!city && <>
+        {!busy && !error && (!!city || tab === 'following') && <>
           {tab === 'nearby' && <>
             <Text style={styles.section}>TRENDING IN {city.toUpperCase()}</Text>
             <Text style={styles.helper}>Artists appearing in recent posts and collections nearby.</Text>
