@@ -20,11 +20,15 @@ import {
 import { supabase } from '../supabase';
 import { OVERLY_TRAITS, normalizeOverlyTrait } from '../overly-traits';
 import { CITY_LOCATIONS, cityLabel, resolveCity } from '../city-locations';
+import { searchWorldwideCities, type WorldCity } from '../world-cities';
 
 type Profile = {
   display_name: string | null;
   username: string | null;
   city: string | null;
+  city_lat: number | null;
+  city_lon: number | null;
+  city_country_code: string | null;
   nearby_visible: boolean;
   bio: string | null;
   overly_trait: string | null;
@@ -53,7 +57,28 @@ export default function EditProfileScreen() {
   const [city, setCity] = useState('');
   const [nearbyVisible, setNearbyVisible] = useState(false);
   const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<WorldCity[]>([]);
+  const [citySearching, setCitySearching] = useState(false);
+  const [cityCoordinates, setCityCoordinates] = useState<{lat:number;lon:number;countryCode:string}|null>(null);
   const [choosingCity, setChoosingCity] = useState(false);
+  useEffect(() => {
+    if (!choosingCity) return;
+    if (cityQuery.trim().length < 2) {
+      setCityResults([]);
+      setCitySearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    setCitySearching(true);
+    const timeout = setTimeout(() => {
+      searchWorldwideCities(cityQuery, controller.signal)
+        .then(results => { if (!controller.signal.aborted) setCityResults(results); })
+        .catch(error => { if (!controller.signal.aborted) console.log('City search:', error); })
+        .finally(() => { if (!controller.signal.aborted) setCitySearching(false); });
+    }, 350);
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [choosingCity, cityQuery]);
+
   const [bio, setBio] = useState('');
   const [overlyTrait, setOverlyTrait] = useState<string | null>(null);
 
@@ -84,7 +109,7 @@ export default function EditProfileScreen() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'display_name, username, city, nearby_visible, bio, overly_trait, avatar_url, header_url'
+          'display_name, username, city, city_lat, city_lon, city_country_code, nearby_visible, bio, overly_trait, avatar_url, header_url'
         )
         .eq('user_id', user.id)
         .maybeSingle();
@@ -112,6 +137,7 @@ export default function EditProfileScreen() {
       setDisplayName(profile.display_name || '');
       setUsername(profile.username || '');
       setCity(profile.city || '');
+      setCityCoordinates(profile.city_lat != null && profile.city_lon != null ? { lat: profile.city_lat, lon: profile.city_lon, countryCode: profile.city_country_code || '' } : null);
       setNearbyVisible(!!profile.nearby_visible);
       setBio(profile.bio || '');
       setOverlyTrait(normalizeOverlyTrait(profile.overly_trait));
@@ -492,6 +518,9 @@ export default function EditProfileScreen() {
             cleanUsername,
           city:
             cleanCity || null,
+          city_lat: cityCoordinates?.lat ?? null,
+          city_lon: cityCoordinates?.lon ?? null,
+          city_country_code: cityCoordinates?.countryCode || null,
           nearby_visible: nearbyVisible,
           bio:
             cleanBio || null,
@@ -508,7 +537,7 @@ export default function EditProfileScreen() {
           user.id
         )
         .select(
-          'user_id, display_name, username, city, nearby_visible, bio, overly_trait, avatar_url, header_url, profile_color'
+          'user_id, display_name, username, city, city_lat, city_lon, city_country_code, nearby_visible, bio, overly_trait, avatar_url, header_url, profile_color'
         )
         .single();
 
@@ -1198,20 +1227,36 @@ export default function EditProfileScreen() {
               <TextInput value={cityQuery} onChangeText={setCityQuery}
                 autoCorrect={false} placeholder="Search cities or state..." placeholderTextColor="#888"
                 style={{ backgroundColor: '#181818', borderColor: '#333', borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', marginBottom: 15 }} />
+              <Text style={{ color: '#999', fontSize: 11, marginBottom: 12 }}>
+                Search cities worldwide · choose the right region and country
+              </Text>
+              {citySearching && <ActivityIndicator color={NOW_GREEN} style={{ marginBottom: 10 }} />}
+
               <ScrollView keyboardShouldPersistTaps="handled">
-                {CITY_LOCATIONS.filter(c => !cityQuery.trim() ||
-                  [c.name, c.state, cityLabel(c), ...(c.aliases || [])].some(t => t.toLowerCase().includes(cityQuery.trim().toLowerCase())))
-                  .slice(0, 70).map(c => <Pressable key={cityLabel(c)}
-                    accessibilityRole="button" accessibilityLabel={`Select ${cityLabel(c)}`}
-                    onPress={() => { setCity(cityLabel(c)); setChoosingCity(false); }}
-                    style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#272727', flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{cityLabel(c)}</Text>
-                    {resolveCity(city)?.name === c.name && <Text style={{ color: NOW_GREEN }}>✓</Text>}
-                  </Pressable>)}
-                {!CITY_LOCATIONS.some(c => [c.name, c.state, cityLabel(c), ...(c.aliases || [])].some(t => t.toLowerCase().includes(cityQuery.trim().toLowerCase()))) &&
+                {(cityQuery.trim().length >= 2 ? cityResults : CITY_LOCATIONS.slice(0, 35).map(c => ({
+                  id: `curated:${cityLabel(c)}`, label: cityLabel(c) + ', United States',
+                  lat: c.lat, lon: c.lon, countryCode: 'US', country: 'United States', source: 'curated' as const,
+                }))).map(candidate => (
+                  <Pressable key={candidate.id} accessibilityRole="button"
+                    accessibilityLabel={`Select ${candidate.label}`}
+                    onPress={() => {
+                      setCity(candidate.label);
+                      setCityCoordinates({ lat: candidate.lat, lon: candidate.lon, countryCode: candidate.countryCode });
+                      setChoosingCity(false);
+                    }}
+                    style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#272727',
+                      flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', flex: 1 }}>{candidate.label}</Text>
+                    {city === candidate.label && <Text style={{ color: NOW_GREEN }}>✓</Text>}
+                  </Pressable>
+                ))}
+                {!citySearching && cityQuery.trim().length >= 2 && !cityResults.length &&
                   <Text style={{ color: '#aaa', fontSize: 14, lineHeight: 22, marginTop: 20 }}>
-                    This city isn't in our initial directory yet. We can expand the list as OVRLEE grows.
+                    No matching cities found. Try the city name or country in English.
                   </Text>}
+                <Text style={{ color: '#777', fontSize: 10, marginTop: 18 }}>
+                  Location search data: Open-Meteo.com / GeoNames. Select a city, never a precise address.
+                </Text>
               </ScrollView>
             </SafeAreaView>
           </Modal>
