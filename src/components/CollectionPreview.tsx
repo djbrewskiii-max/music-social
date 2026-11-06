@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { CollectionMeta, itemsFromPost } from '../collection';
 import { openMusicCard } from '../music-card';
+import { previewKey, useSongPreview } from '../preview-player';
 import Slide, { buildSlides, ThemeKey } from './CollectionSlides';
 
 /*
@@ -25,6 +26,7 @@ type Props = {
 
 export default function CollectionPreview({ post, username, slideWidth = 190 }: Props) {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
+  const { activeKey, loadingKey, toggle } = useSongPreview();
   // A font-loading delay must never hide the whole collection from the feed.
 
   const photos = (Array.isArray(post.photo_urls) && post.photo_urls.length ? post.photo_urls : post.photo_url ? [post.photo_url] : []).filter(
@@ -48,23 +50,34 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
       </ScrollView>
       {/* The music itself, right in the feed: the first few, then "see all". */}
       <View style={styles.tracks}>
-        {items.slice(0, 3).map((it, i) => (
-          <Pressable
-            key={`${it.id}-${i}`}
-            onPress={() => openMusicCard({ kind: it.kind === 'album' ? 'album' : 'song', title: it.song, artist: it.artist, appleId: it.id || null })}
-            style={({ pressed }) => [styles.track, i > 0 && styles.trackDivider, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.trackNum}>{String(i + 1).padStart(2, '0')}</Text>
-            {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.trackArt} /> : <View style={styles.trackArt} />}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.trackTitle} numberOfLines={1}>{it.song}</Text>
-              <Text style={styles.trackArtist} numberOfLines={1}>
-                {it.kind === 'album' ? 'Album · ' : ''}{it.artist}
-              </Text>
+        {items.slice(0, 3).map((it, i) => {
+          const track = { id: it.id, song: it.song, artist: it.artist, kind: it.kind === 'album' ? 'album' as const : 'song' as const };
+          const key = previewKey(track);
+          const playing = activeKey === key;
+          const loading = loadingKey === key;
+          return (
+            <View key={`${it.id}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Open ${it.song} in your music service`}
+                onPress={() => openMusicCard({ kind: it.kind === 'album' ? 'album' : 'song', title: it.song, artist: it.artist, appleId: it.id || null })}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={styles.trackNum}>{String(i + 1).padStart(2, '0')}</Text>
+                {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.trackArt} /> : <View style={styles.trackArt} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trackTitle} numberOfLines={1}>{it.song}</Text>
+                  <Text style={styles.trackArtist} numberOfLines={1}>
+                    {it.kind === 'album' ? 'Album · ' : ''}{it.artist}
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable accessibilityRole="button"
+                accessibilityLabel={loading ? `Loading ${it.song} preview` : playing ? `Stop ${it.song} preview` : `Preview ${it.song}`}
+                disabled={loading} onPress={() => toggle(track)} hitSlop={8}
+                style={{ minHeight: 44, minWidth: 42, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={styles.play}>{loading ? '…' : playing ? '■' : '▶'}</Text>
+              </Pressable>
             </View>
-            <Text style={styles.play}>▶</Text>
-          </Pressable>
-        ))}
+          );
+        })}
         {items.length > 3 && (
           <Pressable onPress={open} style={styles.more}>
             <View style={styles.moreArts}>
