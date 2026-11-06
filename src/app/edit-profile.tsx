@@ -25,6 +25,7 @@ type Profile = {
   display_name: string | null;
   username: string | null;
   city: string | null;
+  nearby_visible: boolean;
   bio: string | null;
   overly_trait: string | null;
   avatar_url: string | null;
@@ -50,6 +51,7 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
+  const [nearbyVisible, setNearbyVisible] = useState(false);
   const [cityQuery, setCityQuery] = useState('');
   const [choosingCity, setChoosingCity] = useState(false);
   const [bio, setBio] = useState('');
@@ -82,7 +84,7 @@ export default function EditProfileScreen() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'display_name, username, city, bio, overly_trait, avatar_url, header_url'
+          'display_name, username, city, nearby_visible, bio, overly_trait, avatar_url, header_url'
         )
         .eq('user_id', user.id)
         .maybeSingle();
@@ -110,6 +112,7 @@ export default function EditProfileScreen() {
       setDisplayName(profile.display_name || '');
       setUsername(profile.username || '');
       setCity(profile.city || '');
+      setNearbyVisible(!!profile.nearby_visible);
       setBio(profile.bio || '');
       setOverlyTrait(normalizeOverlyTrait(profile.overly_trait));
       setAvatarUrl(profile.avatar_url || null);
@@ -489,6 +492,7 @@ export default function EditProfileScreen() {
             cleanUsername,
           city:
             cleanCity || null,
+          nearby_visible: nearbyVisible,
           bio:
             cleanBio || null,
           overly_trait: overlyTrait,
@@ -504,7 +508,7 @@ export default function EditProfileScreen() {
           user.id
         )
         .select(
-          'user_id, display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color'
+          'user_id, display_name, username, city, nearby_visible, bio, overly_trait, avatar_url, header_url, profile_color'
         )
         .single();
 
@@ -1099,6 +1103,21 @@ export default function EditProfileScreen() {
               <Text style={{ color: '#888', fontSize: 12, lineHeight: 18, marginTop: 8 }}>
                 Your selected city helps OVRLEE find people in the surrounding area. No GPS required.
               </Text>
+              <Pressable accessibilityRole="switch" accessibilityState={{ checked: nearbyVisible }}
+                accessibilityLabel="Allow my profile and music posts to appear in Nearby"
+                onPress={() => setNearbyVisible(v => !v)}
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 18, padding: 14,
+                  backgroundColor: '#161616', borderWidth: 1, borderColor: nearbyVisible ? NOW_GREEN : '#333', borderRadius: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>Show me in Nearby</Text>
+                  <Text style={{ color: '#aaa', fontSize: 12, lineHeight: 18, marginTop: 4 }}>
+                    Let people in the surrounding area discover your profile and music shares. Off by default; your public profile and posts remain visible elsewhere.
+                  </Text>
+                </View>
+                <Text style={{ color: nearbyVisible ? NOW_GREEN : '#888', fontWeight: '900', marginLeft: 12 }}>
+                  {nearbyVisible ? 'ON' : 'OFF'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
