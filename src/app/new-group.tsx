@@ -28,6 +28,7 @@ export default function NewGroupScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchMutuals();
@@ -35,19 +36,50 @@ export default function NewGroupScreen() {
 
   async function fetchMutuals() {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setLoading(false); setError('Please sign in to start a group.'); return; }
 
-    // Fetch mutuals/profiles
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, username, avatar_url')
-      .neq('id', user.id)
-      .limit(50);
-
-    if (!error && data) {
-      setMutuals(data);
+    // A mutual is someone you follow who follows you back.
+    // Never use profiles.id here: OVRLEE profiles are keyed by user_id.
+    try {
+      const [followingResult, followersResult] = await Promise.all([
+        supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
+        supabase.from('user_follows').select('follower_id').eq('following_id', user.id),
+      ]);
+      if (followingResult.error || followersResult.error) {
+        throw followingResult.error || followersResult.error;
+      }
+      const following = new Set((followingResult.data || []).map((row) => row.following_id));
+      const mutualIds = (followersResult.data || [])
+        .map((row) => row.follower_id)
+        .filter((id) => id !== user.id && following.has(id));
+      if (!mutualIds.length) {
+        setMutuals([]);
+        return;
+      }
+      const [profilesResult, blockedResult, blockedByResult] = await Promise.all([
+        supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', mutualIds),
+        supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
+        supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
+      ]);
+      if (profilesResult.error) throw profilesResult.error;
+      const hidden = new Set([
+        ...(blockedResult.data || []).map((row) => row.blocked_id),
+        ...(blockedByResult.data || []).map((row) => row.blocker_id),
+      ]);
+      setMutuals((profilesResult.data || [])
+        .filter((person) => !hidden.has(person.user_id))
+        .map((person) => ({
+          id: person.user_id,
+          username: person.username || 'listener',
+          avatar_url: person.avatar_url,
+        })));
+    } catch (error) {
+      console.error('Unable to load mutual followers for group creation:', error);
+      setMutuals([]);
+      setError('Could not load mutual followers. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function toggleSelect(id: string) {
@@ -59,6 +91,7 @@ export default function NewGroupScreen() {
   async function handleCreateGroup() {
     if (selectedIds.length === 0 || creating) return;
     setCreating(true);
+    setError('');
 
     const { data: convId, error } = await supabase.rpc('create_group_chat', {
       p_title: title.trim() || null,
@@ -68,6 +101,8 @@ export default function NewGroupScreen() {
     setCreating(false);
     if (!error && convId) {
       router.replace({ pathname: '/chat', params: { id: convId } });
+    } else {
+      setError(error?.message || 'Could not create the group. Please try again.');
     }
   }
 
@@ -97,6 +132,7 @@ export default function NewGroupScreen() {
           </TouchableOpacity>
         </View>
 
+        {!!error && <Text style={{ color: '#ff9494', marginBottom: 12 }}>{error}</Text>}
         <TextInput
           style={styles.nameInput}
           placeholder="Group name (optional)"
@@ -116,6 +152,7 @@ export default function NewGroupScreen() {
         ) : (
           <FlatList
             data={mutuals}
+            ListEmptyComponent={<Text style={{ color: '#999', marginTop: 28, textAlign: 'center' }}>Follow each other to start a group together.</Text>}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
