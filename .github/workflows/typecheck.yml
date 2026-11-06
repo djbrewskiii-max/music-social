@@ -17,6 +17,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: node tools/playlist-snapshot-diff.test.mjs
       - run: node tools/spotify-embed-parser.test.mjs
+      - run: node tools/weekly-spotify-report.test.mjs
 
   spotify_probe_once:
     if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify public profile feasibility probe'
