@@ -2,7 +2,6 @@ import { Auth, AuthStatus } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
 import { setMusicProvider } from '../music-provider';
 import { useState } from 'react';
-import SpotifyRemote from '../../now-spotify';
 import {
     Alert,
     Pressable,
@@ -16,22 +15,9 @@ export default function ConnectMusicScreen() {
   const [connecting, setConnecting] = useState(false);
   // This screen only starts Spotify authorization. The /callback route is the
   // sole owner of the redirect, native token exchange, and connection result.
-  const connectSpotify = async () => {
-    if (connecting) return;
-    setConnecting(true);
-    try {
-      const launched = await SpotifyRemote.authorize();
-      if (!launched) {
-        Alert.alert('Spotify not ready', 'Spotify could not be opened on this iPhone.');
-        setConnecting(false);
-      }
-      // When Spotify returns, Expo Router opens /callback. Do not consume its
-      // URL here or run a competing timer that can interrupt the callback.
-    } catch (error) {
-      console.error('Spotify authorization launch error:', error);
-      setConnecting(false);
-      Alert.alert('Could not open Spotify', 'Please check that Spotify is installed.');
-    }
+  const connectSpotify = () => {
+    // Public profile reader is user-initiated and does not use Spotify OAuth.
+    router.push('/spotify-library');
   };
 
   const connectAppleMusic = async () => {
@@ -122,7 +108,7 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting to Spotify...' : 'Connect Spotify'}
+                  {connecting ? 'Connecting to Spotify...' : 'Read my public Spotify'}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
