@@ -79,6 +79,7 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const activeRef = useRef<string | null>(null);
+  const pausedRef = useRef<string | null>(null);
   const requestRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const path = usePathname();
@@ -93,6 +94,7 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
     clearStopTimer();
     player.pause();
     activeRef.current = null;
+    pausedRef.current = null;
     setActiveKey(null);
     setLoadingKey(null);
   }, [player, clearStopTimer]);
@@ -102,6 +104,7 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
       if (status.didJustFinish) {
         clearStopTimer();
         activeRef.current = null;
+        pausedRef.current = null;
         setActiveKey(null);
       }
     });
@@ -127,7 +130,29 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(async (track: PreviewTrack) => {
     const key = previewKey(track);
     if (activeRef.current === key) {
-      stop();
+      // Pause in place; the next tap resumes without refetching audio.
+      clearStopTimer();
+      player.pause();
+      activeRef.current = null;
+      pausedRef.current = key;
+      setActiveKey(null);
+      return;
+    }
+    if (pausedRef.current === key) {
+      try {
+        await setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'doNotMix' });
+        pausedRef.current = null;
+        activeRef.current = key;
+        setActiveKey(key);
+        player.play();
+        const request = requestRef.current;
+        timeoutRef.current = setTimeout(() => {
+          if (request === requestRef.current) stop();
+        }, MAX_PREVIEW_MS);
+      } catch (error) {
+        stop();
+        Alert.alert('Preview unavailable', 'Could not resume this preview.');
+      }
       return;
     }
     stop();
@@ -161,7 +186,7 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
     } finally {
       if (request === requestRef.current) setLoadingKey(null);
     }
-  }, [player, stop]);
+  }, [player, stop, clearStopTimer]);
 
   return (
     <PreviewContext.Provider value={{ activeKey, loadingKey, toggle, stop }}>
