@@ -1,0 +1,67 @@
+name: Spotify Public Playlist Weekly Research Check
+on:
+  schedule:
+    - cron: '17 18 * * 5'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: spotify-public-weekly-research
+  cancel-in-progress: false
+
+jobs:
+  weekly-public-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout OVRLEE development collector
+        uses: actions/checkout@v4
+        with:
+          ref: claude-build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser dependencies
+        run: |
+          npm ci
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+      - name: Retrieve previous successful snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=spotify-public-weekly-snapshot&per_page=25" --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].id // empty')
+          if [ -z "$artifact_id" ]; then
+            echo "No previous reference snapshot; first check will create one."
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > previous-snapshot.zip
+          unzip -oq previous-snapshot.zip -d previous/
+          test -s previous/spotify-weekly-snapshot.json || { echo "Previous snapshot missing: keeping new run independent"; rm -rf previous; }
+      - name: Read public profile once and inspect bounded playlist embeds
+        run: |
+          node tools/spotify-public-probe.mjs "https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0"
+      - name: Compare and keep only genuine changes
+        id: compare
+        run: |
+          node tools/weekly-spotify-report.mjs previous/spotify-weekly-snapshot.json spotify-public-probe-result.json
+      - name: Preserve weekly baseline
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotify-public-weekly-snapshot
+          path: spotify-weekly-snapshot.json
+          retention-days: 60
+          if-no-files-found: error
+      - name: Preserve change report only if changed
+        if: steps.compare.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotify-public-weekly-changes
+          path: spotify-weekly-report.json
+          retention-days: 60
+          if-no-files-found: error
