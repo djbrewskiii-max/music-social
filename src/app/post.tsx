@@ -165,7 +165,12 @@ export default function PostDetailScreen() {
       await openMusicCard({ kind: 'album', title: track.song, artist: track.artist, appleId: track.id || null, sourceUrl: track.sourceUrl });
       return;
     }
-    const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id, track.sourceUrl?.startsWith('https://open.spotify.com/') ? track.sourceUrl : null);
+    if (musicProvider === 'spotify' && track.sourceUrl &&
+        /^https:\/\/(open\.spotify\.com|spotify\.link|spotify\.app\.link)\//i.test(track.sourceUrl)) {
+      await openMusicCard({ kind: 'song', title: track.song, artist: track.artist, appleId: track.id || null, sourceUrl: track.sourceUrl });
+      return;
+    }
+    const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id);
     try { await Linking.openURL(url); } catch { Alert.alert('Music', 'Unable to open this track.'); }
   };
   const photos = post ? photoList(post) : [];
