@@ -36,13 +36,25 @@ export default function MusicDiscoveryScreen() {
       // history is exposed to other users.
       const safeArtist = artist.replace(/[%,()]/g, '').trim();
       if (!safeArtist) { setPosts([]); setPeople([]); return; }
-      const query = supabase.from('posts')
-        .select('id,user_id,body,song_title,artist_name,artwork_url,created_at,collection')
-        .ilike('artist_name', safeArtist)
-        .order('created_at', { ascending: false }).limit(60);
-      const { data, error: postError } = await query;
-      if (postError) throw postError;
-      const visible = (data || []) as Post[];
+      const fields = 'id,user_id,body,song_title,artist_name,artwork_url,created_at,collection';
+      const [leadResult, includedResult] = await Promise.all([
+        supabase.from('posts').select(fields)
+          .ilike('artist_name', safeArtist)
+          .order('created_at', { ascending: false }).limit(60),
+        // Include songs inside multi-track collections, not just the lead artist.
+        supabase.from('posts').select(fields)
+          .contains('music_items', [{ artist: safeArtist }])
+          .order('created_at', { ascending: false }).limit(60),
+      ]);
+      if (leadResult.error) throw leadResult.error;
+      if (includedResult.error) console.log('Artist collection discovery:', includedResult.error.message);
+      const merged = new Map<string, Post>();
+      for (const item of [
+        ...((leadResult.data || []) as Post[]),
+        ...((includedResult.data || []) as Post[]),
+      ]) merged.set(item.id, item);
+      const visible = [...merged.values()]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setPosts(visible);
       const authors = [...new Set(visible.map(post => post.user_id))].slice(0, 40);
       if (!authors.length) { setPeople([]); return; }
