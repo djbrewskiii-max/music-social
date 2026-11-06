@@ -149,7 +149,8 @@ export default function StudioScreen() {
     setTitle(data.title || '');
     setCaption(data.caption || '');
     setItems(data.items || []);
-    setPhotos((data.photoUrls || []).map((url) => ({ uri: url, url })));
+    setPhotos((data.photoUrls || []).map((url, i) => ({ uri: url, url, aspect: data.photoAspects?.[i] || 1 })));
+
     setPhotoFocus(data.photoFocus || []);
     setPicking(false);
   };
@@ -197,12 +198,12 @@ export default function StudioScreen() {
   }, [query]);
 
   const editingSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus }, true),
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }, true),
     [template, title, caption, items, photos, coverArtId, photoFocus]
   );
   const finalSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus }),
-    [template, title, caption, items, photos, coverArtId]
+    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }),
+    [template, title, caption, items, photos, coverArtId, photoFocus]
   );
 
   const inCollection = (item: CollectionItem) =>
@@ -305,7 +306,7 @@ export default function StudioScreen() {
     const added = picked.assets
       .filter((a) => !!a.base64)
       .slice(0, room)
-      .map((a) => ({ uri: a.uri, base64: a.base64!, mimeType: a.mimeType || 'image/jpeg' }));
+      .map((a) => ({ uri: a.uri, base64: a.base64!, mimeType: a.mimeType || 'image/jpeg', aspect: a.width && a.height ? a.width / a.height : 1 }));
     setPhotos((prev) => {
       const next = [...prev];
       if (slot < next.length && added[0]) next[slot] = added[0];
