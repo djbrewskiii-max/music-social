@@ -4,6 +4,7 @@ import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, Scro
 
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
+import { isInNearbyArea } from '../city-locations';
 
 type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
@@ -64,7 +65,7 @@ export default function NearbyScreen() {
         ...(blockedByResult.data || []).map(row => row.blocker_id),
       ]);
       const localProfiles = ((profilesResult.data || []) as Profile[])
-        .filter(p => p.user_id && !excluded.has(p.user_id) && norm(p.city || '') === norm(myCity));
+        .filter(p => p.user_id && !excluded.has(p.user_id) && isInNearbyArea(p.city || '', myCity));
       const ids = localProfiles.map(p => p.user_id!) as string[];
       if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
 
@@ -153,7 +154,7 @@ export default function NearbyScreen() {
         <Text style={styles.eyebrow}>MUSIC IS LOCAL</Text>
         <Text style={styles.title}>Around you.</Text>
         <Text style={styles.subtitle}>{city || 'Your city'} · Discover what your community is sharing.</Text>
-        <Text style={styles.notice}>City-level only. Based on public profiles and posts—not GPS, private listening history, or a live-playback claim.</Text>
+        <Text style={styles.notice}>Approximate 35-mile vicinity around your selected city, based on voluntarily shared profile cities and posts—not GPS or live playback.</Text>
         <View style={styles.tabs}>
           <Pressable onPress={() => router.push('/now')} style={styles.tab}><Text style={styles.tabOff}>FOR YOU</Text></Pressable>
           <Pressable onPress={() => setTab('nearby')} style={[styles.tab, tab === 'nearby' && styles.tabActive]}>
@@ -174,8 +175,8 @@ export default function NearbyScreen() {
         )}
         {!busy && !error && (!!city || tab === 'following') && <>
           {tab === 'nearby' && <>
-            <Text style={styles.section}>TRENDING IN {city.toUpperCase()}</Text>
-            <Text style={styles.helper}>Artists appearing in recent posts and collections nearby.</Text>
+            <Text style={styles.section}>SHARED AROUND {city.toUpperCase()}</Text>
+            <Text style={styles.helper}>Artists in recent posts and collections within about 35 miles.</Text>
             {trends.length ? trends.map((trend, index) => (
               <Pressable key={trend.artist} style={styles.trend} onPress={() => router.push({ pathname: '/music-discovery', params: { artist: trend.artist } })}>
                 <Text style={styles.rank}>{String(index + 1).padStart(2,'0')}</Text>
@@ -185,7 +186,7 @@ export default function NearbyScreen() {
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </Pressable>
-            )) : <Text style={styles.emptyText}>No music has been posted in this city yet.</Text>}
+            )) : <Text style={styles.emptyText}>No music has been posted by members in your vicinity yet.</Text>}
           </>}
           {tab === 'following' && <>
             <Text style={styles.section}>MUSIC FROM PEOPLE YOU FOLLOW</Text>
@@ -236,7 +237,7 @@ export default function NearbyScreen() {
                 style={styles.messageButton}><Text style={styles.messageText}>CHAT</Text></Pressable>
             </View>
           ))}
-          {!shown.length && <Text style={styles.emptyText}>{tab === 'following' ? 'You are not following anyone in this city yet.' : 'No other members are sharing from this city yet.'}</Text>}
+          {!shown.length && <Text style={styles.emptyText}>{tab === 'following' ? 'You are not following anyone in this city yet.' : 'No other members are sharing from your vicinity yet.'}</Text>}
           {tab === 'nearby' && !!recentPosts.length && <>
             <Text style={styles.section}>RECENTLY SHARED HERE</Text>
             {recentPosts.map(post => (
