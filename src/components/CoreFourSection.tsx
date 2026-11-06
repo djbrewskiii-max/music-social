@@ -157,10 +157,13 @@ export default function CoreFourSection({ userId, owner = false }: { userId?: st
       {owner && <Pressable style={s.edit} onPress={() => router.push('/core-four' as any)}><Text style={s.editText}>{albums.length ? 'EDIT' : 'ADD FOUR'} →</Text></Pressable>}
     </View>
     {loading ? <ActivityIndicator color={GREEN} style={{ marginVertical: 30 }} /> : error ? <Text style={s.empty}>Couldn't load Core Four: {error}</Text> : albums.length === 0 ? <Pressable onPress={() => router.push('/core-four' as any)} style={s.emptyBox}><Text style={s.emptyTitle}>Your taste, your story.</Text><Text style={s.empty}>Choose four albums that mean something to you.</Text><Text style={s.cta}>CHOOSE YOUR FOUR →</Text></Pressable> : <>
-      <View style={s.grid}>{albums.map(album => <Pressable key={`${album.position}-${albumKey(album)}`} style={s.item} onPress={() => handleAlbumTap(album)} onLongPress={owner ? () => openStoryEditor(album) : undefined}>
-        <View>{album.artwork_url ? <Image style={s.art} source={{ uri: album.artwork_url }} /> : <View style={[s.art, { backgroundColor: '#222' }]} />}
-          {!!stories[albumKey(album)] && <View style={s.storyDot}><Text style={s.storyDotText}>✦</Text></View>}
-        </View>
+      <View style={s.grid}>{albums.map(album => <View key={`${album.position}-${albumKey(album)}`} style={s.item}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Open ${album.album_title} in music service`}
+          onPress={() => void openInMusic(album)}>
+          <View>{album.artwork_url ? <Image style={s.art} source={{ uri: album.artwork_url }} /> : <View style={[s.art, { backgroundColor: '#222' }]} />}
+            {!!stories[albumKey(album)] && <View style={s.storyDot}><Text style={s.storyDotText}>✦</Text></View>}
+          </View>
+        </Pressable>
         <Text numberOfLines={1} style={s.album}>{album.album_title}</Text><Text numberOfLines={1} style={s.artist}>{album.artist_name}</Text>
         {owner && <Pressable onPress={() => openStoryEditor(album)} style={s.addStoryLink}>
           <Text style={s.addStoryText}>{stories[albumKey(album)] ? '✦ EDIT STORY' : '+ ADD STORY'}</Text>
@@ -169,7 +172,7 @@ export default function CoreFourSection({ userId, owner = false }: { userId?: st
           <Pressable onPress={() => openAlbum(album)} style={s.addStoryLink}>
             <Text style={s.addStoryText}>✦ READ STORY</Text>
           </Pressable>}
-      </Pressable>)}</View>
+      </View>)}</View>
       {/* Shared albums now live in the YOU TWO card on profiles. */}
       {owner && <Text style={s.note}>Tap an album cover to open it in your music service. Tap Add Story to write directly.</Text>}
     </>}
