@@ -1992,6 +1992,17 @@ export default function NowScreen() {
             )}
           </View>
 
+          <Pressable accessibilityRole="button" accessibilityLabel="Discover music and people nearby"
+            onPress={() => router.push('/nearby')}
+            style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 16, borderRadius: 13, backgroundColor: '#151B16', borderWidth: 1, borderColor: '#29442E', padding: 14, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#39E75F', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }}>YOUR CITY</Text>
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>What's playing around you?</Text>
+              <Text style={{ color: '#888', fontSize: 11, marginTop: 4 }}>Nearby posts, music trends and listeners</Text>
+            </View>
+            <Text style={{ color: '#39E75F', fontSize: 24 }}>›</Text>
+          </Pressable>
+
           <View
             style={
               styles.feedHeading
