@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ShareIntentProvider } from 'expo-share-intent';
 
 import PartyMiniBar from '../components/PartyMiniBar';
+import OverlyIntro from '../components/OverlyIntro';
 import ShareIntentHandler from '../components/ShareIntentHandler';
 import { startNotifications } from '../notifications';
 import { PartySessionProvider } from '../party-session';
@@ -67,6 +68,7 @@ export default function RootLayout() {
       )}
       <PartyMiniBar />
       <ShareIntentHandler />
+      <OverlyIntro active={pathname === '/now'} />
     </View>
     </PartySessionProvider>
     </ShareIntentProvider>
