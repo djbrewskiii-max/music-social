@@ -14,9 +14,9 @@ export type Template = 'liner' | 'wall' | 'moodboard' | 'tracklist';
 
 export const TEMPLATES: { key: Template; name: string; blurb: string; minPhotos: number; maxSongs: number }[] = [
   { key: 'liner', name: 'Liner Notes', blurb: 'A cover, then one slide per song with your note.', minPhotos: 0, maxSongs: 10 },
-  { key: 'wall', name: 'Album Wall', blurb: 'Your photo surrounded by the covers that define you.', minPhotos: 1, maxSongs: 12 },
-  { key: 'moodboard', name: 'Moodboard', blurb: 'A grid of your photos with a bold title, then the songs.', minPhotos: 3, maxSongs: 10 },
-  { key: 'tracklist', name: 'Tracklist', blurb: 'Clean and typographic. A cover and the full list.', minPhotos: 0, maxSongs: 12 },
+  { key: 'wall', name: 'Album Wall', blurb: 'Your photo surrounded by the covers that define you.', minPhotos: 1, maxSongs: 9 },
+  { key: 'moodboard', name: 'Moodboard', blurb: 'A grid of your photos with a bold title, then the songs.', minPhotos: 3, maxSongs: 7 },
+  { key: 'tracklist', name: 'Tracklist', blurb: 'Clean and typographic. A cover and the full list.', minPhotos: 0, maxSongs: 10 },
 ];
 
 export type CollectionItem = {
@@ -148,6 +148,8 @@ export async function publishCollection(input: {
   // Only upload the photos this template actually shows (switching templates
   // in the editor keeps earlier photos around in case you switch back).
   const usable = input.template === 'tracklist' || (input.template === 'liner' && input.coverArtId) ? 0 : input.template === 'moodboard' ? 5 : 1;
+  const photoCount = Math.min(input.photos.length, usable);
+  if (input.items.length + photoCount > 10) throw new Error('A collection can contain at most 10 music and photo items combined.');
   const photoUrls: string[] = [];
   for (const photo of input.photos.slice(0, usable)) photoUrls.push(photo.url || (await uploadPhoto(user.id, photo)));
 
