@@ -162,7 +162,13 @@ export default function CoreFourSection({ userId, owner = false }: { userId?: st
           {!!stories[albumKey(album)] && <View style={s.storyDot}><Text style={s.storyDotText}>✦</Text></View>}
         </View>
         <Text numberOfLines={1} style={s.album}>{album.album_title}</Text><Text numberOfLines={1} style={s.artist}>{album.artist_name}</Text>
-        {owner && !stories[albumKey(album)] && <Pressable onPress={() => openStoryEditor(album)} style={s.addStoryLink}><Text style={s.addStoryText}>+ ADD STORY</Text></Pressable>}
+        {owner && <Pressable onPress={() => openStoryEditor(album)} style={s.addStoryLink}>
+          <Text style={s.addStoryText}>{stories[albumKey(album)] ? '✦ EDIT STORY' : '+ ADD STORY'}</Text>
+        </Pressable>}
+        {!owner && !!stories[albumKey(album)] &&
+          <Pressable onPress={() => openAlbum(album)} style={s.addStoryLink}>
+            <Text style={s.addStoryText}>✦ READ STORY</Text>
+          </Pressable>}
       </Pressable>)}</View>
       {/* Shared albums now live in the YOU TWO card on profiles. */}
       {owner && <Text style={s.note}>Tap an album cover to open it in your music service. Tap Add Story to write directly.</Text>}
