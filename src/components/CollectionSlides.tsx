@@ -446,70 +446,65 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     );
   }
 
-  /* Album wall: your photo (framed, bigger than any cover) surrounded by
-     covers. The grid fills whatever room the title leaves. */
+  /* Album Wall: one tile per selected unique record, no artificial repeats.
+     A small collection presents large artwork; a larger one becomes a true wall. */
   if (spec.kind === 'wall') {
     const n = spec.arts.length;
-    const gap = u(6);
-    const hasWords = !!(spec.title || spec.caption) || !!editing;
-    const L = grid.box ? wallLayout(n, grid.box.w, grid.box.h, gap) : null;
-    const cell = L ? Math.floor(L.cell) : 0;
-    const gridH = L ? L.rows * cell + (L.rows - 1) * gap : 0;
-    const offsetX = 0;
-    const offsetY = grid.box ? Math.max(0, (grid.box.h - gridH) / 2) : 0;
-    const [pc, pr, pcs, prs] = L ? L.photo : [0, 0, 0, 0];
-    const tiles: [number, number][] = [];
-    if (L) for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) if (!(c >= pc && c < pc + pcs && r >= pr && r < pr + prs)) tiles.push([r, c]);
+    const W = grid.box?.w || 0;
+    const H = grid.box?.h || 0;
+    const gap = u(7);
+    let hero = { x: 0, y: 0, w: W, h: H };
+    const placements: { x: number; y: number; w: number; h: number }[] = [];
+    if (W && H) {
+      if (n <= 2) {
+        hero = { x: 0, y: 0, w: W * 0.60, h: H };
+        const rightW = W - hero.w - gap;
+        const tile = Math.min(rightW, (H - gap * Math.max(0, n - 1)) / Math.max(1, n));
+        for (let i = 0; i < Math.max(1, n); i++)
+          placements.push({ x: hero.w + gap, y: (H - (tile * Math.max(1, n) + gap * Math.max(0, n - 1))) / 2 + i * (tile + gap), w: tile, h: tile });
+      } else if (n <= 5) {
+        hero = { x: 0, y: 0, w: W * 0.57, h: H };
+        const x0 = hero.w + gap;
+        const available = W - x0;
+        const cols = n <= 3 ? 1 : 2;
+        const rows = Math.ceil(n / cols);
+        const tile = Math.min((available - gap * (cols - 1)) / cols, (H - gap * (rows - 1)) / rows);
+        for (let i = 0; i < n; i++)
+          placements.push({ x: x0 + (i % cols) * (tile + gap), y: (H - (rows * tile + gap * (rows - 1))) / 2 + Math.floor(i / cols) * (tile + gap), w: tile, h: tile });
+      } else {
+        hero = { x: 0, y: 0, w: W, h: H * 0.46 };
+        const top = hero.h + gap;
+        const availableH = H - top;
+        const cols = n <= 6 ? 3 : 4;
+        const rows = Math.ceil(n / cols);
+        const tile = Math.min((W - gap * (cols - 1)) / cols, (availableH - gap * (rows - 1)) / rows);
+        const rowW = cols * tile + (cols - 1) * gap;
+        for (let i = 0; i < n; i++)
+          placements.push({ x: (W - rowW) / 2 + (i % cols) * (tile + gap), y: top + Math.floor(i / cols) * (tile + gap), w: tile, h: tile });
+      }
+    }
     body = (
       <View style={{ position: 'absolute', left: u(18), right: u(18), top: u(52), bottom: u(64) }}>
         <View style={{ flex: 1 }} onLayout={grid.onLayout}>
-          {cell > 0 &&
-            L &&
-            tiles.map(([r, c], i) => {
-              // Every tile shows an album: each one first, then repeats in a
-              // staggered order so neighbours never match.
-              const k = n ? (i < n ? i : (i * 7 + Math.floor(i / L.cols)) % n) : -1;
-              return (
-                <Cover
-                  key={i}
-                  uri={k >= 0 ? spec.arts[k] : null}
-                  songIndex={k >= 0 ? spec.artIdx[k] : -1}
-                  radius={2}
-                  style={{ position: 'absolute', left: offsetX + c * (cell + gap), top: offsetY + r * (cell + gap), width: cell, height: cell }}
-                />
-              );
-            })}
-          {cell > 0 && (
-            <View
-              style={{
-                position: 'absolute',
-                // The photo's spot reaches slightly past its tiles so you stand out.
-                left: offsetX + pc * (cell + gap) - u(6),
-                top: offsetY + pr * (cell + gap) - u(6),
-                width: cell * pcs + gap * (pcs - 1) + u(12),
-                height: cell * prs + gap * (prs - 1) + u(12),
-                zIndex: 2,
-              }}
-            >
-              <FitPhoto
-                uri={spec.photo}
-                scale={s}
-                mat="#FFFFFF"
-                radius={3}
-                tilt="-1.5deg"
-                emptyLabel={editing ? 'Tap to add your photo' : ''}
-                emptyColor={p.sub}
-                emptyBg={p.tile}
-            focus={spec.focus}
-                onPress={editing ? () => editing.onPhoto?.(0) : undefined}
-              />
+          {!!W && !!H && <>
+            <View style={{ position: 'absolute', left: hero.x, top: hero.y, width: hero.w, height: hero.h, zIndex: 1 }}>
+              <FitPhoto uri={spec.photo} scale={s} mat="#FFFFFF" radius={4} tilt="-1deg"
+                focus={spec.focus} emptyLabel={editing ? 'Tap to add your photo' : ''}
+                emptyColor={p.sub} emptyBg={p.tile}
+                onPress={editing ? () => editing.onPhoto?.(0) : undefined} />
             </View>
-          )}
+            {placements.map((tile, index) => (
+              <Cover key={index} uri={spec.arts[index] || null}
+                songIndex={spec.artIdx[index] ?? -1} radius={3}
+                style={{ position: 'absolute', left: tile.x, top: tile.y, width: tile.w, height: tile.h }} />
+            ))}
+          </>}
         </View>
-        {hasWords && (
-          <View style={{ paddingTop: u(14) }}>
+        {(!!spec.title || !!spec.caption || !!editing) && (
+          <View style={{ paddingTop: u(13) }}>
             <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={36} lines={2} />
-            {!!spec.caption && <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={2}>{spec.caption}</Text>}
+            {!!spec.caption && <Text onPress={editing?.onTitle}
+              style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={2}>{spec.caption}</Text>}
             {!spec.caption && <Caption text="" />}
           </View>
         )}
