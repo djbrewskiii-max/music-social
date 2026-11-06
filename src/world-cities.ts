@@ -30,9 +30,16 @@ export async function searchWorldwideCities(term: string, signal?: AbortSignal):
       source: 'curated' as const,
     })).slice(0, 12);
 
+  // The Open-Meteo free endpoint is non-commercial. Use it only in a
+  // development build. Production must configure a properly licensed
+  // geocoding proxy endpoint; never embed provider API keys in a mobile app.
+  const configured = (process.env.EXPO_PUBLIC_CITY_GEOCODING_URL || '').trim();
+  const baseUrl = configured || (__DEV__ ? 'https://geocoding-api.open-meteo.com/v1/search' : '');
+  if (!baseUrl) return local;
   try {
+    const separator = baseUrl.includes('?') ? '&' : '?';
     const response = await fetch(
-      'https://geocoding-api.open-meteo.com/v1/search?count=30&language=en&format=json&name=' +
+      baseUrl + separator + 'count=30&language=en&format=json&name=' +
       encodeURIComponent(query), { signal }
     );
     if (!response.ok) throw new Error('Geocoding request failed: ' + response.status);
