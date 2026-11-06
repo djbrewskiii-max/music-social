@@ -159,7 +159,7 @@ async function fromSpotify(url: string): Promise<SharedMusic | null> {
 export async function resolveSharedMusic(textOrUrl: string): Promise<SharedMusic | null> {
   const url = firstUrl(textOrUrl) || textOrUrl.trim();
   if (!isMusicLink(url)) return null;
-  if (/music\\.apple\\.com/i.test(url)) {
+  if (new URL(url).hostname.toLowerCase().endsWith('music.apple.com')) {
     const parsed = parseApple(url);
     if (!parsed) return null;
     const item = await resolveAppleItem(parsed.id, parsed.kind);
