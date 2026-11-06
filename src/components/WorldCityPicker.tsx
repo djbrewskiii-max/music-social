@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   steps: { flexDirection: 'row', marginBottom: 16 },
   input: { color: '#fff', backgroundColor: '#181818', borderWidth: 1, borderColor: '#333', borderRadius: 13, padding: 14, fontSize: 16, marginBottom: 14 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: '#222', paddingVertical: 15, minHeight: 55 },
-  rowText: { color: '#fff', fontSize: 15, fontWeight: '650', flex: 1 },
+  rowText: { color: '#fff', fontSize: 15, fontWeight: '600', flex: 1 },
   chevron: { color: GREEN, fontSize: 21, marginLeft: 16 },
   empty: { color: '#999', fontSize: 14, lineHeight: 21, marginTop: 22 },
 });
