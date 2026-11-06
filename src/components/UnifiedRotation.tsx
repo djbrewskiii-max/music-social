@@ -203,12 +203,6 @@ export default function UnifiedRotation({
     return () => { active = false; };
   }, [owner, accountId, editing]);
 
-  useEffect(() => {
-    if (!owner || !accountId || params.openRotation !== '1') return;
-    edit();
-    router.setParams({ openRotation: undefined });
-  }, [owner, accountId, params.openRotation]);
-
   // Read existing OVRLEE activity. Never change music_dna
   // or Apple Music authorization/presence collection.
   useEffect(() => {
@@ -529,6 +523,12 @@ export default function UnifiedRotation({
 
     setQuery('');
   };
+
+  useEffect(() => {
+    if (!owner || !accountId || params.openRotation !== '1') return;
+    edit();
+    router.setParams({ openRotation: undefined });
+  }, [owner, accountId, params.openRotation]);
 
   const chooseTrack = (track: Track) => {
     if (editingId) {
