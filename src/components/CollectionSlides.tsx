@@ -119,7 +119,7 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
 /* Photo count and the leading photo's original shape determine the collage.
  * Only selected photos get tiles in published posts; never pad or duplicate.
  */
-function moodboardRects(aspects: number[], slots: number): [number, number, number, number][] {
+export function moodboardRects(aspects: number[], slots: number): [number, number, number, number][] {
   const count = Math.max(1, Math.min(5, slots));
   const a = aspects[0] || 1;
   const landscapes = aspects.slice(0, count).filter(v => v > 1.2).length;
@@ -138,6 +138,17 @@ function moodboardRects(aspects: number[], slots: number): [number, number, numb
   return a > 1.15
     ? [[0, 0, 324, 198], [0, 204, 159, 95], [165, 204, 159, 95], [0, 305, 159, 95], [165, 305, 159, 95]]
     : [[0, 0, 193, 237], [199, 0, 125, 115], [199, 121, 125, 116], [0, 243, 130, 157], [136, 243, 188, 157]];
+}
+
+export function photoSlotAspect(template: Template, photoAspects: number[], index = 0): number {
+  if (template === 'moodboard') {
+    const n = Math.max(1, photoAspects.length);
+    const frame = moodboardRects(photoAspects, n)[index];
+    return frame ? frame[2] / frame[3] : 1;
+  }
+  // Cover/Album Wall use a generous poster-like framing preview; their final
+  // photo placement is allowed to fit rather than obligatorily crop.
+  return template === 'wall' ? 0.8 : 1;
 }
 
 /*
