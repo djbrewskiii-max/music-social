@@ -33,6 +33,10 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
   if (!owner && (!loaded || !links.length)) return null;
 
   const open = async (link: SpotifyShowcaseLink) => {
+    if (link.kind === 'playlist') {
+      router.push({ pathname: '/spotify-explore', params: { url: link.url } });
+      return;
+    }
     try { await Linking.openURL(link.url); }
     catch { console.log('Could not open Spotify URL', link.url); }
   };
@@ -60,10 +64,10 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
                 <SymbolView name={link.kind === 'profile' ? 'person.crop.circle' : 'music.note.list'}
                   tintColor={GREEN} size={32} fallback={<Text style={{ color: GREEN, fontSize: 30 }}>♪</Text>} />
               </View>
-              <Text style={s.label}>{link.kind === 'profile' ? 'SPOTIFY PROFILE' : 'PUBLIC PLAYLIST'}</Text>
+              <Text style={s.label}>{link.kind === 'profile' ? 'SPOTIFY PROFILE' : 'EXPLORE PLAYLIST'}</Text>
               <Text style={s.name} numberOfLines={2}>{link.title}</Text>
               {!!link.note && <Text style={s.note} numberOfLines={2}>{link.note}</Text>}
-              <Text style={s.open}>OPEN IN SPOTIFY ↗</Text>
+              <Text style={s.open}>VIEW MUSIC ↗</Text>
             </Pressable>
           ))}
         </ScrollView>
