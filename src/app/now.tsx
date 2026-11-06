@@ -1817,41 +1817,17 @@ export default function NowScreen() {
           </View>
         </View>
 
-        <View style={styles.recognitionArea}>
-          <Pressable
-            onPress={toggleShazam}
-            disabled={shazamStarting}
-            style={[styles.recognitionButton, shazamListening && styles.recognitionButtonActive]}
-            accessibilityRole="button"
-            accessibilityLabel={shazamListening ? 'Stop recognizing music' : 'Recognize music'}
-          >
-            <Text style={styles.recognitionIcon}>{shazamListening ? '◉' : '♫'}</Text>
-            <Text style={styles.recognitionButtonText}>
-              {shazamStarting ? 'STARTING…' : shazamListening ? 'STOP RECOGNITION' : 'RECOGNIZE MUSIC'}
-            </Text>
-          </Pressable>
-          {!!shazamMessage && (
-            <Text style={styles.recognitionStatus}>{shazamMessage}</Text>
-          )}
-          {shazamMatch && (
-            <View style={styles.recognitionResult}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.recognitionSong} numberOfLines={1}>{shazamMatch.title}</Text>
-                <Text style={styles.recognitionArtist} numberOfLines={1}>{shazamMatch.artist}</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open recognized song"
-                onPress={() => Linking.openURL(
-                  shazamMatch.appleMusicId
-                    ? trackLink(musicProvider, shazamMatch.title, shazamMatch.artist, shazamMatch.appleMusicId)
-                    : trackLink(musicProvider, shazamMatch.title, shazamMatch.artist)
-                ).catch(() => Alert.alert('Unable to open music', 'Please try again.'))}
-              >
-                <Text style={styles.recognitionOpen}>OPEN ↗</Text>
-              </Pressable>
+        <View style={{ borderBottomWidth: 1, borderBottomColor: '#222', paddingHorizontal: 20, paddingVertical: 12 }}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Share music to OVRLEE"
+            onPress={() => router.push({ pathname: '/create-post', params: { musicPicker: '1' } })}
+            style={{ borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 13, borderWidth: 1, borderColor: '#2A442D', backgroundColor: '#101E14' }}>
+            <Text style={{ color: '#39E75F', fontSize: 22, marginRight: 14 }}>♫</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.7 }}>SHARE A SONG</Text>
+              <Text style={{ color: '#8EA794', fontSize: 11, marginTop: 3 }}>Search or paste Spotify & Apple Music links</Text>
             </View>
-          )}
+            <Text style={{ color: '#39E75F', fontSize: 22 }}>›</Text>
+          </Pressable>
         </View>
 
         <ScrollView
