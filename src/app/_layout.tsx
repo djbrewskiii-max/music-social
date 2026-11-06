@@ -43,6 +43,7 @@ export default function RootLayout() {
         <Stack.Screen name="callback" />
         <Stack.Screen name="now" />
         <Stack.Screen name="listeners" />
+        <Stack.Screen name="nearby" />
         <Stack.Screen name="concerts" />
         <Stack.Screen name="concert-detail" />
         <Stack.Screen name="messages" />
