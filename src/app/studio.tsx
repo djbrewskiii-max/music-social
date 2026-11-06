@@ -34,7 +34,7 @@ const SCREEN_H = Dimensions.get('window').height;
 // The live canvas: as big as fits while leaving room for the toolbar.
 const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16));
 
-type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | { note: number };
+type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
 
 export default function StudioScreen() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
@@ -514,12 +514,13 @@ export default function StudioScreen() {
         {items.length > 1 || arranging ? (
           <Pressable
             onPress={() => {
-              setArranging((v) => !v);
+              setArranging(true);
               setSelected(null);
+              setSheet('arrange');
             }}
             style={[styles.arrangeBtn, arranging && styles.arrangeOn]}
           >
-            <Text style={[styles.arrangeText, arranging && { color: '#000' }]}>{arranging ? 'DONE' : '⇄ ARRANGE'}</Text>
+            <Text style={[styles.arrangeText, arranging && { color: arranging ? '#000' : '#fff' }]}>⇄ ARRANGE</Text>
           </Pressable>
         ) : null}
         <Pressable onPress={() => storeDraft(false)} disabled={savingDraft || !hasWork} style={[styles.arrangeBtn, (!hasWork || savingDraft) && { opacity: 0.4 }]}>
@@ -605,7 +606,48 @@ export default function StudioScreen() {
           setReframingSlot(null);
         }}
       />
-            {/* Songs: pick from your music, or search */}
+            <Modal visible={sheet === 'arrange'} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => { setSheet(null); setArranging(false); setSelected(null); }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#090909', paddingHorizontal: 18 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 24, paddingBottom: 14 }}>
+            <View>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900' }}>Arrange songs</Text>
+              <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5 }}>Tap an entire row, then another to swap. Or use the arrows.</Text>
+            </View>
+            <Pressable onPress={() => { setSheet(null); setArranging(false); setSelected(null); }}>
+              <Text style={{ color: GREEN, fontSize: 16, fontWeight: '900' }}>Done</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 45 }}>
+            {items.map((item, i) => (
+              <View key={`${item.id}-${i}`}
+                style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12,
+                  backgroundColor: selected === i ? '#183C21' : '#191919',
+                  borderWidth: 1, borderColor: selected === i ? GREEN : '#333', padding: 8 }}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.song} for arrangement`}
+                  onPress={() => tapInArrange(i)}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 7 }}>
+                  <Text style={{ color: GREEN, fontSize: 12, fontWeight: '900', width: 22 }}>{i + 1}</Text>
+                  {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: 46, height: 46, borderRadius: 5 }} /> :
+                    <View style={{ width: 46, height: 46, backgroundColor: '#222', borderRadius: 5 }} />}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }} numberOfLines={1}>{item.song}</Text>
+                    <Text style={{ color: '#aaa', fontSize: 11, marginTop: 3 }} numberOfLines={1}>{item.artist}</Text>
+                  </View>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Move ${item.song} up`}
+                  disabled={i === 0} onPress={() => move(i, -1)}
+                  style={{ padding: 12, opacity: i === 0 ? 0.2 : 1 }}><Text style={{ color: GREEN, fontSize: 24 }}>↑</Text></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Move ${item.song} down`}
+                  disabled={i === items.length - 1} onPress={() => move(i, 1)}
+                  style={{ padding: 12, opacity: i === items.length - 1 ? 0.2 : 1 }}><Text style={{ color: GREEN, fontSize: 24 }}>↓</Text></Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Songs: pick from your music, or search */}
       <Modal visible={sheet === 'songs'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>
@@ -616,10 +658,10 @@ export default function StudioScreen() {
           </View>
           {items.length > 0 && (
             <View style={{ paddingBottom: 14 }}>
-              <Text style={[styles.label, { marginTop: 0, paddingHorizontal: 20 }]}>IN THIS COLLECTION · {items.length} · TAP TWO TO SWAP</Text>
+              <Text style={[styles.label, { marginTop: 0, paddingHorizontal: 20 }]}>IN THIS COLLECTION · {items.length}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}>
                 {items.map((it, i) => (
-                  <Pressable key={`${it.id}-${i}`} onPress={() => tapInArrange(i)} style={[styles.stripItem, selected === i && styles.stripOn]}>
+                  <Pressable key={`${it.id}-${i}`} onPress={() => { setSelected(null); setArranging(true); setSheet('arrange'); }} style={[styles.stripItem, selected === i && styles.stripOn]}>
                     {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.stripArt} /> : <View style={styles.stripArt} />}
                     <View style={styles.stripNum}><Text style={styles.stripNumText}>{i + 1}</Text></View>
                     <Pressable onPress={() => removeAt(i)} hitSlop={8} style={styles.stripX} accessibilityLabel={`Remove ${it.song}`}>
