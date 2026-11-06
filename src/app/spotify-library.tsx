@@ -76,17 +76,20 @@ export default function SpotifyLibrary() {
    <ScrollView contentContainerStyle={s.content}>
     <Text style={s.kicker}>OVRLEE × SPOTIFY</Text>
     <Text style={s.title}>Your playlists. Your music.</Text>
-    <Text style={s.body}>Connect your Spotify account to find the playlists you own. OVRLEE can read the complete track list in successive batches, not just the first 50 songs shown publicly.</Text>
-    <View style={s.notice}><Text style={s.noticeText}>Read-only connection. No Spotify playlist changes, listening history, or automatic profile publishing. Spotify's beta developer access is limited to allowlisted accounts.</Text></View>
+    <Text style={s.body}>Connect Spotify to see your playlists. For playlists you own or collaborate on, OVRLEE can request songs in successive batches—not just the first 50.</Text>
+    <View style={s.notice}><Text style={s.noticeText}>Read-only connection. No Spotify playlist changes or automatic publishing. Spotify development access is limited to allowlisted accounts; song retrieval is restricted to your own or collaborative playlists.</Text></View>
     {!authorized&&<Pressable style={s.button} onPress={()=>void authorize()}><Text style={s.buttonText}>CONNECT MY SPOTIFY PLAYLISTS →</Text></Pressable>}
     {!!error&&<Text style={s.error}>{error}</Text>}
+    {!!error&&authorized&&<Pressable onPress={()=>void authorize()} style={{paddingVertical:13}}>
+      <Text style={s.refresh}>REAUTHORIZE SPOTIFY ↗</Text>
+    </Pressable>}
     {authorized&&!chosen&&<>
-      <View style={s.bar}><Text style={s.section}>YOUR OWN PLAYLISTS ({playlists.length})</Text><Pressable onPress={()=>void load()}><Text style={s.refresh}>REFRESH ↻</Text></Pressable></View>
+      <View style={s.bar}><Text style={s.section}>YOUR SPOTIFY PLAYLISTS ({playlists.length})</Text><Pressable onPress={()=>void load()}><Text style={s.refresh}>REFRESH ↻</Text></Pressable></View>
       {busy&&<ActivityIndicator color={GREEN}/>}
-      {!busy&&!playlists.length&&<Text style={s.body}>No accessible owned playlists found. Try refreshing or check your Spotify developer app's allowlist.</Text>}
+      {!busy&&!playlists.length&&<Text style={s.body}>No playlists were returned. Check the development app allowlist and Spotify permissions.</Text>}
       {playlists.map(p=><Pressable key={p.id} onPress={()=>void choose(p)} style={s.playlist}>
         {p.image?<Image source={{uri:p.image}} style={s.cover}/>:<View style={[s.cover,{backgroundColor:'#15371C'}]}/>}
-        <View style={{flex:1}}><Text style={s.name} numberOfLines={1}>{p.name}</Text><Text style={s.muted}>{p.total||'—'} tracks · Your playlist</Text></View>
+        <View style={{flex:1}}><Text style={s.name} numberOfLines={1}>{p.name}</Text><Text style={s.muted}>{p.total||'—'} tracks · Open to check access</Text></View>
         <Text style={s.arrow}>›</Text>
       </Pressable>)}
     </>}
@@ -105,7 +108,7 @@ export default function SpotifyLibrary() {
         </Pressable>}
       </>}
     </>}
-    <Text style={s.disclaimer}>Spotify's development API can read tracks for your own playlists or playlists you collaborate on. It cannot generally enumerate a stranger's entire public library. Spotify's policies govern any production-scale use of this data.</Text>
+    <Text style={s.disclaimer}>Spotify may list followed playlists, but song details are available only for playlists you own or collaborate on in development mode. It cannot generally read a stranger's entire public library. Spotify's policies govern any production-scale use of this data.</Text>
    </ScrollView>
   </SafeAreaView>;
 }
