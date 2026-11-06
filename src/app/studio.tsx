@@ -22,7 +22,7 @@ import {
 
 import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, PhotoFocus, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
 import PhotoReframeEditor from '../components/PhotoReframeEditor';
-import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
+import Slide, { buildSlides, photoSlotAspect, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
 import { supabase } from '../supabase';
@@ -597,6 +597,7 @@ export default function StudioScreen() {
       <PhotoReframeEditor
         uri={reframingSlot !== null ? photos[reframingSlot]?.uri || null : null}
         initial={reframingSlot !== null ? photoFocus[reframingSlot] : undefined}
+        frameAspect={photoSlotAspect(template, photos.map(p => p.aspect || 1), reframingSlot || 0)}
         onClose={() => setReframingSlot(null)}
         onSave={(focus) => {
           if (reframingSlot !== null) setPhotoFocus(prev => {
