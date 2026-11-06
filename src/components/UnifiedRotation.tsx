@@ -131,6 +131,7 @@ export default function UnifiedRotation({
 
   const [pins, setPins] = useState<Pin[]>([]);
   const [activityTracks, setActivityTracks] = useState<Track[]>([]);
+  const [freshImportKeys, setFreshImportKeys] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -250,7 +251,7 @@ export default function UnifiedRotation({
 
         supabase
           .from('music_import_tracks')
-          .select('song,artist')
+          .select('song,artist,created_at')
           .eq('user_id', accountId)
           .order('created_at', { ascending: false })
           .limit(300),
@@ -316,12 +317,28 @@ export default function UnifiedRotation({
       const imported: Track[] = (imports.data ?? [])
         .filter(t => !!t.song && !!t.artist)
         .map(t => ({ song: t.song, artist: t.artist }));
-
+      // Prefer new imports, then repeatedly represented artists; do not treat
+      // playlist position or imported_at as Spotify listening timestamps.
+      const artistFrequency = new Map<string, number>();
+      for (const t of imported) {
+        const artist = clean(t.artist.split(',')[0]);
+        artistFrequency.set(artist, (artistFrequency.get(artist) || 0) + 1);
+      }
+      const ranked = imported.map((t,index) => ({
+        t,index,score: Math.max(0,300-index*3) +
+          Math.min(40,(artistFrequency.get(clean(t.artist.split(',')[0])) || 1)*4),
+      })).sort((a,b) => b.score-a.score).map(entry => entry.t);
       const unique = Array.from(
-        new Map([...imported, ...found].map(t => [trackKey(t), t])).values()
+        new Map([...ranked, ...found].map(t => [trackKey(t), t])).values()
       );
-
-      if (active) setActivityTracks(unique);
+      if (active) {
+        setActivityTracks(unique);
+        const reviewed = await AsyncStorage.getItem('ovrlee.rotationReviewed.' + accountId);
+        const cutoff = reviewed ? Date.parse(reviewed) : 0;
+        setFreshImportKeys((imports.data ?? [])
+          .filter(t => !!t.song && !!t.artist && Date.parse(t.created_at) > cutoff)
+          .map(t => trackKey(t)));
+      }
       // Resolve only the initially visible suggestions; bounded batches prevent
       // dozens of unnecessary catalog lookups on every editor opening.
       const first = unique.slice(0, 50).filter(t => !t.artworkUrl);
@@ -801,7 +818,13 @@ export default function UnifiedRotation({
         </Text>
       </View>
 
-      <Text style={[styles.plus, pins.length === 5 && !editingId && { fontSize: 12, fontWeight: '900' }]}>{pins.length === 5 && !editingId ? 'SWAP' : '+'}</Text>
+      <View style={{alignItems:'flex-end',gap:6}}>
+        {freshImportKeys.includes(trackKey(item))&&
+          <Text style={{color:GREEN,fontSize:9,fontWeight:'900'}}>NEW IMPORT</Text>}
+        <Text style={[styles.plus,pins.length===5&&!editingId&&{fontSize:12,fontWeight:'900'}]}>
+          {pins.length===5&&!editingId?'SWAP':'+'}
+        </Text>
+      </View>
     </Pressable>
   );
 
