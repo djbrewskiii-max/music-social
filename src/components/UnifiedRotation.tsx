@@ -239,15 +239,15 @@ export default function UnifiedRotation({
         }
       }
 
-      // Imported songs are proposals, not actual listening history.
-      // The editor combines them with music activity, but never
-      // writes music_dna or pins tracks until the user approves.
-      for (const t of imports.data ?? []) {
-        add(t.song, t.artist, undefined);
-      }
+      // Show imported songs first so a newly connected Spotify library
+      // actually surfaces in the first visible suggestions. Imported
+      // songs remain proposals, not listening history or public pins.
+      const imported: Track[] = (imports.data ?? [])
+        .filter(t => !!t.song && !!t.artist)
+        .map(t => ({ song: t.song, artist: t.artist }));
 
       const unique = Array.from(
-        new Map(found.map(t => [trackKey(t), t])).values()
+        new Map([...imported, ...found].map(t => [trackKey(t), t])).values()
       );
 
       if (active) setActivityTracks(unique);
@@ -920,20 +920,6 @@ export default function UnifiedRotation({
                   </Text>
                   <Text style={{ color: '#999', fontSize: 11, marginTop: 5 }}>
                     Read songs from your playlists, including tracks beyond the first 50.
-                  </Text>
-                </Pressable>
-              )}
-
-              {!editingId && (
-                <Pressable accessibilityRole="button"
-                  accessibilityLabel="Import songs from a playlist track list"
-                  onPress={() => { clearEditor(); router.push('/playlist-import'); }}
-                  style={{ paddingVertical: 13, marginBottom: 10 }}>
-                  <Text style={{ color: GREEN, fontWeight: '900', fontSize: 12 }}>
-                    + IMPORT SONGS FROM A PLAYLIST →
-                  </Text>
-                  <Text style={{ color: '#999', fontSize: 11, marginTop: 5 }}>
-                    Paste a track list, then come back to pick your rotation.
                   </Text>
                 </Pressable>
               )}
