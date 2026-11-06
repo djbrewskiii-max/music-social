@@ -50,3 +50,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parse Spotify bridge Swift syntax
         run: xcrun swiftc -frontend -parse now-spotify/ios/NowSpotifyModule.swift
+
+  spotify_native_http_once:
+    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off public HTML compatibility verification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify direct HTTP profile and embed compatibility
+        run: |
+          node --experimental-strip-types --input-type=module -e "import {readPublicSpotifyProfile} from './src/spotify-public-reader.ts'; try { const r=await readPublicSpotifyProfile('https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0'); console.log(JSON.stringify({playlistCount:r.playlists.length,readable:r.playlists.filter(p=>p.status==='ready').length,tracks:r.playlists.reduce((a,p)=>a+p.tracks.length,0),warnings:r.warnings})); }catch(e){ console.log('DIRECT_HTML_NOT_AVAILABLE:',e.message); process.exitCode=1; }"
