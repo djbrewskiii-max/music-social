@@ -9,6 +9,7 @@ const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(ma
 type Props = {
   uri: string | null;
   initial?: PhotoFocus;
+  frameAspect?: number;
   onClose: () => void;
   onSave: (focus: PhotoFocus) => void;
 };
@@ -17,7 +18,7 @@ type Props = {
  * The chosen focal point and zoom are saved to the collection/draft metadata,
  * so the same composition appears in Studio, feeds, and slide exports.
  */
-export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Props) {
+export default function PhotoReframeEditor({ uri, initial, frameAspect = 1, onClose, onSave }: Props) {
   const [focus, setFocus] = useState<PhotoFocus>({ x: 50, y: 50, zoom: 1 });
   const focusRef = useRef(focus);
   const start = useRef({ x: 50, y: 50 });
@@ -37,6 +38,10 @@ export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Pr
     };
     update(next);
   }, [uri, initial?.x, initial?.y, initial?.zoom]);
+
+  const previewAspect = Math.max(0.28, Math.min(2.5, frameAspect));
+  const previewHeight = previewAspect >= 1 ? Math.min(390, 390 / previewAspect) : 390;
+  const previewWidth = previewAspect >= 1 ? '100%' as const : `${Math.round(previewAspect * 100)}%` as const;
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -63,7 +68,7 @@ export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Pr
         </View>
         <Text style={styles.hint}>Drag left/right or up/down to choose what stays visible. Zoom in for more positioning room.</Text>
         <View style={styles.previewArea}>
-          <View style={styles.frame} {...responder.panHandlers}>
+          <View style={[styles.frame, { width: previewWidth, height: previewHeight }]} {...responder.panHandlers}>
             {!!uri && <PhotoFrame uri={uri} focus={focus} onMeasure={measure} />}
             <View pointerEvents="none" style={styles.guide}>
               <View style={styles.crossH} /><View style={styles.crossV} />
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontWeight: '900', fontSize: 17 },
   hint: { color: '#bbb', textAlign: 'center', lineHeight: 20, marginTop: 22, fontSize: 13 },
   previewArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  frame: { width: '100%', height: 390, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#555', backgroundColor: '#191919' },
+  frame: { borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#555', backgroundColor: '#191919' },
   guide: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   crossH: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
   crossV: { position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
