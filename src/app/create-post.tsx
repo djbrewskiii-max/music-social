@@ -97,33 +97,40 @@ export default function CreatePostScreen() {
     const timer = setTimeout(async () => {
       setSearching(true); setSearchError('');
       try {
+        let matched: Track[] = [];
         if (developerToken) {
-          const response = await fetch(
-            'https://api.music.apple.com/v1/catalog/us/search?types=songs&limit=25&term=' +
-            encodeURIComponent(query.trim()),
-            { headers: { Authorization: `Bearer ${developerToken}` }, signal: controller.signal }
-          );
-          if (!response.ok) throw new Error(`Music catalog returned ${response.status}`);
-          const json = await response.json();
-          const songs = json?.results?.songs?.data || [];
-          setResults(songs.map((song: any) => ({
-            id: String(song.id), song: String(song.attributes?.name || ''),
-            artist: String(song.attributes?.artistName || ''),
-            album: String(song.attributes?.albumName || ''),
-            artworkUrl: artwork(song.attributes?.artwork?.url),
-          })));
-        } else {
-          // Public catalog fallback; Spotify users never need to log into Apple Music.
+          try {
+            const response = await fetch(
+              'https://api.music.apple.com/v1/catalog/us/search?types=songs&limit=25&term=' +
+              encodeURIComponent(query.trim()),
+              { headers: { Authorization: `Bearer ${developerToken}` }, signal: controller.signal }
+            );
+            if (!response.ok) throw new Error(`Music catalog returned ${response.status}`);
+            const json = await response.json();
+            matched = (json?.results?.songs?.data || []).map((song: any) => ({
+              id: String(song.id), song: String(song.attributes?.name || ''),
+              artist: String(song.attributes?.artistName || ''),
+              album: String(song.attributes?.albumName || ''),
+              artworkUrl: artwork(song.attributes?.artwork?.url),
+            }));
+          } catch (error: any) {
+            if (error?.name === 'AbortError') return;
+            console.log('MusicKit catalog search unavailable, trying public search:', error);
+          }
+        }
+        if (!matched.length && !controller.signal.aborted) {
+          // Public search needs no Apple Music account, including for Spotify listeners.
           const response = await fetch('https://itunes.apple.com/search?media=music&entity=song&country=us&limit=25&term=' +
             encodeURIComponent(query.trim()), { signal: controller.signal });
           if (!response.ok) throw new Error(`Catalog returned ${response.status}`);
           const json = await response.json();
-          setResults((json?.results || []).filter((row: any) => row.wrapperType === 'track').map((row: any) => ({
+          matched = (json?.results || []).filter((row: any) => row.wrapperType === 'track').map((row: any) => ({
             id: String(row.trackId || ''), song: String(row.trackName || ''),
             artist: String(row.artistName || ''), album: String(row.collectionName || ''),
             artworkUrl: String(row.artworkUrl100 || '').replace('100x100bb', '500x500bb'),
-          })));
+          }));
         }
+        if (!controller.signal.aborted) setResults(matched);
       } catch (e: any) {
         if (e?.name !== 'AbortError') { setSearchError('Music search is unavailable. Try again or paste a song link.'); setResults([]); }
       } finally { if (!controller.signal.aborted) setSearching(false); }
