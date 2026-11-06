@@ -28,6 +28,7 @@ import { unregisterPushNotifications } from '../notifications';
 import { refreshPresence } from '../presence';
 import { supabase } from '../supabase';
 import CoreFourSection from '../components/CoreFourSection';
+import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 import FirstListenShelf from '../components/FirstListenShelf';
 import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
@@ -1155,6 +1156,8 @@ export default function MyProfileScreen() {
               )}
             </View>
           </View>
+
+          <SpotifyShowcaseSection owner />
 
           <CoreFourSection owner />
 
