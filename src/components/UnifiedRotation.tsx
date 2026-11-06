@@ -947,7 +947,7 @@ export default function UnifiedRotation({
               <Text style={styles.resultsHeading}>
                 {query.trim()
                   ? 'MATCHING SONGS'
-                  : 'MUSIC YOU'VE SHARED OR CONNECTED'}
+                  : "MUSIC YOU'VE SHARED OR CONNECTED"}
               </Text>
 
               <FlatList
