@@ -16,10 +16,28 @@ export async function spotifyAPI<T>(path:string,token:string,signal?:AbortSignal
   const url=path.startsWith(ROOT)?path:ROOT+path;
   if(!url.startsWith(ROOT+'/'))throw new Error('Invalid Spotify API address.');
   const response=await fetch(url,{headers:{Authorization:'Bearer '+token},signal});
-  if(response.status===401)throw new Error('Spotify returned 401 for '+new URL(url).pathname+'. Reconnect your Spotify account.');
-  if(response.status===403)throw new Error('Spotify returned 403 for '+new URL(url).pathname+'. Check the development app allowlist, Premium eligibility, and granted scopes.');
-  if(response.status===429)throw new Error('Spotify rate limit reached. Try again later.');
-  if(!response.ok)throw new Error('Spotify returned '+response.status+'.');
+  if(!response.ok) {
+    // Spotify may include a precise reason in the JSON error. Never echo
+    // Authorization headers, tokens, request URLs, or full response bodies.
+    let reason = '';
+    try {
+      const body: unknown = await response.json();
+      if (body && typeof body === 'object') {
+        const obj = body as { error?: { message?: unknown } | string; message?: unknown };
+        const candidate = typeof obj.error === 'object' && obj.error !== null
+          ? obj.error.message
+          : typeof obj.message === 'string' ? obj.message : obj.error;
+        if (typeof candidate === 'string') {
+          reason = candidate.replace(/[\\r\\n]+/g, ' ').slice(0, 180);
+        }
+      }
+    } catch { /* Some 403s intentionally omit the response body. */ }
+    const endpoint = new URL(url).pathname;
+    if(response.status===401)throw new Error('Spotify returned 401 at '+endpoint+'. Reconnect your Spotify account.'+(reason?' Spotify says: '+reason:''));
+    if(response.status===403)throw new Error('Spotify returned 403 at '+endpoint+'.'+(reason?' Spotify says: '+reason+'.':' No detailed reason supplied.')+' Check Premium on the developer account and this account in User Management.');
+    if(response.status===429)throw new Error('Spotify rate limit reached. Try again later.');
+    throw new Error('Spotify returned '+response.status+' at '+endpoint+(reason?': '+reason:''));
+  }
   return await response.json() as T;
 }
 export async function getSpotifyAccount(token:string,signal?:AbortSignal):Promise<{id:string;display_name?:string}> {
