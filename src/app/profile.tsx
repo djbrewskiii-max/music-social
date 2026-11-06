@@ -160,7 +160,7 @@ export default function ProfileScreen() {
 
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'identity' | 'shows'>('posts');
+  const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
   const [followsMe, setFollowsMe] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -1278,6 +1278,202 @@ export default function ProfileScreen() {
           />
         )}
 
+        {!isBlocked && !blockedByOther && (
+          <>
+        {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
+        {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
+        <View
+          style={
+            styles.section
+          }
+        >
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.sectionEyebrow
+                }
+              >
+                THEIR SOUND
+              </Text>
+
+              <Text
+                style={
+                  styles.sectionTitle
+                }
+              >
+                In rotation.
+              </Text>
+            </View>
+          </View>
+
+          {topArtists.length >
+          0 ? (
+            <>
+              <Text
+                style={
+                  styles.miniLabel
+                }
+              >
+                TOP ARTISTS
+              </Text>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={
+                  false
+                }
+                contentContainerStyle={
+                  styles.artistRow
+                }
+              >
+                {topArtists.map(
+                  (
+                    artist,
+                    index
+                  ) => {
+                    const artistInitial =
+                      artist.name
+                        .trim()
+                        .charAt(
+                          0
+                        )
+                        .toUpperCase() ||
+                      '?';
+
+                    return (
+                      <View
+                        key={`${artist.name}-${index}`}
+                        style={
+                          styles.artistItem
+                        }
+                      >
+                        {artist.artworkUrl ? (
+                          <Image
+                            source={{
+                              uri:
+                                artist.artworkUrl,
+                            }}
+                            style={
+                              styles.artistArtwork
+                            }
+                          />
+                        ) : (
+                          <View
+                            style={
+                              styles.artistPlaceholder
+                            }
+                          >
+                            <Text
+                              style={
+                                styles.artistInitial
+                              }
+                            >
+                              {
+                                artistInitial
+                              }
+                            </Text>
+                          </View>
+                        )}
+
+                        <Text
+                          style={
+                            styles.artistName
+                          }
+                          numberOfLines={
+                            2
+                          }
+                        >
+                          {
+                            artist.name
+                          }
+                        </Text>
+                      </View>
+                    );
+                  }
+                )}
+              </ScrollView>
+            </>
+          ) : (
+            <View
+              style={
+                styles.emptySection
+              }
+            >
+              <Text
+                style={
+                  styles.emptySectionText
+                }
+              >
+                Their rotation is still
+                taking shape.
+              </Text>
+            </View>
+          )}
+
+          <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
+                  </View>
+        <View
+          style={
+            styles.eraTeaser
+          }
+        >
+          <Text
+            style={
+              styles.eraEyebrow
+            }
+          >
+            ERAS
+          </Text>
+
+          <Text
+            style={
+              styles.eraTitle
+            }
+          >
+            Their sound changes.
+            OVRLEE remembers it.
+          </Text>
+
+          <Text
+            style={
+              styles.eraText
+            }
+          >
+            Your listening history
+            will eventually live here
+            in chapters.
+          </Text>
+
+          <View
+            style={
+              styles.eraPreview
+            }
+          >
+            <Text
+              style={
+                styles.eraSeason
+              }
+            >
+              FALL '26
+            </Text>
+
+            <Text
+              style={
+                styles.eraComing
+              }
+            >
+              COMING SOON
+            </Text>
+          </View>
+        </View>
+          </>
+        )}
+
         {!isBlocked && !blockedByOther && hasPresenceSong && (
           <View
             style={
@@ -1446,7 +1642,6 @@ export default function ProfileScreen() {
               {([
                 ['posts', 'Posts'],
                 ['collections', 'Collections'],
-                ['identity', 'Identity'],
                 ['shows', 'Shows'],
               ] as const).map(([key, label]) => (
                 <Pressable
@@ -1654,202 +1849,6 @@ export default function ProfileScreen() {
 
             {profileTab === 'collections' && (
               <CollectionGrid posts={posts} username={profile.username || ''} emptyText={`${profile.display_name || 'They'} hasn't made a collection yet.`} />
-            )}
-
-            {profileTab === 'identity' && (
-              <>
-        {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
-        {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
-        <View
-          style={
-            styles.section
-          }
-        >
-          <View
-            style={
-              styles.sectionHeader
-            }
-          >
-            <View>
-              <Text
-                style={
-                  styles.sectionEyebrow
-                }
-              >
-                THEIR SOUND
-              </Text>
-
-              <Text
-                style={
-                  styles.sectionTitle
-                }
-              >
-                In rotation.
-              </Text>
-            </View>
-          </View>
-
-          {topArtists.length >
-          0 ? (
-            <>
-              <Text
-                style={
-                  styles.miniLabel
-                }
-              >
-                TOP ARTISTS
-              </Text>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={
-                  false
-                }
-                contentContainerStyle={
-                  styles.artistRow
-                }
-              >
-                {topArtists.map(
-                  (
-                    artist,
-                    index
-                  ) => {
-                    const artistInitial =
-                      artist.name
-                        .trim()
-                        .charAt(
-                          0
-                        )
-                        .toUpperCase() ||
-                      '?';
-
-                    return (
-                      <View
-                        key={`${artist.name}-${index}`}
-                        style={
-                          styles.artistItem
-                        }
-                      >
-                        {artist.artworkUrl ? (
-                          <Image
-                            source={{
-                              uri:
-                                artist.artworkUrl,
-                            }}
-                            style={
-                              styles.artistArtwork
-                            }
-                          />
-                        ) : (
-                          <View
-                            style={
-                              styles.artistPlaceholder
-                            }
-                          >
-                            <Text
-                              style={
-                                styles.artistInitial
-                              }
-                            >
-                              {
-                                artistInitial
-                              }
-                            </Text>
-                          </View>
-                        )}
-
-                        <Text
-                          style={
-                            styles.artistName
-                          }
-                          numberOfLines={
-                            2
-                          }
-                        >
-                          {
-                            artist.name
-                          }
-                        </Text>
-                      </View>
-                    );
-                  }
-                )}
-              </ScrollView>
-            </>
-          ) : (
-            <View
-              style={
-                styles.emptySection
-              }
-            >
-              <Text
-                style={
-                  styles.emptySectionText
-                }
-              >
-                Their rotation is still
-                taking shape.
-              </Text>
-            </View>
-          )}
-
-          <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
-                  </View>
-        <View
-          style={
-            styles.eraTeaser
-          }
-        >
-          <Text
-            style={
-              styles.eraEyebrow
-            }
-          >
-            ERAS
-          </Text>
-
-          <Text
-            style={
-              styles.eraTitle
-            }
-          >
-            Their sound changes.
-            OVRLEE remembers it.
-          </Text>
-
-          <Text
-            style={
-              styles.eraText
-            }
-          >
-            Your listening history
-            will eventually live here
-            in chapters.
-          </Text>
-
-          <View
-            style={
-              styles.eraPreview
-            }
-          >
-            <Text
-              style={
-                styles.eraSeason
-              }
-            >
-              FALL '26
-            </Text>
-
-            <Text
-              style={
-                styles.eraComing
-              }
-            >
-              COMING SOON
-            </Text>
-          </View>
-        </View>
-              </>
             )}
 
             {profileTab === 'shows' && (
