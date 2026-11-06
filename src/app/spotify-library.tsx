@@ -26,6 +26,7 @@ export default function SpotifyPublicLibrary() {
  const [loading,setLoading]=useState(false);
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState('');
+ const [syncWarning,setSyncWarning]=useState('');
  const [consent,setConsent]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
  const [accountId,setAccountId]=useState<string|null>(null);
@@ -54,26 +55,72 @@ export default function SpotifyPublicLibrary() {
   if(loading)return;
   if(!consent){Alert.alert('Confirm before reading','Only connect a Spotify profile you own or are authorized to use for OVRLEE music suggestions.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
-  setLoading(true);setScan(null);setChosen(null);setChanges({});setError('');setProgress('');
+  setLoading(true);setScan(null);setChosen(null);setChanges({});setError('');setSyncWarning('');setProgress('');
   try{
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
     if(accountId){
       await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
         JSON.stringify({url:result.url,confirmed:true})).catch(()=>{});
     }
-    // Compare only this account's observations for this exact Spotify profile.
-    // No automatic import, no inferred timestamps, and no background scraping.
-    if(accountId){
-      const historyKey='ovrlee.spotifyScanHistory.'+accountId+'.'+result.userId;
-      let previous:SpotifyScanHistory|null=null;
+    // Read account-level history first, then merge any legacy local observations.
+    // Only user-initiated scans update the saved observation history.
+    const {data:{user}}=await supabase.auth.getUser();
+    if(user){
+      const historyKey='ovrlee.spotifyScanHistory.'+user.id+'.'+result.userId;
+      let local:SpotifyScanHistory|null=null;
       try {
         const raw=await AsyncStorage.getItem(historyKey);
-        if(raw)previous=JSON.parse(raw) as SpotifyScanHistory;
-      }catch{/* Reset only malformed local snapshots. */}
+        if(raw){
+          const parsed=JSON.parse(raw) as SpotifyScanHistory;
+          if(parsed?.version===1&&parsed.playlists&&typeof parsed.playlists==='object')local=parsed;
+        }
+      }catch{/* Invalid old snapshots cannot block this scan. */}
+      let previous:SpotifyScanHistory|null=local;
+      let remoteAvailable=false;
+      try {
+        const {data:remote,error:readError}=await supabase.from('spotify_scan_history')
+          .select('playlist_id,track_keys')
+          .eq('user_id',user.id).eq('spotify_user_id',result.userId);
+        if(readError)throw readError;
+        remoteAvailable=true;
+        if(remote?.length){
+          const playlists:Record<string,string[]>={};
+          for(const row of remote){
+            const remoteKeys=Array.isArray(row.track_keys)
+              ?row.track_keys.filter((key:unknown):key is string=>typeof key==='string')
+              :[];
+            const localKeys=local?.playlists[row.playlist_id]||[];
+            playlists[row.playlist_id]=[...new Set([...remoteKeys,...localKeys])].slice(-5000);
+          }
+          // Transfer any playlist observed locally but not yet held in Supabase.
+          for(const [id,keys] of Object.entries(local?.playlists||{})){
+            if(!playlists[id])playlists[id]=keys;
+          }
+          previous={version:1,playlists};
+        }
+      }catch(e){
+        console.log('Spotify scan history sync:',e);
+        setSyncWarning('Account sync unavailable. This scan will be saved locally until you retry.');
+      }
       const comparison=compareSpotifyScans(result,previous);
       setChanges(comparison.newByPlaylist);
       setFirstScan(comparison.firstScan);
       await AsyncStorage.setItem(historyKey,JSON.stringify(comparison.history)).catch(()=>{});
+      if(remoteAvailable){
+        const rows=result.playlists.filter(p=>p.status==='ready').map(p=>({
+          user_id:user.id,spotify_user_id:result.userId,playlist_id:p.id,
+          track_keys:comparison.history.playlists[p.id]||[],
+          updated_at:new Date().toISOString(),
+        }));
+        if(rows.length){
+          const {error:writeError}=await supabase.from('spotify_scan_history')
+            .upsert(rows,{onConflict:'user_id,spotify_user_id,playlist_id'});
+          if(writeError){
+            console.log('Spotify scan history save:',writeError);
+            setSyncWarning('Account sync failed. Your scan history is still saved on this device.');
+          }else setSyncWarning('');
+        }
+      }
     }
     setScan(result);
     if(result.playlists.every(p=>p.status==='unavailable'))setError('Playlist links were found, but Spotify did not expose any readable tracks to this device. The experimental GitHub browser reader may behave differently.');
@@ -130,6 +177,7 @@ export default function SpotifyPublicLibrary() {
     </Pressable>
     {!!progress&&<Text style={s.progress}>{progress}</Text>}
     {!!error&&<Text style={s.error}>{error}</Text>}
+    {!!syncWarning&&<Text style={s.warning}>{syncWarning}</Text>}
     {scan&&<>
      <View style={s.resultHeader}><Text style={s.section}>PLAYLISTS ({scan.playlists.length})</Text><Text style={s.small}>{scan.playlists.filter(p=>p.status==='ready').length} readable</Text></View>
      {!firstScan&&Object.values(changes).some(items=>items.length>0)&&
