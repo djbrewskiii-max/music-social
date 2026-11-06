@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
+import PhotoFrame from './PhotoFrame';
 
 import type { CollectionItem, Template, PhotoFocus } from '../collection';
 
@@ -65,12 +66,12 @@ export type SlideSpec =
   | { kind: 'cover'; title: string; caption: string; count: number; photo: string | null; fallbackArt: string | null; tint: string; focus?: PhotoFocus }
   | { kind: 'song'; item: CollectionItem; index: number }
   | { kind: 'wall'; title: string; caption: string; photo: string | null; arts: string[]; artIdx: number[]; focus?: PhotoFocus }
-  | { kind: 'moodboard'; title: string; caption: string; photos: string[]; tint: string; slots: number; focus?: PhotoFocus[] }
+  | { kind: 'moodboard'; title: string; caption: string; photos: string[]; tint: string; slots: number; focus?: PhotoFocus[]; aspects?: number[] }
   | { kind: 'tracklistCover'; title: string; caption: string; count: number; arts: string[] }
   | { kind: 'tracklist'; items: CollectionItem[]; start: number }
   | { kind: 'add' };
 
-type BuildInput = { title: string; caption: string; items: CollectionItem[]; photos: string[]; coverArtId?: string | null; photoFocus?: PhotoFocus[] };
+type BuildInput = { title: string; caption: string; items: CollectionItem[]; photos: string[]; coverArtId?: string | null; photoFocus?: PhotoFocus[]; photoAspects?: number[] };
 
 export function buildSlides(template: Template, input: BuildInput, editing = false): SlideSpec[] {
   const slides = buildBase(template, input, editing);
@@ -104,8 +105,8 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
     }
     case 'moodboard': {
       // The editor always shows five spots; posts use the layout for the photos you added.
-      const slots = editing ? Math.min(5, Math.max(3, photos.length + 1)) : Math.max(3, Math.min(5, photos.length));
-      return [{ kind: 'moodboard', title: t, caption, photos: photos.slice(0, 5), tint, slots, focus: input.photoFocus }, ...songs];
+      const slots = editing ? Math.min(5, Math.max(1, photos.length + 1)) : Math.max(1, Math.min(5, photos.length));
+      return [{ kind: 'moodboard', title: t, caption, photos: photos.slice(0, 5), tint, slots, focus: input.photoFocus, aspects: input.photoAspects }, ...songs];
     }
     case 'tracklist':
       return [
@@ -115,28 +116,29 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
   }
 }
 
-/* Moodboard collage layouts (x, y, w, h) inside a 324 × 400 area. */
-const COLLAGE: Record<number, [number, number, number, number][]> = {
-  // Balanced editorial collage. Small 6px gutters; no oversized empty tiles.
-  3: [
-    [0, 0, 193, 400],
-    [199, 0, 125, 197],
-    [199, 203, 125, 197],
-  ],
-  4: [
-    [0, 0, 193, 255],
-    [199, 0, 125, 255],
-    [0, 261, 130, 139],
-    [136, 261, 188, 139],
-  ],
-  5: [
-    [0, 0, 193, 237],
-    [199, 0, 125, 115],
-    [199, 121, 125, 116],
-    [0, 243, 130, 157],
-    [136, 243, 188, 157],
-  ],
-};
+/* Photo count and the leading photo's original shape determine the collage.
+ * Only selected photos get tiles in published posts; never pad or duplicate.
+ */
+function moodboardRects(aspects: number[], slots: number): [number, number, number, number][] {
+  const count = Math.max(1, Math.min(5, slots));
+  const a = aspects[0] || 1;
+  const landscapes = aspects.slice(0, count).filter(v => v > 1.2).length;
+  if (count === 1) return [[0, 0, 324, 400]];
+  if (count === 2) return landscapes === 2
+    ? [[0, 0, 324, 197], [0, 203, 324, 197]]
+    : [[0, 0, 159, 400], [165, 0, 159, 400]];
+  if (count === 3) return a > 1.15
+    ? [[0, 0, 324, 220], [0, 226, 159, 174], [165, 226, 159, 174]]
+    : [[0, 0, 192, 400], [198, 0, 126, 197], [198, 203, 126, 197]];
+  if (count === 4) return landscapes >= 3
+    ? [[0, 0, 159, 197], [165, 0, 159, 197], [0, 203, 159, 197], [165, 203, 159, 197]]
+    : a < 0.9
+      ? [[0, 0, 194, 400], [200, 0, 124, 127], [200, 133, 124, 127], [200, 266, 124, 134]]
+      : [[0, 0, 159, 197], [165, 0, 159, 197], [0, 203, 159, 197], [165, 203, 159, 197]];
+  return a > 1.15
+    ? [[0, 0, 324, 198], [0, 204, 159, 95], [165, 204, 159, 95], [0, 305, 159, 95], [165, 305, 159, 95]]
+    : [[0, 0, 193, 237], [199, 0, 125, 115], [199, 121, 125, 116], [0, 243, 130, 157], [136, 243, 188, 157]];
+}
 
 /*
   Typography system:
@@ -268,8 +270,7 @@ function FitPhoto(props: {
             tilt ? { transform: [{ rotate: tilt }] } : null,
           ]}
         >
-          <ExpoImage source={{ uri }} style={{ width: w, height: h, borderRadius: radius * s, transform: [{ scale: focus?.zoom || 1 }] }}
-              contentFit="cover" contentPosition={{ left: `${focus?.x ?? 50}%`, top: `${focus?.y ?? 50}%` }} />
+          <PhotoFrame uri={uri} focus={focus} />
         </Pressable>
       ) : null}
     </View>
@@ -354,10 +355,9 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
       <Dashed label="Tap to add a caption" onPress={editing?.onTitle} serif />
     );
 
-  const Photo = ({ uri, style, slot, focus, label = '+ Photo' }: { uri: string | null; style: any; slot: number; focus?: PhotoFocus; label?: string }) => (
+  const Photo = ({ uri, style, slot, focus, aspect, label = '+ Photo' }: { uri: string | null; style: any; slot: number; focus?: PhotoFocus; aspect?: number; label?: string }) => (
     <Pressable disabled={!editing} onPress={() => editing?.onPhoto?.(slot)} style={[{ overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style]}>
-      {uri ? <ExpoImage source={{ uri }} style={{ width: '100%', height: '100%', transform: [{ scale: focus?.zoom || 1 }] }}
-          contentFit="cover" contentPosition={{ left: `${focus?.x ?? 50}%`, top: `${focus?.y ?? 50}%` }} /> : editing ? <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800' }}>{label}</Text> : null}
+      {uri ? <PhotoFrame uri={uri} focus={focus} aspect={aspect} /> : editing ? <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800' }}>{label}</Text> : null}
     </Pressable>
   );
 
@@ -519,11 +519,11 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
 
   /* Moodboard: a real collage, sized to how many photos you add. */
   if (spec.kind === 'moodboard') {
-    const rects = COLLAGE[spec.slots] || COLLAGE[5];
+    const rects = moodboardRects(spec.aspects || [], spec.slots);
     body = (
       <>
         {rects.map(([x, y, w, h], i) => (
-          <Photo key={i} uri={spec.photos[i] || null} slot={i} focus={spec.focus?.[i]} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
+          <Photo key={i} uri={spec.photos[i] || null} slot={i} focus={spec.focus?.[i]} aspect={spec.aspects?.[i]} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
         ))}
         <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: u(10) }}>
