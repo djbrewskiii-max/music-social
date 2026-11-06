@@ -194,7 +194,7 @@ export default function PostDetailScreen() {
           {!!post.body && !post.collection && <Text style={styles.caption}>{post.body}</Text>}
           {!!post.collection && fontsLoaded && (() => {
             const items = itemsFromPost(post);
-            const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId });
+            const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items, photos, coverArtId: post.collection.coverArtId, photoFocus: post.collection.photoFocus });
             const slideW = width - 36;
             return (
               <View style={{ marginBottom: 20 }}>
@@ -317,7 +317,7 @@ export default function PostDetailScreen() {
           <Pressable accessibilityLabel="Close collection viewer" onPress={() => setCollectionViewer(null)}><Text style={{ color: '#fff', fontSize: 30 }}>×</Text></Pressable>
         </View>
         {collectionViewer !== null && post?.collection && fontsLoaded && (() => {
-          const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items: itemsFromPost(post), photos, coverArtId: post.collection.coverArtId });
+          const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items: itemsFromPost(post), photos, coverArtId: post.collection.coverArtId, photoFocus: post.collection.photoFocus });
           const slideWidth = width - 32;
           return <>
             <Text style={{ textAlign: 'center', color: '#aaa', marginBottom: 12 }}>{collectionViewer + 1} / {slides.length}</Text>
