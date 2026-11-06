@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import {
   Auth,
   History,
@@ -965,7 +966,9 @@ export default function MyProfileScreen() {
               hitSlop={14}
               style={{ padding: 10, marginRight: -10 }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '600' }}>⚙</Text>
+              <SymbolView name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
+                tintColor="#ffffff" size={25} weight="medium"
+                fallback={<Text style={{ color: '#fff', fontSize: 25 }}>⚙</Text>} />
             </Pressable>
 
 
