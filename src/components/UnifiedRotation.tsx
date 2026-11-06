@@ -1105,6 +1105,20 @@ export default function UnifiedRotation({
                 </Pressable>
               )}
 
+              {!editingId && (
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel="Browse my imported music and discover artists"
+                  onPress={() => { clearEditor(); router.push('/imported-music'); }}
+                  style={{paddingVertical:11,marginBottom:5}}>
+                  <Text style={{color:GREEN,fontWeight:'900',fontSize:12}}>
+                    ♫ BROWSE MY IMPORTED MUSIC →
+                  </Text>
+                  <Text style={{color:'#999',fontSize:11,marginTop:5}}>
+                    Review saved songs and find people posting your artists.
+                  </Text>
+                </Pressable>
+              )}
+
               {!editingId && !query.trim() && matches.some(item => item.source === 'activity') && (
                 <Pressable accessibilityRole="button"
                   accessibilityLabel="Suggest my rotation from OVRLEE music activity"
