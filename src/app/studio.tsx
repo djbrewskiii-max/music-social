@@ -209,8 +209,10 @@ export default function StudioScreen() {
       setItems((prev) => prev.filter((i) => !((item.id && i.id === item.id) || (i.song === item.song && i.artist === item.artist))));
       return;
     }
-    if (items.length >= config.maxSongs) {
-      Alert.alert('That’s the max', `${config.name} holds up to ${config.maxSongs} songs.`);
+    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    const songLimit = Math.min(config.maxSongs, 10 - Math.max(usedPhotos, config.minPhotos));
+    if (items.length >= songLimit) {
+      Alert.alert('That’s the max', `${config.name} fits up to ${songLimit} songs with your photos (10 combined items).`);
       return;
     }
     setAdding(item.song + item.artist);
@@ -310,6 +312,8 @@ export default function StudioScreen() {
     if (!items.length) return 'Add at least one song.';
     if (template === 'wall' && items.length < 4) return 'An album wall needs at least 4 albums.';
     if (photos.length < config.minPhotos) return `${config.name} needs ${config.minPhotos === 1 ? 'a photo' : `${config.minPhotos} photos`}.`;
+    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    if (items.length + usedPhotos > 10) return 'Your collection can have at most 10 combined photos and music items. Remove one to continue.';
     return '';
   };
 
