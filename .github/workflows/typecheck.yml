@@ -16,3 +16,4 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node tools/playlist-snapshot-diff.test.mjs
+      - run: node tools/spotify-embed-parser.test.mjs
