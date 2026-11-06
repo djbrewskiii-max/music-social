@@ -41,6 +41,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
       <Text onPress={open} style={[styles.title, !fontsLoaded && { fontFamily: undefined }]} numberOfLines={3}>
         {post.collection.title}
       </Text>
+      {!!post.body && <Text onPress={open} style={{ color: '#D2D2D2', fontSize: 15, lineHeight: 21, marginBottom: 13 }}>{post.body}</Text>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {slides.map((spec, i) => (
           <Pressable key={i} onPress={open} style={styles.slide}>
