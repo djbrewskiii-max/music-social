@@ -14,6 +14,7 @@
  *   node tools/spotify-public-probe.mjs 'https://open.spotify.com/user/...'
  */
 import { writeFile } from 'node:fs/promises';
+import { parseSpotifyEmbedHtml } from './spotify-embed-parser.mjs';
 
 const PROFILE_ID_PATTERN = /^[a-zA-Z0-9_]{3,64}$/;
 const MAX_PLAYLISTS = 3;
@@ -67,7 +68,7 @@ async function main() {
     warnings: [
       'Spotify prohibits automated scraping in its User Guidelines.',
       'This output is not licensed for OVRLEE recommendations or user profiling.',
-      'Only text already rendered in a normal browser DOM is inspected.',
+      'Only publicly delivered page HTML and its embedded page-hydration data are inspected.',
     ],
   };
   try {
@@ -94,31 +95,18 @@ async function main() {
     for (const item of playlists.slice(0, MAX_PLAYLISTS)) {
       const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       try {
-        const response = await p.goto(item.url, { waitUntil: 'domcontentloaded', timeout: MAX_PAGE_MS });
-        await p.waitForTimeout(3000);
-        const candidateRows = await p.locator('[data-testid="tracklist-row"], [role="row"]').evaluateAll(
-          rows => rows.map(r => ({
-            text: (r.innerText || '').replace(/\s+/g, ' ').trim(),
-            links: [...r.querySelectorAll('a[href]')].map(a => ({
-              href: a.href,
-              name: (a.textContent || '').trim()
-            }))
-          }))
-        );
-        const tracks = candidateRows.map(row => {
-          const track = row.links.find(l => /^https:\/\/open\.spotify\.com\/track\/[\w]+/.test(l.href));
-          if (!track || !track.name) return null;
-          const artists = row.links.filter(l => /^https:\/\/open\.spotify\.com\/artist\/[\w]+/.test(l.href)).map(a => sanitize(a.name));
-          return { song: sanitize(track.name), artist: artists.join(', '), spotifyTrackUrl: track.href.split('?')[0] };
-        }).filter(x => x && x.song && x.artist);
-        const unique = dedup(tracks, t => t.spotifyTrackUrl).slice(0, MAX_VISIBLE_TRACKS);
+        const embedUrl = item.url.replace('/playlist/', '/embed/playlist/');
+        const response = await p.goto(embedUrl, { waitUntil: 'domcontentloaded', timeout: MAX_PAGE_MS });
+        const parsed = parseSpotifyEmbedHtml(await p.content(), item.url, MAX_VISIBLE_TRACKS);
         result.publicPlaylists.push({
-          title: item.title || sanitize(await p.title()),
+          title: parsed.title || item.title || sanitize(await p.title()),
           url: item.url,
           httpStatus: response?.status() ?? null,
-          visibleTracks: unique,
-          trackCountVisible: unique.length,
-          status: unique.length ? 'dom_rows_found' : 'no_parseable_track_rows',
+          visibleTracks: parsed.tracks,
+          trackCountVisible: parsed.tracks.length,
+          completeness: parsed.completeness,
+          observedRows: parsed.observedRows || 0,
+          status: parsed.status,
         });
       } catch (error) {
         result.publicPlaylists.push({ title: item.title, url: item.url, status: 'error', error: String(error.message).slice(0,180), visibleTracks: [] });
@@ -126,7 +114,7 @@ async function main() {
       await page.waitForTimeout(1500);
     }
     if (playlists.length > MAX_PLAYLISTS) result.warnings.push(`Only the first ${MAX_PLAYLISTS} public playlist links were inspected.`);
-    result.status = result.publicPlaylists.some(p => p.visibleTracks.length) ? 'tracks_visible_in_browser_dom' :
+    result.status = result.publicPlaylists.some(p => p.visibleTracks.length) ? 'tracks_visible_in_public_embed' :
       playlists.length ? 'playlists_visible_tracks_unavailable' : 'profile_playlists_unavailable';
     const filename = 'spotify-public-probe-result.json';
     await writeFile(filename, JSON.stringify(result, null, 2) + '\n', 'utf8');
