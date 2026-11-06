@@ -55,27 +55,36 @@ async function matchCatalogArtwork(track: Track): Promise<string> {
   if (catalogArtCache.has(key)) return catalogArtCache.get(key)!;
   const token = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN;
   if (!token) return '';
+  const normalize = (s: string) => (s || '').normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const desiredSong = normalize(track.song);
+  const desiredArtists = normalize(track.artist).split(/\s+(?:feat|ft|and|x)\s+|\s*,\s*/).filter(Boolean);
+  const terms = [track.song + ' ' + track.artist, track.song];
   try {
-    const term = [track.song, track.artist].join(' ');
-    const url = 'https://api.music.apple.com/v1/catalog/us/search?' +
-      new URLSearchParams({ term, types: 'songs', limit: '8' }).toString();
-    const response = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
-    if (!response.ok) return '';
-    const result = await response.json();
-    const norm = (s: string) => (s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-    const match = (result?.results?.songs?.data || []).find((entry: any) => {
-      const a = entry?.attributes || {};
-      const songMatch = norm(a.name) === norm(track.song);
-      const expected = norm(track.artist).split(',')[0].trim();
-      const artistMatch = norm(a.artistName) === norm(track.artist) ||
-        (!!expected && norm(a.artistName).split(',')[0].trim() === expected);
-      return songMatch && artistMatch;
-    });
-    const image = match?.attributes?.artwork?.url;
-    const art = typeof image === 'string' ? image.replace(/\{w\}/g,'180').replace(/\{h\}/g,'180') : '';
-    if (art) catalogArtCache.set(key, art);
-    return art;
-  } catch { return ''; }
+    for (const term of terms) {
+      const url = 'https://api.music.apple.com/v1/catalog/us/search?' +
+        new URLSearchParams({ term, types: 'songs', limit: '25' }).toString();
+      const response = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!response.ok) continue;
+      const result = await response.json();
+      const candidates: any[] = result?.results?.songs?.data || [];
+      const match = candidates.find(entry => {
+        const a = entry?.attributes || {};
+        const title = normalize(a.name);
+        if (!title || title !== desiredSong) return false;
+        const artist = normalize(a.artistName);
+        return desiredArtists.some(want => artist === want || artist.includes(want) || want.includes(artist));
+      });
+      const image = match?.attributes?.artwork?.url;
+      if (typeof image === 'string' && image) {
+        const art = image.replace(/\{w\}/g, '180').replace(/\{h\}/g, '180');
+        catalogArtCache.set(key, art);
+        return art;
+      }
+    }
+  } catch { /* Unmatched songs keep their placeholders, never incorrect artwork. */ }
+  return '';
 }
 
 const clean = (s: string) =>
@@ -157,7 +166,20 @@ export default function UnifiedRotation({
 
       if (error) throw error;
 
-      setPins((data ?? []) as Pin[]);
+      const loaded = (data ?? []) as Pin[];
+      setPins(loaded);
+      // Repair already-pinned songs imported before artwork enrichment existed.
+      // Only a high-confidence title/artist catalog match is applied.
+      if (owner) {
+        const missing = loaded.filter(p => !p.artwork_url);
+        void Promise.all(missing.map(async pin => {
+          const url = await matchCatalogArtwork(pin);
+          if (!url) return;
+          const { error: artError } = await supabase.from('profile_rotation_pins')
+            .update({ artwork_url: url }).eq('id', pin.id).eq('user_id', id);
+          if (!artError) setPins(prev => prev.map(p => p.id === pin.id ? {...p, artwork_url: url} : p));
+        })).catch(() => {});
+      }
     } catch (e) {
       console.log('Rotation pins load:', e);
     } finally {
