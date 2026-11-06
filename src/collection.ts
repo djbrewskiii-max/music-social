@@ -32,7 +32,10 @@ export type CollectionItem = {
   sourceUrl?: string | null;
 };
 
+export type PhotoFocus = { x: number; y: number; zoom?: number };
+
 export type CollectionMeta = {
+  photoFocus?: PhotoFocus[]; // photo crop/zoom settings, indexed by photo slot
   template: Template;
   theme?: string; // color theme key (see THEMES in CollectionSlides); 'auto' = from the album art
   titleFont?: 'serif' | 'bold'; // collection title style
@@ -140,6 +143,7 @@ export async function publishCollection(input: {
   caption: string;
   items: CollectionItem[];
   photos: LocalPhoto[];
+  photoFocus?: PhotoFocus[];
 }): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not signed in');
@@ -160,6 +164,7 @@ export async function publishCollection(input: {
     titleFont: input.titleFont || 'serif',
     coverArtId: input.coverArtId || null,
     title: input.title.trim().slice(0, 120),
+    photoFocus: (input.photoFocus || []).slice(0, photoCount).map(f => ({ x: Math.max(0, Math.min(100, f.x)), y: Math.max(0, Math.min(100, f.y)), zoom: Math.max(1, Math.min(2, f.zoom || 1)) })),
     notes: Object.fromEntries(input.items.filter((i) => i.note.trim()).map((i) => [i.id, i.note.trim().slice(0, 240)])),
     colors: Object.fromEntries(input.items.map((i) => [i.id, { bg: i.bg, ink: i.ink }])),
   };
@@ -216,6 +221,7 @@ export type DraftData = {
   caption: string;
   items: CollectionItem[];
   photoUrls: string[];
+  photoFocus?: PhotoFocus[];
 };
 
 export type Draft = { id: string; updated_at: string; data: DraftData };
@@ -238,6 +244,7 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
     caption: input.caption,
     items: input.items,
     photoUrls: photos.map((p) => p.url!),
+    photoFocus: input.photoFocus || [],
   };
   if (draftId) {
     const { error } = await supabase.from('collection_drafts').update({ data, updated_at: new Date().toISOString() }).eq('id', draftId);
