@@ -73,7 +73,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
                 accessibilityLabel={loading ? `Loading ${it.song} preview` : playing ? `Stop ${it.song} preview` : `Preview ${it.song}`}
                 disabled={loading} onPress={() => toggle(track)} hitSlop={8}
                 style={{ minHeight: 44, minWidth: 42, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={styles.play}>{loading ? '…' : playing ? '■' : '▶'}</Text>
+                <Text style={styles.play}>{loading ? '…' : playing ? '❚❚' : '▶'}</Text>
               </Pressable>
             </View>
           );
