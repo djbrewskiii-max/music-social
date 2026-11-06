@@ -80,6 +80,10 @@ public class NowSpotifyModule: Module {
   private var callbackObserver: NSObjectProtocol?
   private var originalCallback: URL?
   private var authorizationPending = false
+  // Playlist authorization intentionally never starts App Remote playback.
+  private var authorizationPurpose = "remote"
+  private var playlistWebToken: String?
+  private var playlistTokenExpiry: Date?
   private var callbackProcessed = false
   private var diagnosticEntries: [String] = []
   private var diagnosticStart = Date()
@@ -115,7 +119,7 @@ public class NowSpotifyModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("NowSpotify")
-    Events("onConnection", "onTrack", "onError")
+    Events("onConnection", "onTrack", "onError", "onPlaylistAuthorized")
 
     OnCreate {
       self.appActiveObserver = NotificationCenter.default.addObserver(
@@ -147,6 +151,7 @@ public class NowSpotifyModule: Module {
 
     AsyncFunction("authorize") { () -> Bool in
       DispatchQueue.main.async {
+        self.authorizationPurpose = "remote"
         self.authorizationPending = true
         self.callbackProcessed = false
         self.diagnosticEntries = []
@@ -165,6 +170,38 @@ public class NowSpotifyModule: Module {
         self.record("authorization_requested", "waiting for Spotify app and redirect")
       }
       return true
+    }
+
+    // Separate read-only playlist login. No App Remote and no playback required.
+    AsyncFunction("authorizeForPlaylists") { () -> Bool in
+      DispatchQueue.main.async {
+        self.authorizationPurpose = "playlist"
+        self.authorizationPending = true
+        self.callbackProcessed = false
+        self.originalCallback = nil
+        self.playlistWebToken = nil
+        self.playlistTokenExpiry = nil
+        self.record("playlist_authorize", "requesting playlist read scopes")
+        let scope: SPTScope = [.playlistReadPrivate, .playlistReadCollaborative]
+        self.ensureSessionManager().initiateSession(with: scope, options: .default, campaign: nil)
+      }
+      return true
+    }
+
+    Function("getPlaylistAccessToken") { () -> String? in
+      let read: () -> String? = {
+        guard let token = self.playlistWebToken,
+              let expiry = self.playlistTokenExpiry,
+              expiry > Date().addingTimeInterval(30) else { return nil }
+        return token
+      }
+      if Thread.isMainThread { return read() }
+      return DispatchQueue.main.sync(execute: read)
+    }
+
+    Function("clearPlaylistAccessToken") {
+      self.playlistWebToken = nil
+      self.playlistTokenExpiry = nil
     }
 
     AsyncFunction("handleRedirect") { (urlString: String) -> Bool in
@@ -226,6 +263,8 @@ public class NowSpotifyModule: Module {
         self.callbackObserver = nil
       }
       self.originalCallback = nil
+      self.playlistWebToken = nil
+      self.playlistTokenExpiry = nil
       self.appRemote?.playerAPI?.unsubscribe(toPlayerState: nil)
       self.appRemote?.disconnect()
       self.appRemote = nil
@@ -279,6 +318,13 @@ public class NowSpotifyModule: Module {
       self.record("session_created", "session delegate succeeded; token_present=\(!session.accessToken.isEmpty)")
       guard !session.accessToken.isEmpty else {
         self.reportError("SESSION_TOKEN_MISSING", "Session manager returned an empty token")
+        return
+      }
+      if self.authorizationPurpose == "playlist" {
+        self.playlistWebToken = session.accessToken
+        self.playlistTokenExpiry = session.expirationDate
+        self.record("playlist_session_ready", "read-only token available, expires in seconds=\(Int(session.expirationDate.timeIntervalSinceNow))")
+        self.sendEvent("onPlaylistAuthorized", ["authorized": true])
         return
       }
       let remote = self.ensureRemote()
