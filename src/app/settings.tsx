@@ -88,6 +88,9 @@ export default function SettingsScreen() {
             onPress={() => router.push('/music-settings')} />
           <SettingRow icon="link.circle" label="Connect Apple Music" detail="Manage access to your listening library"
             onPress={() => router.push('/connect-music')} />
+          <SettingRow icon="music.note.list" label="Spotify public showcase"
+            detail="Feature your Spotify profile and chosen public playlists"
+            onPress={() => router.push('/spotify-showcase')} />
         </View>
 
         <Text style={styles.section}>HOW OVRLEE WORKS</Text>
