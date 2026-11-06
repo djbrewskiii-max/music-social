@@ -896,6 +896,27 @@ export default function UnifiedRotation({
                 </View>
               )}
 
+              {!editingId && !query.trim() && matches.some(item => item.source === 'activity') && (
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel="Suggest my rotation from OVRLEE music activity"
+                  onPress={() => {
+                    const pinned = new Set(pins.map(trackKey));
+                    const distinct = matches
+                      .filter(item => item.source === 'activity' && !pinned.has(trackKey(item)))
+                      .slice(0, Math.max(0, 5 - pins.length));
+                    setQueue(distinct);
+                  }}
+                  style={{ borderRadius: 12, borderWidth: 1, borderColor: '#294B30',
+                    backgroundColor: '#122117', padding: 15, marginBottom: 13 }}>
+                  <Text style={{ color: GREEN, fontWeight: '900', fontSize: 12 }}>
+                    ✦ SUGGEST MY ROTATION
+                  </Text>
+                  <Text style={{ color: '#B5B5B5', fontSize: 11, lineHeight: 17, marginTop: 5 }}>
+                    Fill from music you've shared or connected in OVRLEE. Review these picks before saving.
+                  </Text>
+                </Pressable>
+              )}
+
               <View style={styles.searchBox}>
                 <Text style={styles.searchSymbol}>
                   ⌕
@@ -926,7 +947,7 @@ export default function UnifiedRotation({
               <Text style={styles.resultsHeading}>
                 {query.trim()
                   ? 'MATCHING SONGS'
-                  : 'SUGGESTED FROM YOUR MUSIC ACTIVITY'}
+                  : 'MUSIC YOU'VE SHARED OR CONNECTED'}
               </Text>
 
               <FlatList
