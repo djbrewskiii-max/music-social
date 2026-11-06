@@ -58,7 +58,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
           return (
             <View key={`${it.id}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]}>
               <Pressable accessibilityRole="button" accessibilityLabel={`Open ${it.song} in your music service`}
-                onPress={() => openMusicCard({ kind: it.kind === 'album' ? 'album' : 'song', title: it.song, artist: it.artist, appleId: it.id || null, sourceUrl: (it as any).sourceUrl || null })}
+                onPress={() => openMusicCard({ kind: it.kind === 'album' ? 'album' : 'song', title: it.song, artist: it.artist, appleId: it.id || null, sourceUrl: it.sourceUrl || null })}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Text style={styles.trackNum}>{String(i + 1).padStart(2, '0')}</Text>
                 {it.artworkUrl ? <Image source={{ uri: it.artworkUrl }} style={styles.trackArt} /> : <View style={styles.trackArt} />}
