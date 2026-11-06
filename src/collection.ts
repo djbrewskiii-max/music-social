@@ -36,6 +36,7 @@ export type PhotoFocus = { x: number; y: number; zoom?: number };
 
 export type CollectionMeta = {
   photoFocus?: PhotoFocus[]; // photo crop/zoom settings, indexed by photo slot
+  photoAspects?: number[]; // original width/height of the photos, for adaptive layouts
   template: Template;
   theme?: string; // color theme key (see THEMES in CollectionSlides); 'auto' = from the album art
   titleFont?: 'serif' | 'bold'; // collection title style
@@ -47,7 +48,7 @@ export type CollectionMeta = {
 
 // A photo picked from the camera roll (base64, not uploaded yet) or one that's
 // already uploaded (url), e.g. from a saved draft.
-export type LocalPhoto = { uri: string; base64?: string; mimeType?: string; url?: string };
+export type LocalPhoto = { uri: string; base64?: string; mimeType?: string; url?: string; aspect?: number };
 
 const developerToken = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN || '';
 
@@ -165,6 +166,7 @@ export async function publishCollection(input: {
     coverArtId: input.coverArtId || null,
     title: input.title.trim().slice(0, 120),
     photoFocus: (input.photoFocus || []).slice(0, photoCount).map(f => ({ x: Math.max(0, Math.min(100, f.x)), y: Math.max(0, Math.min(100, f.y)), zoom: Math.max(1, Math.min(2, f.zoom || 1)) })),
+    photoAspects: input.photos.slice(0, photoCount).map(p => p.aspect || 1),
     notes: Object.fromEntries(input.items.filter((i) => i.note.trim()).map((i) => [i.id, i.note.trim().slice(0, 240)])),
     colors: Object.fromEntries(input.items.map((i) => [i.id, { bg: i.bg, ink: i.ink }])),
   };
@@ -222,6 +224,7 @@ export type DraftData = {
   items: CollectionItem[];
   photoUrls: string[];
   photoFocus?: PhotoFocus[];
+  photoAspects?: number[];
 };
 
 export type Draft = { id: string; updated_at: string; data: DraftData };
@@ -233,7 +236,7 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
   const photos: LocalPhoto[] = [];
   for (const photo of input.photos) {
     const url = photo.url || (await uploadPhoto(user.id, photo));
-    photos.push({ uri: photo.uri, url });
+    photos.push({ uri: photo.uri, url, aspect: photo.aspect });
   }
   const data: DraftData = {
     template: input.template,
@@ -245,6 +248,7 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
     items: input.items,
     photoUrls: photos.map((p) => p.url!),
     photoFocus: input.photoFocus || [],
+    photoAspects: photos.map(p => p.aspect || 1),
   };
   if (draftId) {
     const { error } = await supabase.from('collection_drafts').update({ data, updated_at: new Date().toISOString() }).eq('id', draftId);
