@@ -10,7 +10,7 @@ import { previewKey, useSongPreview } from '../preview-player';
 import { supabase } from '../supabase';
 import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music-provider';
 
-type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string };
+type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
 type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
 type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null };
 const green = '#39E75F';
@@ -161,11 +161,11 @@ export default function PostDetailScreen() {
     finally { setBusy(false); }
   };
   const openMusic = async (track: Music) => {
-    if ((track as any).kind === 'album') {
-      await openMusicCard({ kind: 'album', title: track.song, artist: track.artist, appleId: track.id || null });
+    if (track.kind === 'album') {
+      await openMusicCard({ kind: 'album', title: track.song, artist: track.artist, appleId: track.id || null, sourceUrl: track.sourceUrl });
       return;
     }
-    const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id);
+    const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id, track.sourceUrl?.startsWith('https://open.spotify.com/') ? track.sourceUrl : null);
     try { await Linking.openURL(url); } catch { Alert.alert('Music', 'Unable to open this track.'); }
   };
   const photos = post ? photoList(post) : [];
@@ -233,6 +233,13 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
+          {!!post?.artist_name && (
+            <Pressable accessibilityRole="button" accessibilityLabel={`Explore posts and listeners of ${post.artist_name}`}
+              onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
+              style={{ marginBottom: 14, alignSelf: 'flex-start', paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#102517', borderRadius: 20 }}>
+              <Text style={{ color: green, fontSize: 12, fontWeight: '800' }}>DISCOVER MORE FROM {post.artist_name.toUpperCase()}  →</Text>
+            </Pressable>
+          )}
           <View style={styles.musicCard}>
             <Text style={styles.musicLabel}>{music.length > 1 ? `COLLECTION · ${music.length} TRACKS` : 'MUSIC'}</Text>
             {music.map((track, i) => {
@@ -254,7 +261,7 @@ export default function PostDetailScreen() {
                     <Pressable accessibilityRole="button" hitSlop={8}
                       accessibilityLabel={loadingPreview ? `Loading ${track.song} preview` : playing ? `Stop ${track.song} preview` : `Preview ${track.song}`}
                       disabled={loadingPreview}
-                      onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist, kind: (track as any).kind === 'album' ? 'album' : 'song' })}
+                      onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist, kind: track.kind === 'album' ? 'album' : 'song' })}
                       style={{ paddingHorizontal: 9, minHeight: 35, minWidth: 40, justifyContent: 'center', alignItems: 'center' }}>
                       <Text style={[styles.play, { color: green }]}>{loadingPreview ? '…' : playing ? '❚❚' : '▶'}</Text>
                     </Pressable>
