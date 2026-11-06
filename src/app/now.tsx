@@ -271,7 +271,6 @@ export default function NowScreen() {
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
   const [feedError, setFeedError] = useState<string | null>(null);
-  const [collectionHighlights, setCollectionHighlights] = useState<Array<{ id: string; title: string; artwork: string | null }>>([]);
 
   const [
     listeningPeople,
@@ -693,10 +692,18 @@ export default function NowScreen() {
           }
 
           const relationships = await loadRelationships(user.id);
-          await Promise.all([
+          // Music presence and Orbit are supplemental. A failure in either
+          // must never prevent regular posts or collections from loading.
+          void Promise.allSettled([
             loadListeningPresence(),
             loadOrbitRecommendation(user.id, relationships.following, relationships.hidden),
-          ]);
+          ]).then((results) => {
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                console.log(index === 0 ? 'Feed presence error:' : 'Feed Orbit error:', result.reason);
+              }
+            });
+          });
 
           const postFields =
             'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
@@ -726,17 +733,6 @@ export default function NowScreen() {
             console.log('Feed collections error:', collectionResult.error.message);
             setFeedError('Collections could not load. Pull down to retry.');
           }
-          const collectionRows = (collectionResult.data as PostRow[]) || [];
-          setCollectionHighlights(collectionRows
-            .filter((post) => !relationships.hidden.has(post.user_id) && !!post.collection)
-            .slice(0, 5)
-            .map((post) => ({
-              id: post.id,
-              title: post.collection?.title || 'Music collection',
-              artwork: post.artwork_url,
-            })));
-
-
           const mergedPosts = new Map<string, PostRow>();
           for (const row of [
             ...((regularResult.data as PostRow[]) || []),
@@ -962,7 +958,8 @@ export default function NowScreen() {
               }
             );
 
-          // For You: balance fresh posts, followed voices, and active discussions.
+          // For You: balance recent posts, followed voices, and active discussions.
+          // Keep brand-new posts (including Studio collections) near the top.
           // Replies from other people count more than the author's own replies.
           const followed = new Set(relationships.following);
           const nowMs = Date.now();
@@ -982,9 +979,9 @@ export default function NowScreen() {
               Math.min(post.likeCount, 12) * 0.10 +
               (post.likedByMe ? 0.3 : 0) +
               (post.body?.trim() ? 0.35 : 0) +
-              // Give original, designed music collections a modest discovery boost.
+              // Collection posts compete as full posts, not as a separate shelf.
               (post.collection ? 0.9 * Math.exp(-ageHours / (24 * 14)) : 0) +
-              2.2 * Math.exp(-ageHours / 36) +
+              4.0 * Math.exp(-ageHours / 36) +
               (uniqueParticipants > 0 ? 1.1 * Math.exp(-activityAgeHours / 24) : 0) -
               index * 0.018;
             return { post, score };
@@ -992,7 +989,15 @@ export default function NowScreen() {
           rankedPosts.sort((a, b) => b.score - a.score);
           // Don't let a single author occupy the entire first screen.
           const ordered: FeedPost[] = [];
-          const remaining = rankedPosts.map(item => item.post);
+          // New posts should appear promptly, even before earning engagement.
+          // This includes collection posts, which can have no caption or replies.
+          const newest = [...feedPosts].sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const freshIds = new Set(newest.slice(0, 3).map((post) => post.id));
+          const remaining = [
+            ...newest.slice(0, 3),
+            ...rankedPosts.filter(({ post }) => !freshIds.has(post.id)).map(({ post }) => post),
+          ];
           while (remaining.length) {
             const lastTwo = ordered.slice(-2).map(post => post.user_id);
             const candidateIndex = remaining.findIndex(post =>
@@ -2034,30 +2039,6 @@ export default function NowScreen() {
               <Text style={{ color: '#FFC6C6', fontSize: 13 }}>{feedError} Tap to retry.</Text>
             </Pressable>
           )}
-          {collectionHighlights.length > 0 && (
-            <View style={{ marginBottom: 18 }}>
-              <View style={{ marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                <Text style={{ color: '#FFF', fontSize: 19, fontWeight: '900' }}>From the Crate</Text>
-                <Text style={{ color: '#9A9A9A', fontSize: 11 }}>RECENT COLLECTIONS</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-                {collectionHighlights.map((item) => (
-                  <Pressable key={item.id}
-                    accessibilityRole="button" accessibilityLabel={`Open collection: ${item.title}`}
-                    onPress={() => router.push({ pathname: '/post', params: { postId: item.id } })}
-                    style={{ width: 162, borderWidth: 1, borderColor: '#2B2B2B', backgroundColor: '#111', borderRadius: 15, overflow: 'hidden' }}>
-                    {item.artwork ? <Image source={{ uri: item.artwork }} style={{ width: 162, height: 106 }} resizeMode="cover" /> :
-                      <View style={{ height: 106, alignItems: 'center', justifyContent: 'center', backgroundColor: '#193020' }}>
-                        <Text style={{ color: '#39E75F', fontSize: 32 }}>♫</Text>
-                      </View>}
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13, marginHorizontal: 10, marginTop: 10, marginBottom: 4 }} numberOfLines={2}>{item.title}</Text>
-                    <Text style={{ color: '#39E75F', fontSize: 10, fontWeight: '700', marginHorizontal: 10, marginBottom: 12 }}>OPEN COLLECTION →</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
           <Pressable
             style={styles.feedComposer}
             onPress={() => router.push('/create-post')}
