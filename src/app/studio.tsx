@@ -779,7 +779,13 @@ export default function StudioScreen() {
             </Pressable>
           </View>
           <View style={{ paddingHorizontal: 20 }}>
-            <TextInput value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor="#555" maxLength={80} multiline autoFocus style={[styles.titleInput, titleFont === 'bold' && styles.titleInputBold]} />
+            <TextInput key={titleFont} value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor="#555" maxLength={80} multiline autoFocus style={[styles.titleInput, titleFont === 'bold' && styles.titleInputBold]} />
+            <Text style={{ color: '#777', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 8 }}>LIVE FONT PREVIEW</Text>
+            <Text numberOfLines={2} style={titleFont === 'serif'
+              ? { color: '#fff', fontFamily: SERIF, fontSize: 27, marginTop: 6 }
+              : { color: '#fff', fontFamily: 'System', fontWeight: '900', fontSize: 26, letterSpacing: -0.7, marginTop: 6 }}>
+              {title.trim() || 'Your collection title'}
+            </Text>
             <View style={styles.fontRow}>
               {([
                 ['serif', 'Handwritten'],
@@ -914,7 +920,7 @@ const styles = StyleSheet.create({
   empty: { color: '#888888', fontSize: 14, textAlign: 'center', marginTop: 30 },
   titleInput: { color: '#ffffff', fontFamily: SERIF, fontSize: 32, lineHeight: 36, paddingVertical: 6 },
   label: { color: '#777777', fontSize: 10, fontWeight: '900', letterSpacing: 1.8, marginTop: 26, marginBottom: 10 },
-  titleInputBold: { fontFamily: undefined, fontWeight: '900', fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
+  titleInputBold: { fontFamily: 'System', fontWeight: '900', fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
   fontRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   caption: { color: '#ffffff', fontSize: 15, lineHeight: 21, backgroundColor: '#141414', borderRadius: 14, padding: 14, minHeight: 80 },
 });
