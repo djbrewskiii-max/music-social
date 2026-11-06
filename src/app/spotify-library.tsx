@@ -82,7 +82,7 @@ export default function SpotifyPublicLibrary() {
    Alert.alert('Music suggestions saved',
     submitted+' song'+(submitted===1?'':'s')+' ready in your private suggestions. Open In Rotation to choose what appears on your profile.',
     [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
-     {text:'Open In Rotation',onPress:()=>router.push('/my-profile')}]);
+     {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
   }catch(e){Alert.alert('Could not save suggestions',e instanceof Error?e.message:'Try again.');}
   finally{setSaving(false);}
  };
