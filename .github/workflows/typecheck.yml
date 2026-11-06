@@ -17,3 +17,26 @@ jobs:
       - run: npx tsc --noEmit
       - run: node tools/playlist-snapshot-diff.test.mjs
       - run: node tools/spotify-embed-parser.test.mjs
+
+  spotify_probe_once:
+    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify public profile feasibility probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm install --no-save --no-package-lock playwright
+      - run: npx playwright install --with-deps chromium
+      - name: One-off public profile probe
+        run: node tools/spotify-public-probe.mjs 'https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0'
+      - name: Preserve experiment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotify-public-probe-result
+          path: spotify-public-probe-result.json
+          if-no-files-found: warn
+          retention-days: 7
