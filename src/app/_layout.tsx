@@ -9,6 +9,7 @@ import OverlyIntro from '../components/OverlyIntro';
 import ShareIntentHandler from '../components/ShareIntentHandler';
 import { startNotifications } from '../notifications';
 import { PartySessionProvider } from '../party-session';
+import { PreviewPlayerProvider } from '../preview-player';
 import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
@@ -26,6 +27,7 @@ export default function RootLayout() {
   return (
     <ShareIntentProvider>
     <PartySessionProvider>
+    <PreviewPlayerProvider>
     <View style={styles.root}>
       <Stack
         screenOptions={{
@@ -70,6 +72,7 @@ export default function RootLayout() {
       <ShareIntentHandler />
       <OverlyIntro active={pathname === '/now'} />
     </View>
+    </PreviewPlayerProvider>
     </PartySessionProvider>
     </ShareIntentProvider>
   );
