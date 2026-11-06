@@ -91,6 +91,9 @@ export default function SettingsScreen() {
           <SettingRow icon="music.note.list" label="Spotify public showcase"
             detail="Feature your Spotify profile and chosen public playlists"
             onPress={() => router.push('/spotify-showcase')} />
+          <SettingRow icon="magnifyingglass" label="Explore a public Spotify playlist"
+            detail="Try the Spotify player and an OVRLEE music match"
+            onPress={() => router.push('/spotify-explore')} />
         </View>
 
         <Text style={styles.section}>HOW OVRLEE WORKS</Text>
