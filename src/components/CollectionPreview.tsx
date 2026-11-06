@@ -25,7 +25,7 @@ type Props = {
 
 export default function CollectionPreview({ post, username, slideWidth = 190 }: Props) {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
-  if (!fontsLoaded) return null;
+  // A font-loading delay must never hide the whole collection from the feed.
 
   const photos = (Array.isArray(post.photo_urls) && post.photo_urls.length ? post.photo_urls : post.photo_url ? [post.photo_url] : []).filter(
     (u): u is string => typeof u === 'string' && !!u
@@ -36,13 +36,13 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
 
   return (
     <View style={styles.wrap}>
-      <Text onPress={open} style={styles.title} numberOfLines={3}>
+      <Text onPress={open} style={[styles.title, !fontsLoaded && { fontFamily: undefined }]} numberOfLines={3}>
         {post.collection.title}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {slides.map((spec, i) => (
           <Pressable key={i} onPress={open} style={styles.slide}>
-            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} theme={(post.collection.theme as ThemeKey) || 'auto'} titleFont={post.collection.titleFont || 'serif'} />
+            <Slide spec={spec} width={slideWidth} username={username} index={i} total={slides.length} theme={(post.collection.theme as ThemeKey) || 'auto'} titleFont={!fontsLoaded ? 'bold' : post.collection.titleFont || 'serif'} />
           </Pressable>
         ))}
       </ScrollView>
@@ -69,7 +69,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
           <Pressable onPress={open} style={styles.more}>
             <View style={styles.moreArts}>
               {items.slice(3, 6).map((it, i) => (
-                <Image key={i} source={{ uri: it.artworkUrl }} style={[styles.moreArt, { marginLeft: i ? -10 : 0 }]} />
+                it.artworkUrl ? <Image key={i} source={{ uri: it.artworkUrl }} style={[styles.moreArt, { marginLeft: i ? -10 : 0 }]} /> : <View key={i} style={[styles.moreArt, { marginLeft: i ? -10 : 0, backgroundColor: '#222' }]} />
               ))}
             </View>
             <Text style={styles.moreText}>+{items.length - 3} more · see the full collection →</Text>
