@@ -14,11 +14,14 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import WorldCityPicker from '../components/WorldCityPicker';
 
 export default function SetupProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
+  const [cityPickerVisible, setCityPickerVisible] = useState(false);
+  const [cityCoords, setCityCoords] = useState<{ lat: number; lon: number; countryCode: string } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [checkingProfile, setCheckingProfile] =
@@ -44,7 +47,7 @@ export default function SetupProfileScreen() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('display_name, username, city')
+      .select('display_name, username, city, city_lat, city_lon, city_country_code')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -59,6 +62,8 @@ export default function SetupProfileScreen() {
       setDisplayName(data.display_name || '');
       setUsername(data.username || '');
       setCity(data.city || '');
+      if (data.city_lat != null && data.city_lon != null)
+        setCityCoords({ lat: data.city_lat, lon: data.city_lon, countryCode: data.city_country_code || '' });
     }
 
     setCheckingProfile(false);
@@ -128,6 +133,9 @@ export default function SetupProfileScreen() {
           display_name: displayName.trim(),
           username: cleanUsername,
           city: city.trim(),
+          city_lat: cityCoords?.lat ?? null,
+          city_lon: cityCoords?.lon ?? null,
+          city_country_code: cityCoords?.countryCode || null,
         })
         .eq('user_id', user.id);
 
@@ -140,6 +148,9 @@ export default function SetupProfileScreen() {
           display_name: displayName.trim(),
           username: cleanUsername,
           city: city.trim(),
+          city_lat: cityCoords?.lat ?? null,
+          city_lon: cityCoords?.lon ?? null,
+          city_country_code: cityCoords?.countryCode || null,
         });
 
       saveError = error;
@@ -230,17 +241,21 @@ export default function SetupProfileScreen() {
                 CITY
               </Text>
 
-              <TextInput
-                style={styles.input}
-                placeholder="City, State"
-                placeholderTextColor="#555555"
-                value={city}
-                onChangeText={setCity}
-                autoCorrect={false}
-              />
+              <Pressable onPress={() => setCityPickerVisible(true)} accessibilityRole="button"
+                accessibilityLabel="Choose city worldwide"
+                style={[styles.input, { justifyContent: 'center' }]}>
+                <Text style={{ color: city ? '#fff' : '#888', fontSize: 16 }}>
+                  {city || 'Select your city, anywhere in the world'}
+                </Text>
+              </Pressable>
             </View>
           </View>
 
+          <WorldCityPicker visible={cityPickerVisible} onClose={() => setCityPickerVisible(false)}
+            onPick={selection => {
+              setCity(selection.label);
+              setCityCoords({ lat: selection.lat, lon: selection.lon, countryCode: selection.countryCode });
+            }} />
           <View>
             <Pressable
               onPress={saveProfile}
