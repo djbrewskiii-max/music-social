@@ -446,7 +446,11 @@ export default function FirstListenRoom() {
             <Text style={styles.statNumber}>{summary?.waiting ?? 0}</Text> waiting
           </Text>
           <Text style={styles.stat}>
-            <Text style={styles.statNumber}>{ratings.length}</Text> {ratings.length === 1 ? 'rating' : 'ratings'}
+            {ratings.length >= 50 ? (
+              <><Text style={styles.statNumber}>{ratings.length}</Text> ratings</>
+            ) : (
+              <Text>Community impressions</Text>
+            )}
           </Text>
           <Text style={styles.stat}>
             <Text style={styles.statNumber}>{average ?? '–'}</Text> avg
