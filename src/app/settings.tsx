@@ -1,9 +1,24 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { isOverlyIntroEnabled, setOverlyIntroEnabled } from '../overly-preferences';
 import { unregisterPushNotifications } from '../notifications';
 import { supabase } from '../supabase';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function SettingsScreen() {
+  const [introEnabled, setIntroEnabled] = useState(true);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    isOverlyIntroEnabled().then((enabled) => { if (active) setIntroEnabled(enabled); }).catch(() => {});
+    return () => { active = false; };
+  }, []));
+
+  const toggleIntro = async () => {
+    const next = !introEnabled;
+    try { await setOverlyIntroEnabled(next); setIntroEnabled(next); }
+    catch (error) { console.log('Could not save intro preference:', error); }
+  };
+
   return (
     <SafeAreaView style={s.screen}>
       <ScrollView contentContainerStyle={s.content}>
@@ -15,7 +30,7 @@ export default function SettingsScreen() {
         <Pressable accessibilityRole="button" onPress={() => router.push('/music-settings')} style={s.row}>
           <View style={{ flex: 1 }}>
             <Text style={s.rowTitle}>Streaming service</Text>
-            <Text style={s.rowSub}>Choose where music opens across NOW</Text>
+            <Text style={s.rowSub}>Choose where music opens across OVRLEE</Text>
           </View>
           <Text style={s.chevron}>›</Text>
         </Pressable>
@@ -27,6 +42,14 @@ export default function SettingsScreen() {
             <Text style={s.rowSub}>Likes, replies, new followers and messages</Text>
           </View>
           <Text style={s.chevron}>›</Text>
+        </Pressable>
+        <Text style={[s.label, { marginTop: 36 }]}>PERSONALIZATION</Text>
+        <Pressable accessibilityRole="switch" accessibilityState={{ checked: introEnabled }} onPress={toggleIntro} style={s.row}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.rowTitle}>Overly opening animation</Text>
+            <Text style={s.rowSub}>Show the short OVRLEE intro at most once a day</Text>
+          </View>
+          <Text style={s.rowSub}>{introEnabled ? 'ON' : 'OFF'}</Text>
         </Pressable>
         <Text style={[s.label, { marginTop: 36 }]}>EXPERIMENTS</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push('/shazam-lab')} style={s.row}>
