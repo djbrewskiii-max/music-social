@@ -35,6 +35,7 @@ import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
+import { openMusicCard } from '../music-card';
 import { publishRecognizedSong } from '../presence';
 
 type ShazamMatch = { title: string; artist: string; appleMusicId?: string; isrc?: string };
@@ -1583,7 +1584,6 @@ export default function NowScreen() {
   // Each song in a collection is independently selectable; the first is not privileged.
   const openCollectionTrack = async (track: { id?: string; song: string; artist: string; kind?: 'song' | 'album'; sourceUrl?: string | null }) => {
     try {
-      const { openMusicCard } = await import('../music-card');
       await openMusicCard({
         kind: track.kind === 'album' ? 'album' : 'song',
         title: track.song, artist: track.artist, appleId: track.id || null,
@@ -1600,7 +1600,6 @@ export default function NowScreen() {
     ) => {
       try {
         if (post.music_items?.[0]?.kind === 'album') {
-          const { openMusicCard } = await import('../music-card');
           await openMusicCard({ kind: 'album', title: post.song_title, artist: post.artist_name,
             appleId: post.apple_music_id, sourceUrl: post.music_items[0].sourceUrl || null });
           return;
