@@ -1581,13 +1581,14 @@ export default function NowScreen() {
     };
 
   // Each song in a collection is independently selectable; the first is not privileged.
-  const openCollectionTrack = async (track: { id?: string; song: string; artist: string; sourceUrl?: string | null }) => {
+  const openCollectionTrack = async (track: { id?: string; song: string; artist: string; kind?: 'song' | 'album'; sourceUrl?: string | null }) => {
     try {
-      const url = await resolveTrackLink(
-        musicProvider, track.song, track.artist, track.id,
-        track.sourceUrl?.startsWith('https://open.spotify.com/') ? track.sourceUrl : null
-      );
-      await Linking.openURL(url);
+      const { openMusicCard } = await import('../music-card');
+      await openMusicCard({
+        kind: track.kind === 'album' ? 'album' : 'song',
+        title: track.song, artist: track.artist, appleId: track.id || null,
+        sourceUrl: track.sourceUrl || null,
+      });
     } catch (error) {
       console.log('Collection track link error:', error);
     }
@@ -1598,6 +1599,12 @@ export default function NowScreen() {
       post: FeedPost
     ) => {
       try {
+        if (post.music_items?.[0]?.kind === 'album') {
+          const { openMusicCard } = await import('../music-card');
+          await openMusicCard({ kind: 'album', title: post.song_title, artist: post.artist_name,
+            appleId: post.apple_music_id, sourceUrl: post.music_items[0].sourceUrl || null });
+          return;
+        }
         if (musicProvider === 'spotify') {
           const original = post.music_items?.[0]?.sourceUrl || null;
           await Linking.openURL(await resolveTrackLink('spotify', post.song_title, post.artist_name, post.apple_music_id,
@@ -2994,7 +3001,7 @@ export default function NowScreen() {
                         <Pressable accessibilityRole="button" hitSlop={8}
                           accessibilityLabel={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Loading song preview' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Stop song preview' : 'Preview song'}
                           disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
-                          onPress={() => toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
+                          onPress={() => toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name, kind: post.music_items?.[0]?.kind === 'album' ? 'album' : 'song' })}
                           style={styles.playCircle}>
                           <Text style={styles.play}>{previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '❚❚' : '▶'}</Text>
                         </Pressable>
