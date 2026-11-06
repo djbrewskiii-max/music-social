@@ -30,6 +30,7 @@ import {
 
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
+import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
@@ -270,6 +271,7 @@ export default function NowScreen() {
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
+  const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [feedError, setFeedError] = useState<string | null>(null);
 
   const [
@@ -2932,48 +2934,65 @@ export default function NowScreen() {
                         <Text style={styles.collectionHeading}>
                           COLLECTION · {post.music_items.length} TRACKS
                         </Text>
-                        {post.music_items.map((track, index) => (
-                          <Pressable
-                            key={`${post.id}-collection-${index}`}
-                            style={[styles.collectionTrack, index > 0 && styles.collectionTrackDivider]}
-                            onPress={() => openCollectionTrack(track)}
-                          >
-                            {track.artworkUrl ? (
-                              <Image source={{ uri: track.artworkUrl }} style={styles.collectionArtwork} />
-                            ) : (
-                              <View style={[styles.collectionArtwork, styles.collectionArtworkEmpty]}>
-                                <Text style={styles.musicNote}>♪</Text>
-                              </View>
-                            )}
-                            <View style={styles.collectionTrackInfo}>
-                              <Text style={styles.collectionSong} numberOfLines={1}>{track.song}</Text>
-                              <Text style={styles.collectionArtist} numberOfLines={1}>{track.artist}</Text>
+                        {post.music_items.map((track, index) => {
+                          const key = previewKey(track);
+                          const playing = previewActiveKey === key;
+                          const loading = previewLoadingKey === key;
+                          return (
+                            <View key={`${post.id}-collection-${index}`}
+                              style={[styles.collectionTrack, index > 0 && styles.collectionTrackDivider]}>
+                              <Pressable accessibilityRole="button" accessibilityLabel={`Open ${track.song} in your music service`}
+                                onPress={() => openCollectionTrack(track)}
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                {track.artworkUrl ? (
+                                  <Image source={{ uri: track.artworkUrl }} style={styles.collectionArtwork} />
+                                ) : (
+                                  <View style={[styles.collectionArtwork, styles.collectionArtworkEmpty]}>
+                                    <Text style={styles.musicNote}>♪</Text>
+                                  </View>
+                                )}
+                                <View style={styles.collectionTrackInfo}>
+                                  <Text style={styles.collectionSong} numberOfLines={1}>{track.song}</Text>
+                                  <Text style={styles.collectionArtist} numberOfLines={1}>{track.artist}</Text>
+                                </View>
+                              </Pressable>
+                              <Pressable accessibilityRole="button" hitSlop={6}
+                                accessibilityLabel={loading ? `Loading preview for ${track.song}` : playing ? `Stop preview for ${track.song}` : `Preview ${track.song}`}
+                                disabled={loading}
+                                onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist })}
+                                style={styles.collectionPlayCircle}>
+                                <Text style={styles.collectionPlayIcon}>{loading ? '…' : playing ? '■' : '▶'}</Text>
+                              </Pressable>
                             </View>
-                            <View style={styles.collectionPlayCircle}>
-                              <Text style={styles.collectionPlayIcon}>▶</Text>
-                            </View>
-                          </Pressable>
-                        ))}
+                          );
+                        })}
                       </View>
                     ) : (
-                      <Pressable
-                        style={({ pressed }) => [styles.musicCard, pressed && styles.musicCardPressed]}
-                        onPress={() => openAppleMusic(post)}
-                      >
-                        {post.artwork_url ? (
-                          <Image source={{ uri: post.artwork_url }} style={styles.artwork} />
-                        ) : (
-                          <View style={styles.artworkPlaceholder}>
-                            <Text style={styles.musicNote}>♪</Text>
+                      <View style={styles.musicCard}>
+                        <Pressable accessibilityRole="button" accessibilityLabel={`Open ${post.song_title} in your music service`}
+                          style={({ pressed }) => [{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, pressed && styles.musicCardPressed]}
+                          onPress={() => openAppleMusic(post)}>
+                          {post.artwork_url ? (
+                            <Image source={{ uri: post.artwork_url }} style={styles.artwork} />
+                          ) : (
+                            <View style={styles.artworkPlaceholder}>
+                              <Text style={styles.musicNote}>♪</Text>
+                            </View>
+                          )}
+                          <View style={styles.musicInfo}>
+                            <Text style={styles.song} numberOfLines={1}>{post.song_title}</Text>
+                            <Text style={styles.artist} numberOfLines={1}>{post.artist_name}</Text>
+                            {!!post.album_name && <Text style={styles.album} numberOfLines={1}>{post.album_name}</Text>}
                           </View>
-                        )}
-                        <View style={styles.musicInfo}>
-                          <Text style={styles.song} numberOfLines={1}>{post.song_title}</Text>
-                          <Text style={styles.artist} numberOfLines={1}>{post.artist_name}</Text>
-                          {!!post.album_name && <Text style={styles.album} numberOfLines={1}>{post.album_name}</Text>}
-                        </View>
-                        <View style={styles.playCircle}><Text style={styles.play}>▶</Text></View>
-                      </Pressable>
+                        </Pressable>
+                        <Pressable accessibilityRole="button" hitSlop={8}
+                          accessibilityLabel={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Loading song preview' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Stop song preview' : 'Preview song'}
+                          disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
+                          onPress={() => toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
+                          style={styles.playCircle}>
+                          <Text style={styles.play}>{previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '■' : '▶'}</Text>
+                        </Pressable>
+                      </View>
                     )}
 
                     <View
