@@ -790,7 +790,7 @@ export default function UnifiedRotation({
           style={styles.add}
         >
           <Text style={styles.addText}>
-            EDIT / ADD +
+            EDIT / ADD +{newSuggestionCount > 0 ? ' · ' + newSuggestionCount + ' NEW' : ''}
           </Text>
         </Pressable>
       )}
