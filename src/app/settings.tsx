@@ -91,11 +91,8 @@ export default function SettingsScreen() {
           <SettingRow icon="music.note.list" label="Spotify public showcase"
             detail="Feature your Spotify profile and chosen public playlists"
             onPress={() => router.push('/spotify-showcase')} />
-          <SettingRow icon="magnifyingglass" label="Explore a public Spotify playlist"
-            detail="Try the Spotify player and an OVRLEE music match"
-            onPress={() => router.push('/spotify-explore')} />
-          <SettingRow icon="music.note.list" label="Connect my Spotify playlists"
-            detail="Read full playlists and suggest songs without files"
+          <SettingRow icon="music.note.list" label="Read my public Spotify playlists"
+            detail="Use a profile link to suggest songs for In Rotation"
             onPress={() => router.push('/spotify-library')} />
 
         </View>
