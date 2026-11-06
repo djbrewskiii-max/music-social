@@ -125,6 +125,7 @@ export default function UnifiedRotation({
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingReplacement, setPendingReplacement] = useState<Track | null>(null);
   const [query, setQuery] = useState('');
   const [catalog, setCatalog] = useState<Track[]>([]);
   const [searching, setSearching] = useState(false);
@@ -301,7 +302,7 @@ export default function UnifiedRotation({
       if (active) setActivityTracks(unique);
       // Resolve only the initially visible suggestions; bounded batches prevent
       // dozens of unnecessary catalog lookups on every editor opening.
-      const first = unique.slice(0, 15).filter(t => !t.artworkUrl);
+      const first = unique.slice(0, 50).filter(t => !t.artworkUrl);
       for (let offset = 0; offset < first.length && active; offset += 4) {
         const batch = first.slice(offset, offset + 4);
         const enriched = await Promise.all(batch.map(async t => ({
@@ -428,7 +429,7 @@ export default function UnifiedRotation({
               x => trackKey(x) === trackKey(t)
             )
         )
-        .slice(0, 15)
+        .slice(0, 50)
         .map(t => ({
           ...t,
           source: 'activity' as const,
@@ -494,6 +495,7 @@ export default function UnifiedRotation({
   ]);
 
   const clearEditor = () => {
+    setPendingReplacement(null);
     setEditing(false);
     setEditingId(null);
     setQuery('');
@@ -503,6 +505,7 @@ export default function UnifiedRotation({
   };
 
   const edit = (pin?: Pin) => {
+    setPendingReplacement(null);
     setEditing(true);
     if (owner && accountId && !pin) {
       setNewSuggestionCount(0);
@@ -530,6 +533,28 @@ export default function UnifiedRotation({
     router.setParams({ openRotation: undefined });
   }, [owner, accountId, params.openRotation]);
 
+  const resolveArtwork = async (track: Track): Promise<Track> => {
+    if (track.artworkUrl) return track;
+    const url = await matchCatalogArtwork(track);
+    return url ? {...track, artworkUrl: url} : track;
+  };
+
+  const replaceFullPin = async (pin: Pin, incoming: Track) => {
+    if (!accountId || saving) return;
+    setSaving(true);
+    try {
+      const track = await resolveArtwork(incoming);
+      const {error} = await supabase.from('profile_rotation_pins')
+        .update({song: track.song, artist: track.artist, artwork_url: track.artworkUrl ?? null})
+        .eq('id', pin.id).eq('user_id', accountId);
+      if (error) throw error;
+      clearEditor();
+      await reload();
+    } catch (e: any) {
+      Alert.alert('Could not replace song', e?.message || 'Try again.');
+    } finally { setSaving(false); }
+  };
+
   const chooseTrack = (track: Track) => {
     if (editingId) {
       setSelected(track);
@@ -550,10 +575,8 @@ export default function UnifiedRotation({
     }
 
     if (pins.length + queue.length >= 5) {
-      Alert.alert(
-        'Five songs maximum',
-        'Save your picks or remove a pinned song to make room.'
-      );
+      if (pins.length === 5 && queue.length === 0) { setPendingReplacement(track); return; }
+      Alert.alert('Five songs maximum', 'Save your selected songs before choosing a replacement.');
       return;
     }
 
@@ -571,11 +594,12 @@ export default function UnifiedRotation({
 
     try {
       if (editingId && selected) {
+        const finalSelection = await resolveArtwork(selected);
         if (
           pins.some(
             p =>
               p.id !== editingId &&
-              trackKey(p) === trackKey(selected)
+              trackKey(p) === trackKey(finalSelection)
           )
         ) {
           Alert.alert(
@@ -588,9 +612,9 @@ export default function UnifiedRotation({
         const { error } = await supabase
           .from('profile_rotation_pins')
           .update({
-            song: selected.song,
-            artist: selected.artist,
-            artwork_url: selected.artworkUrl ?? null,
+            song: finalSelection.song,
+            artist: finalSelection.artist,
+            artwork_url: finalSelection.artworkUrl ?? null,
           })
           .eq('id', editingId)
           .eq('user_id', accountId);
@@ -610,7 +634,8 @@ export default function UnifiedRotation({
           );
         }
 
-        const rows = unique.map((t, i) => ({
+        const withArt = await Promise.all(unique.map(resolveArtwork));
+        const rows = withArt.map((t, i) => ({
           user_id: accountId,
           song: t.song,
           artist: t.artist,
@@ -754,7 +779,7 @@ export default function UnifiedRotation({
         </Text>
       </View>
 
-      <Text style={styles.plus}>+</Text>
+      <Text style={styles.plus}>{pins.length === 5 && !editingId ? 'SWAP' : '+'}</Text>
     </Pressable>
   );
 
@@ -912,7 +937,28 @@ export default function UnifiedRotation({
             </Pressable>
           </View>
 
-          {editingId && selected ? (
+          {pendingReplacement ? (
+            <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 16 }}>
+              <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 6 }}>Replace a song</Text>
+              <Text style={{ color: '#aaa', fontSize: 13, lineHeight: 20, marginBottom: 18 }}>
+                Choose which pinned song to replace with {pendingReplacement.song} by {pendingReplacement.artist}.
+              </Text>
+              {pins.map(pin => (
+                <Pressable key={pin.id} accessibilityRole="button" disabled={saving}
+                  onPress={() => void replaceFullPin(pin, pendingReplacement)}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#2d2d2d', gap: 12 }}>
+                  {pin.artwork_url ? <Image source={{ uri: pin.artwork_url }} style={styles.smallArt} /> : <View style={styles.smallArt} />}
+                  <View style={{ flex: 1 }}><Text style={styles.song} numberOfLines={1}>{pin.song}</Text>
+                    <Text style={styles.artist} numberOfLines={1}>{pin.artist}</Text></View>
+                  <Text style={{ color: GREEN, fontSize: 12, fontWeight: '900' }}>REPLACE →</Text>
+                </Pressable>
+              ))}
+              {saving && <ActivityIndicator color={GREEN} style={{ marginTop: 18 }} />}
+              <Pressable onPress={() => setPendingReplacement(null)} disabled={saving} style={{ paddingVertical: 19 }}>
+                <Text style={{ color: '#aaa', textAlign: 'center', fontWeight: '700' }}>BACK TO SUGGESTIONS</Text>
+              </Pressable>
+            </View>
+          ) : editingId && selected ? (
             <View style={styles.selectionCard}>
               {selected.artworkUrl ? (
                 <Image
@@ -954,7 +1000,7 @@ export default function UnifiedRotation({
                 <View style={styles.queueBox}>
                   <Text style={styles.queueTitle}>
                     {pins.length + queue.length}/5 PINNED ·
-                    SELECT UP TO {5 - pins.length} SONGS
+                    {pins.length === 5 ? 'TAP A SONG TO SWAP' : `SELECT UP TO ${5 - pins.length} SONGS`}
                   </Text>
 
                   <View style={styles.queueChips}>
@@ -1005,7 +1051,10 @@ export default function UnifiedRotation({
                     const distinct = matches
                       .filter(item => item.source === 'activity' && !pinned.has(trackKey(item)))
                       .slice(0, Math.max(0, 5 - pins.length));
-                    setQueue(distinct);
+                    if (pins.length === 5) {
+                      const first = matches.find(item => item.source === 'activity' && !pinned.has(trackKey(item)));
+                      if (first) setPendingReplacement(first);
+                    } else setQueue(distinct);
                   }}
                   style={{ borderRadius: 12, borderWidth: 1, borderColor: '#294B30',
                     backgroundColor: '#122117', padding: 15, marginBottom: 13 }}>
@@ -1087,7 +1136,7 @@ export default function UnifiedRotation({
             </>
           )}
 
-          <View style={styles.footer}>
+          {!pendingReplacement && <View style={styles.footer}>
             <Pressable
               onPress={clearEditor}
               disabled={saving}
@@ -1125,7 +1174,7 @@ export default function UnifiedRotation({
                       }`}
               </Text>
             </Pressable>
-          </View>
+          </View>}
         </KeyboardAvoidingView>
       </Modal>
     </View>
