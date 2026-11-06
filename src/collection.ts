@@ -15,7 +15,7 @@ export type Template = 'liner' | 'wall' | 'moodboard' | 'tracklist';
 export const TEMPLATES: { key: Template; name: string; blurb: string; minPhotos: number; maxSongs: number }[] = [
   { key: 'liner', name: 'Liner Notes', blurb: 'A cover, then one slide per song with your note.', minPhotos: 0, maxSongs: 10 },
   { key: 'wall', name: 'Album Wall', blurb: 'Your photo surrounded by the covers that define you.', minPhotos: 1, maxSongs: 9 },
-  { key: 'moodboard', name: 'Moodboard', blurb: 'A grid of your photos with a bold title, then the songs.', minPhotos: 3, maxSongs: 7 },
+  { key: 'moodboard', name: 'Moodboard', blurb: 'An editorial collage that adapts to 1–5 photos and their shapes.', minPhotos: 1, maxSongs: 9 },
   { key: 'tracklist', name: 'Tracklist', blurb: 'Clean and typographic. A cover and the full list.', minPhotos: 0, maxSongs: 10 },
 ];
 
