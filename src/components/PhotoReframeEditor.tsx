@@ -1,5 +1,5 @@
-import { Image as ExpoImage } from 'expo-image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import PhotoFrame from './PhotoFrame';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, PanResponder, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import type { PhotoFocus } from '../collection';
 
@@ -21,6 +21,10 @@ export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Pr
   const [focus, setFocus] = useState<PhotoFocus>({ x: 50, y: 50, zoom: 1 });
   const focusRef = useRef(focus);
   const start = useRef({ x: 50, y: 50 });
+  const geometryRef = useRef({ overflowX: 0, overflowY: 0 });
+  const measure = useCallback((next: { width: number; height: number; overflowX: number; overflowY: number }) => {
+    geometryRef.current = next;
+  }, []);
   const update = (value: PhotoFocus) => {
     focusRef.current = value;
     setFocus(value);
@@ -43,8 +47,8 @@ export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Pr
     onPanResponderMove: (_, gesture) => {
       update({
         ...focusRef.current,
-        x: clamp(start.current.x - gesture.dx / 2.4, 0, 100),
-        y: clamp(start.current.y - gesture.dy / 2.4, 0, 100),
+        x: clamp(start.current.x - (geometryRef.current.overflowX > 0 ? gesture.dx * 100 / geometryRef.current.overflowX : 0), 0, 100),
+        y: clamp(start.current.y - (geometryRef.current.overflowY > 0 ? gesture.dy * 100 / geometryRef.current.overflowY : 0), 0, 100),
       });
     },
   }), []);
@@ -57,11 +61,10 @@ export default function PhotoReframeEditor({ uri, initial, onClose, onSave }: Pr
           <Text style={styles.title}>Frame your photo</Text>
           <Pressable onPress={() => onSave(focusRef.current)}><Text style={styles.done}>Done</Text></Pressable>
         </View>
-        <Text style={styles.hint}>Drag the picture to choose what stays in frame. Use − / + to zoom.</Text>
+        <Text style={styles.hint}>Drag left/right or up/down to choose what stays visible. Zoom in for more positioning room.</Text>
         <View style={styles.previewArea}>
           <View style={styles.frame} {...responder.panHandlers}>
-            {!!uri && <ExpoImage source={{ uri }} style={[StyleSheet.absoluteFill, { transform: [{ scale: focus.zoom || 1 }] }]}
-              contentFit="cover" contentPosition={{ left: `${focus.x}%`, top: `${focus.y}%` }} />}
+            {!!uri && <PhotoFrame uri={uri} focus={focus} onMeasure={measure} />}
             <View pointerEvents="none" style={styles.guide}>
               <View style={styles.crossH} /><View style={styles.crossV} />
             </View>
