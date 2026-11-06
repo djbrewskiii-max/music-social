@@ -29,6 +29,7 @@ export type CollectionItem = {
   bg: string; // background color pulled from the album art
   ink: string; // readable text color on that background
   note: string;
+  sourceUrl?: string | null;
 };
 
 export type CollectionMeta = {
@@ -171,7 +172,7 @@ export async function publishCollection(input: {
       album_name: first.album || null,
       artwork_url: first.artworkUrl || null,
       apple_music_id: first.id || null,
-      music_items: input.items.map((i) => ({ kind: i.kind || 'song', id: i.id, song: i.song, artist: i.artist, album: i.album, artworkUrl: i.artworkUrl })),
+      music_items: input.items.map((i) => ({ kind: i.kind || 'song', id: i.id, song: i.song, artist: i.artist, album: i.album, artworkUrl: i.artworkUrl, sourceUrl: i.sourceUrl || null })),
       photo_url: photoUrls[0] || null,
       photo_urls: photoUrls,
       collection: meta,
@@ -197,6 +198,7 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
       bg: colors.bg,
       ink: colors.ink,
       note: meta?.notes?.[m.id] || '',
+      sourceUrl: typeof m.sourceUrl === 'string' ? m.sourceUrl : null,
     };
   });
 }
