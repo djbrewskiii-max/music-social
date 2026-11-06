@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   hint: { color: '#bbb', textAlign: 'center', lineHeight: 20, marginTop: 22, fontSize: 13 },
   previewArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   frame: { width: '100%', height: 390, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#555', backgroundColor: '#191919' },
-  guide: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  guide: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   crossH: { position: 'absolute', left: 0, right: 0, top: '50%', height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
   crossV: { position: 'absolute', top: 0, bottom: 0, left: '50%', width: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
   controls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, marginBottom: 16 },
