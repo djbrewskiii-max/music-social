@@ -18,6 +18,7 @@ import {
 
 import { supabase } from '../supabase';
 import { OVERLY_TRAITS, normalizeOverlyTrait } from '../overly-traits';
+import { CITY_LOCATIONS, cityLabel, resolveCity } from '../city-locations';
 
 type Profile = {
   display_name: string | null;
@@ -48,6 +49,8 @@ export default function EditProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [choosingCity, setChoosingCity] = useState(false);
   const [bio, setBio] = useState('');
   const [overlyTrait, setOverlyTrait] = useState<string | null>(null);
 
@@ -1087,18 +1090,14 @@ export default function EditProfileScreen() {
                 CITY
               </Text>
 
-              <TextInput
-                value={city}
-                onChangeText={
-                  setCity
-                }
-                placeholder="City"
-                placeholderTextColor="#444444"
-                style={
-                  styles.input
-                }
-                maxLength={60}
-              />
+              <Pressable onPress={() => { setCityQuery(city); setChoosingCity(true); }}
+                accessibilityRole="button" accessibilityLabel="Choose a city from the OVRLEE directory"
+                style={[styles.input, { justifyContent: 'center' }]}>
+                <Text style={{ color: city ? '#ffffff' : '#777', fontSize: 16 }}>{city || 'Select your city'}</Text>
+              </Pressable>
+              <Text style={{ color: '#888', fontSize: 12, lineHeight: 18, marginTop: 8 }}>
+                Your selected city helps OVRLEE find people in the surrounding area. No GPS required.
+              </Text>
             </View>
           </View>
 
@@ -1169,6 +1168,33 @@ export default function EditProfileScreen() {
               </View>
             </View>
           </View>
+
+          <Modal visible={choosingCity} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setChoosingCity(false)}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#080808', padding: 22 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <Text style={{ color: '#fff', fontSize: 23, fontWeight: '900' }}>Choose your city</Text>
+                <Pressable onPress={() => setChoosingCity(false)}><Text style={{ color: NOW_GREEN, fontSize: 16, fontWeight: '700' }}>Done</Text></Pressable>
+              </View>
+              <TextInput value={cityQuery} onChangeText={setCityQuery}
+                autoCorrect={false} placeholder="Search cities or state..." placeholderTextColor="#888"
+                style={{ backgroundColor: '#181818', borderColor: '#333', borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', marginBottom: 15 }} />
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {CITY_LOCATIONS.filter(c => !cityQuery.trim() ||
+                  [c.name, c.state, cityLabel(c), ...(c.aliases || [])].some(t => t.toLowerCase().includes(cityQuery.trim().toLowerCase())))
+                  .slice(0, 70).map(c => <Pressable key={cityLabel(c)}
+                    accessibilityRole="button" accessibilityLabel={`Select ${cityLabel(c)}`}
+                    onPress={() => { setCity(cityLabel(c)); setChoosingCity(false); }}
+                    style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#272727', flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{cityLabel(c)}</Text>
+                    {resolveCity(city)?.name === c.name && <Text style={{ color: NOW_GREEN }}>✓</Text>}
+                  </Pressable>)}
+                {!CITY_LOCATIONS.some(c => [c.name, c.state, cityLabel(c), ...(c.aliases || [])].some(t => t.toLowerCase().includes(cityQuery.trim().toLowerCase()))) &&
+                  <Text style={{ color: '#aaa', fontSize: 14, lineHeight: 22, marginTop: 20 }}>
+                    This city isn't in our initial directory yet. We can expand the list as OVRLEE grows.
+                  </Text>}
+              </ScrollView>
+            </SafeAreaView>
+          </Modal>
 
           <Pressable
             style={({
