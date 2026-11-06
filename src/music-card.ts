@@ -14,6 +14,7 @@ export type MusicCard = {
   artist?: string;
   artworkUrl?: string | null;
   appleId?: string | null;
+  sourceUrl?: string | null; // Original provider link, when shared by a user.
   detail?: string; // e.g. "In both your Core Fours", "Kia Forum · Nov 14"
   autoBody?: boolean; // true when the message has no words of its own
 };
@@ -34,6 +35,7 @@ export function parseCard(value: unknown): MusicCard | null {
       artist: r.artist ? String(r.artist).slice(0, 300) : undefined,
       artworkUrl: typeof r.artworkUrl === 'string' ? r.artworkUrl : null,
       appleId: typeof r.appleId === 'string' ? r.appleId : null,
+      sourceUrl: typeof r.sourceUrl === 'string' ? r.sourceUrl.slice(0, 1500) : null,
       detail: typeof r.detail === 'string' ? r.detail.slice(0, 120) : undefined,
       autoBody: r.autoBody === true,
     };
@@ -48,7 +50,11 @@ export async function openMusicCard(card: MusicCard) {
   const terms = encodeURIComponent([card.title, card.artist].filter(Boolean).join(' '));
   let url: string;
   if (provider === 'spotify') {
-    url = `https://open.spotify.com/search/${terms}`;
+    const original = card.sourceUrl || '';
+    url = /^https:\/\/(open\.spotify\.com|spotify\.link|spotify\.app\.link)\//i.test(original)
+      ? original : `https://open.spotify.com/search/${terms}`;
+  } else if (card.sourceUrl && /^https:\/\/music\.apple\.com\//i.test(card.sourceUrl)) {
+    url = card.sourceUrl;
   } else if (card.appleId && card.kind === 'album') {
     url = `https://music.apple.com/us/album/${encodeURIComponent(card.appleId)}`;
   } else if (card.appleId && card.kind === 'song') {
