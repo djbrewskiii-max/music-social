@@ -1,5 +1,5 @@
 
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -908,6 +908,20 @@ export default function UnifiedRotation({
                     ))}
                   </View>
                 </View>
+              )}
+
+              {!editingId && (
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel="Import songs from a playlist track list"
+                  onPress={() => { clearEditor(); router.push('/playlist-import'); }}
+                  style={{ paddingVertical: 13, marginBottom: 10 }}>
+                  <Text style={{ color: GREEN, fontWeight: '900', fontSize: 12 }}>
+                    + IMPORT SONGS FROM A PLAYLIST →
+                  </Text>
+                  <Text style={{ color: '#999', fontSize: 11, marginTop: 5 }}>
+                    Paste a track list, then come back to pick your rotation.
+                  </Text>
+                </Pressable>
               )}
 
               {!editingId && !query.trim() && matches.some(item => item.source === 'activity') && (
