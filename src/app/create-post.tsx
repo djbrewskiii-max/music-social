@@ -10,9 +10,9 @@ import {
 } from 'react-native';
 import { supabase } from '../supabase';
 import { getMusicProvider, type MusicProvider } from '../music-provider';
-import { resolveSharedMusic } from '../shared-music';
+import { firstUrl, isMusicLink, resolveSharedMusic } from '../shared-music';
 
-type Track = { id: string; song: string; artist: string; artworkUrl: string; album?: string };
+type Track = { id: string; song: string; artist: string; artworkUrl: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string };
 type NativePlayback = {
   currentSong?: { id?: string; title?: string; artistName?: string; albumTitle?: string; artworkUrl?: string };
   isPlaying?: boolean; playbackStatus?: string; playbackRate?: number;
@@ -48,6 +48,8 @@ export default function CreatePostScreen() {
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [linkInput, setLinkInput] = useState('');
+  const [resolvingLink, setResolvingLink] = useState(false);
   
   const developerToken = process.env.EXPO_PUBLIC_APPLE_MUSIC_DEVELOPER_TOKEN || '';
 
@@ -92,26 +94,37 @@ export default function CreatePostScreen() {
     if (!query.trim()) { setResults([]); setSearchError(''); return; }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      if (!developerToken) { setSearchError('Apple Music search is not configured.'); return; }
       setSearching(true); setSearchError('');
       try {
-        const response = await fetch(
-          'https://api.music.apple.com/v1/catalog/us/search?types=songs&limit=25&term=' +
-          encodeURIComponent(query.trim()),
-          { headers: { Authorization: `Bearer ${developerToken}` }, signal: controller.signal }
-        );
-        if (!response.ok) throw new Error(`Search returned ${response.status}`);
-        const json = await response.json();
-        const songs = json?.results?.songs?.data || [];
-        setResults(songs.map((s: any) => ({
-          id: String(s.id),
-          song: String(s.attributes?.name || ''),
-          artist: String(s.attributes?.artistName || ''),
-          album: String(s.attributes?.albumName || ''),
-          artworkUrl: artwork(s.attributes?.artwork?.url),
-        })));
+        if (developerToken) {
+          const response = await fetch(
+            'https://api.music.apple.com/v1/catalog/us/search?types=songs&limit=25&term=' +
+            encodeURIComponent(query.trim()),
+            { headers: { Authorization: `Bearer ${developerToken}` }, signal: controller.signal }
+          );
+          if (!response.ok) throw new Error(`Music catalog returned ${response.status}`);
+          const json = await response.json();
+          const songs = json?.results?.songs?.data || [];
+          setResults(songs.map((song: any) => ({
+            id: String(song.id), song: String(song.attributes?.name || ''),
+            artist: String(song.attributes?.artistName || ''),
+            album: String(song.attributes?.albumName || ''),
+            artworkUrl: artwork(song.attributes?.artwork?.url),
+          })));
+        } else {
+          // Public catalog fallback; Spotify users never need to log into Apple Music.
+          const response = await fetch('https://itunes.apple.com/search?media=music&entity=song&country=us&limit=25&term=' +
+            encodeURIComponent(query.trim()), { signal: controller.signal });
+          if (!response.ok) throw new Error(`Catalog returned ${response.status}`);
+          const json = await response.json();
+          setResults((json?.results || []).filter((row: any) => row.wrapperType === 'track').map((row: any) => ({
+            id: String(row.trackId || ''), song: String(row.trackName || ''),
+            artist: String(row.artistName || ''), album: String(row.collectionName || ''),
+            artworkUrl: String(row.artworkUrl100 || '').replace('100x100bb', '500x500bb'),
+          })));
+        }
       } catch (e: any) {
-        if (e?.name !== 'AbortError') { setSearchError('Could not search Apple Music.'); setResults([]); }
+        if (e?.name !== 'AbortError') { setSearchError('Music search is unavailable. Try again or paste a song link.'); setResults([]); }
       } finally { if (!controller.signal.aborted) setSearching(false); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
@@ -129,6 +142,35 @@ export default function CreatePostScreen() {
     setResults([]);
     setError('');
   };
+  const attachMusicLink = async (raw: string) => {
+    const link = firstUrl(raw) || raw.trim();
+    if (!isMusicLink(link)) {
+      setError('Paste an Apple Music or Spotify song/album link.');
+      return;
+    }
+    if (atLimit) { setError('Remove an item before adding another song.'); return; }
+    setResolvingLink(true);
+    setError('');
+    setSharedNote('Looking up that music…');
+    try {
+      const found = await resolveSharedMusic(link);
+      if (!found || !found.song || !found.artist) throw new Error('Music not found');
+      pick({
+        id: found.id, song: found.song, artist: found.artist,
+        album: found.album, artworkUrl: found.artworkUrl,
+        kind: found.kind, sourceUrl: found.sourceUrl || link,
+      });
+      setLinkInput('');
+      setSharedNote(`Added from ${found.source === 'spotify' ? 'Spotify' : 'Apple Music'} · ${found.kind === 'album' ? 'album' : 'song'}`);
+    } catch (e) {
+      console.log('Music link lookup:', e);
+      setSharedNote('');
+      setError("Couldn't identify this link. Try searching for the song below.");
+    } finally {
+      setResolvingLink(false);
+    }
+  };
+
   // Shared into OVRLEE from Apple Music or Spotify: attach it automatically.
   const { sharedUrl } = useLocalSearchParams<{ sharedUrl?: string }>();
   const [sharedNote, setSharedNote] = useState('');
@@ -144,7 +186,7 @@ export default function CreatePostScreen() {
           setError("Couldn't read that link. Search for the song below instead.");
           return;
         }
-        pick({ id: found.id, song: found.song, artist: found.artist, album: found.album, artworkUrl: found.artworkUrl });
+        pick({ id: found.id, song: found.song, artist: found.artist, album: found.album, artworkUrl: found.artworkUrl, kind: found.kind, sourceUrl: found.sourceUrl || sharedUrl });
         setSharedNote(`Shared from ${found.source === 'spotify' ? 'Spotify' : 'Apple Music'}${found.kind === 'album' ? ' · album' : ''}. Say something about it.`);
       })
       .catch((e) => {
@@ -196,16 +238,18 @@ export default function CreatePostScreen() {
         if (uploadError) throw new Error(`Photo upload: ${uploadError.message}`);
         photoUrls.push(supabase.storage.from('post-photos').getPublicUrl(path).data.publicUrl);
       }
-      const { error: insertError } = await supabase.from('posts').insert({
+      const { data: published, error: insertError } = await supabase.from('posts').insert({
         user_id: user.id, body: body.trim(), song_title: selected.song,
         artist_name: selected.artist, album_name: selected.album || null,
         artwork_url: selected.artworkUrl || null, apple_music_id: selected.id || null,
-        music_items: tracks.map(t => ({ id: t.id, song: t.song, artist: t.artist, album: t.album || '', artworkUrl: t.artworkUrl })),
+        music_items: tracks.map(t => ({ id: t.id, song: t.song, artist: t.artist, album: t.album || '', artworkUrl: t.artworkUrl, kind: t.kind || 'song', sourceUrl: t.sourceUrl || null })),
         photo_url: photoUrls[0] || null,
         photo_urls: photoUrls,
-      });
+      }).select('id').single();
       if (insertError) throw insertError;
-      router.replace('/now');
+      if (!published?.id) throw new Error('Published post was not returned.');
+      // Display the exact new post immediately, even before feed re-ranking.
+      router.replace({ pathname: '/post', params: { postId: published.id } });
     } catch (e: any) { setError(`Couldn't post: ${e?.message || 'Try again.'}`); }
     finally { setPosting(false); }
   };
@@ -227,7 +271,7 @@ export default function CreatePostScreen() {
           <Pressable onPress={() => step === 'music' ? setStep('compose') : router.replace('/now')}>
             <Text style={styles.back}>{step === 'music' ? '‹' : '×'}</Text>
           </Pressable>
-          <Text style={styles.brand}>{step === 'music' ? 'ADD MUSIC' : 'NOW'}<Text style={{ color: green }}>•</Text></Text>
+          <Text style={styles.brand}>{step === 'music' ? 'ADD MUSIC' : 'OVRLEE'}<Text style={{ color: green }}>•</Text></Text>
           {step === 'compose' ?
             <Pressable onPress={publish} disabled={!selected || posting}>
               <Text style={[styles.headerAction, !selected && { color: '#555' }]}>{posting ? 'POSTING' : 'POST'}</Text>
@@ -284,13 +328,25 @@ export default function CreatePostScreen() {
             {!!error && <Text style={styles.error}>{error}</Text>}
             <Pressable style={[styles.publish, (!selected || posting) && styles.disabled]}
               disabled={!selected || posting} onPress={publish}>
-              {posting ? <ActivityIndicator color="#000" /> : <Text style={styles.publishText}>Post to NOW</Text>}
+              {posting ? <ActivityIndicator color="#000" /> : <Text style={styles.publishText}>Post to OVRLEE</Text>}
             </Pressable>
             <Text style={styles.hint}>At least one song is required. Up to 10 combined media items per post. Captions are optional and don't count.</Text>
           </> : <>
             <Text style={styles.heading}>Add music.</Text>
             {musicProvider === 'spotify' && <Text style={styles.muted}>Search NOW's song catalog. Spotify listeners will open songs in Spotify. Spotify account syncing isn't available yet.</Text>}
             <Text style={styles.muted}>{itemCount}/{MAX_ITEMS} · album artwork appears beside each track</Text>
+            <View style={{ borderWidth: 1, borderColor: '#303030', borderRadius: 14, backgroundColor: '#121212', padding: 12, marginTop: 16, marginBottom: 15 }}>
+              <Text style={[styles.eyebrow, { marginTop: 0 }]}>ADD FROM A LINK</Text>
+              <Text style={[styles.muted, { marginTop: 5, marginBottom: 8 }]}>Paste a Spotify or Apple Music link. No account connection required.</Text>
+              <TextInput value={linkInput} onChangeText={setLinkInput} autoCapitalize="none" autoCorrect={false}
+                keyboardType="url" placeholder="Paste a song or album link" placeholderTextColor="#777"
+                style={styles.search} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Attach music from link" onPress={() => void attachMusicLink(linkInput)}
+                disabled={resolvingLink || !linkInput.trim() || atLimit}
+                style={{ backgroundColor: green, padding: 12, borderRadius: 10, marginTop: 8, opacity: resolvingLink || !linkInput.trim() || atLimit ? 0.4 : 1 }}>
+                {resolvingLink ? <ActivityIndicator color="#050505" /> : <Text style={{ textAlign: 'center', color: '#050505', fontWeight: '900' }}>ADD MUSIC</Text>}
+              </Pressable>
+            </View>
             <TextInput value={query} onChangeText={setQuery} autoCapitalize="none"
               placeholder="Search songs or artists..." placeholderTextColor="#777" style={styles.search} />
             {query.trim() ? <>
