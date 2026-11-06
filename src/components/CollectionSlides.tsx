@@ -105,7 +105,7 @@ function buildBase(template: Template, input: BuildInput, editing: boolean): Sli
     }
     case 'moodboard': {
       // The editor always shows five spots; posts use the layout for the photos you added.
-      const slots = editing ? Math.min(5, Math.max(1, photos.length + 1)) : Math.max(1, Math.min(5, photos.length));
+      const slots = Math.max(1, Math.min(5, photos.length)); // editor exactly previews the published layout
       return [{ kind: 'moodboard', title: t, caption, photos: photos.slice(0, 5), tint, slots, focus: input.photoFocus, aspects: input.photoAspects }, ...songs];
     }
     case 'tracklist':
