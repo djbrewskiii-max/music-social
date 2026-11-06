@@ -19,8 +19,7 @@ import {
 
 import { supabase } from '../supabase';
 import { OVERLY_TRAITS, normalizeOverlyTrait } from '../overly-traits';
-import { CITY_LOCATIONS, cityLabel, resolveCity } from '../city-locations';
-import { searchWorldwideCities, type WorldCity } from '../world-cities';
+import WorldCityPicker from '../components/WorldCityPicker';
 
 type Profile = {
   display_name: string | null;
@@ -56,28 +55,8 @@ export default function EditProfileScreen() {
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
   const [nearbyVisible, setNearbyVisible] = useState(false);
-  const [cityQuery, setCityQuery] = useState('');
-  const [cityResults, setCityResults] = useState<WorldCity[]>([]);
-  const [citySearching, setCitySearching] = useState(false);
   const [cityCoordinates, setCityCoordinates] = useState<{lat:number;lon:number;countryCode:string}|null>(null);
   const [choosingCity, setChoosingCity] = useState(false);
-  useEffect(() => {
-    if (!choosingCity) return;
-    if (cityQuery.trim().length < 2) {
-      setCityResults([]);
-      setCitySearching(false);
-      return;
-    }
-    const controller = new AbortController();
-    setCitySearching(true);
-    const timeout = setTimeout(() => {
-      searchWorldwideCities(cityQuery, controller.signal)
-        .then(results => { if (!controller.signal.aborted) setCityResults(results); })
-        .catch(error => { if (!controller.signal.aborted) console.log('City search:', error); })
-        .finally(() => { if (!controller.signal.aborted) setCitySearching(false); });
-    }, 350);
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [choosingCity, cityQuery]);
 
   const [bio, setBio] = useState('');
   const [overlyTrait, setOverlyTrait] = useState<string | null>(null);
@@ -1124,7 +1103,7 @@ export default function EditProfileScreen() {
                 CITY
               </Text>
 
-              <Pressable onPress={() => { setCityQuery(city); setChoosingCity(true); }}
+              <Pressable onPress={() => setChoosingCity(true)}
                 accessibilityRole="button" accessibilityLabel="Choose a city from the OVRLEE directory"
                 style={[styles.input, { justifyContent: 'center' }]}>
                 <Text style={{ color: city ? '#ffffff' : '#777', fontSize: 16 }}>{city || 'Select your city'}</Text>
@@ -1218,48 +1197,11 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          <Modal visible={choosingCity} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setChoosingCity(false)}>
-            <SafeAreaView style={{ flex: 1, backgroundColor: '#080808', padding: 22 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <Text style={{ color: '#fff', fontSize: 23, fontWeight: '900' }}>Choose your city</Text>
-                <Pressable onPress={() => setChoosingCity(false)}><Text style={{ color: NOW_GREEN, fontSize: 16, fontWeight: '700' }}>Done</Text></Pressable>
-              </View>
-              <TextInput value={cityQuery} onChangeText={setCityQuery}
-                autoCorrect={false} placeholder="Search cities or state..." placeholderTextColor="#888"
-                style={{ backgroundColor: '#181818', borderColor: '#333', borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', marginBottom: 15 }} />
-              <Text style={{ color: '#999', fontSize: 11, marginBottom: 12 }}>
-                Search cities worldwide · choose the right region and country
-              </Text>
-              {citySearching && <ActivityIndicator color={NOW_GREEN} style={{ marginBottom: 10 }} />}
-
-              <ScrollView keyboardShouldPersistTaps="handled">
-                {(cityQuery.trim().length >= 2 ? cityResults : CITY_LOCATIONS.slice(0, 35).map(c => ({
-                  id: `curated:${cityLabel(c)}`, label: cityLabel(c) + ', United States',
-                  lat: c.lat, lon: c.lon, countryCode: 'US', country: 'United States', source: 'curated' as const,
-                }))).map(candidate => (
-                  <Pressable key={candidate.id} accessibilityRole="button"
-                    accessibilityLabel={`Select ${candidate.label}`}
-                    onPress={() => {
-                      setCity(candidate.label);
-                      setCityCoordinates({ lat: candidate.lat, lon: candidate.lon, countryCode: candidate.countryCode });
-                      setChoosingCity(false);
-                    }}
-                    style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#272727',
-                      flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', flex: 1 }}>{candidate.label}</Text>
-                    {city === candidate.label && <Text style={{ color: NOW_GREEN }}>✓</Text>}
-                  </Pressable>
-                ))}
-                {!citySearching && cityQuery.trim().length >= 2 && !cityResults.length &&
-                  <Text style={{ color: '#aaa', fontSize: 14, lineHeight: 22, marginTop: 20 }}>
-                    No matching cities found. Try the city name or country in English.
-                  </Text>}
-                <Text style={{ color: '#777', fontSize: 10, marginTop: 18 }}>
-                  Location search data: Open-Meteo.com / GeoNames. Select a city, never a precise address.
-                </Text>
-              </ScrollView>
-            </SafeAreaView>
-          </Modal>
+          <WorldCityPicker visible={choosingCity} onClose={() => setChoosingCity(false)}
+            onPick={selected => {
+              setCity(selected.label);
+              setCityCoordinates({lat:selected.lat,lon:selected.lon,countryCode:selected.countryCode});
+            }} />
 
           <Pressable
             style={({
