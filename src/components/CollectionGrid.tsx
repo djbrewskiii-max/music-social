@@ -31,7 +31,7 @@ export default function CollectionGrid({ posts, username, emptyText }: { posts: 
         const meta = post.collection!;
         const photos = (Array.isArray(post.photo_urls) && post.photo_urls.length ? post.photo_urls : post.photo_url ? [post.photo_url] : []).filter(Boolean) as string[];
         const items = itemsFromPost({ music_items: post.music_items || [], collection: meta });
-        const first = buildSlides(meta.template, { title: meta.title, caption: post.body || '', items, photos, coverArtId: meta.coverArtId })[0];
+        const first = buildSlides(meta.template, { title: meta.title, caption: post.body || '', items, photos, coverArtId: meta.coverArtId, photoFocus: meta.photoFocus })[0];
         return (
           <Pressable key={post.id} onPress={() => router.push({ pathname: '/post', params: { postId: post.id } })} style={{ width }}>
             <View style={styles.thumb}>
