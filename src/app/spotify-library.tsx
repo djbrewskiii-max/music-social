@@ -33,8 +33,8 @@ export default function SpotifyPublicLibrary() {
  const [consent,setConsent]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
  const [accountId,setAccountId]=useState<string|null>(null);
- const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase();
- const manualArtists=useMemo(()=>[...new Set(artistText.split(/[,\\n]/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<=120))].slice(0,50),[artistText]);
+ const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+ const manualArtists=useMemo(()=>[...new Set(artistText.split(/[,\n]/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<=120))].slice(0,50),[artistText]);
  const selectedArtists=useMemo(()=>{
    const candidates=[...(scan?.recentlyPlayedArtists.map(a=>a.name)||[]),...manualArtists];
    return [...new Map(candidates.map(a=>[normalizeArtist(a),a])).entries()].filter(([key])=>artistChecked.includes(key)).map(([,name])=>name);
@@ -251,7 +251,7 @@ export default function SpotifyPublicLibrary() {
     <TextInput multiline numberOfLines={3} value={artistText}
       onChangeText={value=>{
         setArtistText(value);
-        const names=[...new Set(value.split(/[,\\n]/).map(s=>s.trim()).filter(Boolean))].slice(0,50);
+        const names=[...new Set(value.split(/[,\n]/).map(s=>s.trim()).filter(Boolean))].slice(0,50);
         setArtistChecked(prev=>[...new Set([...prev,...names.map(normalizeArtist)])]);
       }}
       autoCapitalize="words" placeholder="Add artists you see in Spotify, one per line"
