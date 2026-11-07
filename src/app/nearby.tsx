@@ -104,8 +104,10 @@ export default function NearbyScreen() {
       const chosenTracks=(selectedTrackResult.data||[]).map(row=>({artist:row.artist}));
       const ownDnaArtists=((myDnaResult.data?.top_artists||[]) as {name:string}[]).map(row=>row.name);
       const favoriteSeeds=(myTasteResult.data||[]).filter(row=>row.source==='favorite').map(row=>row.artist_name);
-      const playlistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist').map(row=>({artist:row.artist_name}));
-      const seeds=musicSuggestionSeeds([...favoriteSeeds,...chosenArtists],[...playlistSeeds,...chosenTracks],ownDnaArtists);
+      const strongPlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=4).map(row=>row.artist_name);
+      const moderatePlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=2&&row.song_count<4).map(row=>row.artist_name);
+      const weakPlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count<2).map(row=>({artist:row.artist_name}));
+      const seeds=musicSuggestionSeeds([...moderatePlaylistSeeds,...chosenArtists],[...weakPlaylistSeeds,...chosenTracks],[...favoriteSeeds,...strongPlaylistSeeds,...ownDnaArtists]);
       setForYouPosts(selectSuggestedPosts(posts,seeds,6));
       const following = new Set((followResult.data || []).map(row => row.following_id));
       const myArtists = new Set(((myDnaResult.data?.top_artists || []) as { name: string }[]).map(a => norm(a.name)));
