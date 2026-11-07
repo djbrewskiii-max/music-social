@@ -35,6 +35,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Check collector and identity client syntax
+        run: |
+          node --check tools/weekly-music-due-check.mjs
+          node --check tools/weekly-music-identity.mjs
+          node --check tools/spotify-weekly-refresh.mjs
       - name: Check which members are due through GitHub identity
         id: due
         run: node tools/weekly-music-due-check.mjs
