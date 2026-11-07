@@ -6,6 +6,7 @@ import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { isInNearbyArea, resolveCity } from '../city-locations';
 import { distanceMiles } from '../world-cities';
+import { musicSuggestionSeeds, selectSuggestedPosts, type SuggestedPost } from '../music-suggestion-signals';
 
 type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null; city_lat: number | null; city_lon: number | null; nearby_visible: boolean };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
@@ -23,6 +24,7 @@ export default function NearbyScreen() {
   const [songTrends, setSongTrends] = useState<SongTrend[]>([]);
   const [recentPosts, setRecentPosts] = useState<Post[]>([]);
   const [followingPosts, setFollowingPosts] = useState<Post[]>([]);
+  const [forYouPosts,setForYouPosts] = useState<SuggestedPost<Post>[]>([]);
   const [tab, setTab] = useState<'nearby' | 'following'>('nearby');
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,13 +37,15 @@ export default function NearbyScreen() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) { router.replace('/login'); return; }
       setMyId(user.id);
-      const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult] = await Promise.all([
+      const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult, selectedArtistResult, selectedTrackResult] = await Promise.all([
         supabase.from('profiles').select('city,city_lat,city_lon').eq('user_id', user.id).maybeSingle(),
         supabase.from('profiles').select('user_id,display_name,username,avatar_url,city,city_lat,city_lon,nearby_visible').eq('nearby_visible',true).limit(500),
         supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
         supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
         supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
         supabase.from('music_dna').select('top_artists').eq('user_id', user.id).maybeSingle(),
+        supabase.from('music_import_artists').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
+        supabase.from('music_import_tracks').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
       ]);
       if (mine.error) throw mine.error;
       if (profilesResult.error) throw profilesResult.error;
@@ -59,7 +63,7 @@ export default function NearbyScreen() {
         if (followedResult.error) console.log('Following music posts:', followedResult.error.message);
         setFollowingPosts((followedResult.data || []) as Post[]);
       } else setFollowingPosts([]);
-      if (!myCity) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
+      if (!myCity) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); setForYouPosts([]); return; }
       const excluded = new Set<string>([
         user.id,
         ...(blockResult.data || []).map(row => row.blocked_id),
@@ -78,7 +82,7 @@ export default function NearbyScreen() {
           return isInNearbyArea(p.city || '', myCity, 35);
         });
       const ids = localProfiles.map(p => p.user_id!) as string[];
-      if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); return; }
+      if (!ids.length) { setPeople([]); setTrends([]); setSongTrends([]); setRecentPosts([]); setForYouPosts([]); return; }
 
       // Only public posts exposed under the existing posts RLS policy are used.
       // This is posted music, not inferred real-time playback.
@@ -90,6 +94,14 @@ export default function NearbyScreen() {
       ]);
       if (postsResult.error) throw postsResult.error;
       const posts = (postsResult.data || []) as Post[];
+      // Private reviewed picks can recommend public conversations without
+      // claiming the user has listened to those artists. Never publish these
+      // seeds or add them to public shared-artist compatibility.
+      const chosenArtists=(selectedArtistResult.data||[]).map(row=>row.artist);
+      const chosenTracks=(selectedTrackResult.data||[]).map(row=>({artist:row.artist}));
+      const ownDnaArtists=((myDnaResult.data?.top_artists||[]) as {name:string}[]).map(row=>row.name);
+      const seeds=musicSuggestionSeeds(chosenArtists,chosenTracks,ownDnaArtists);
+      setForYouPosts(selectSuggestedPosts(posts,seeds,6));
       const following = new Set((followResult.data || []).map(row => row.following_id));
       const myArtists = new Set(((myDnaResult.data?.top_artists || []) as { name: string }[]).map(a => norm(a.name)));
       const dnaById = new Map<string, { top_artists: { name: string }[] }>(
@@ -185,6 +197,23 @@ export default function NearbyScreen() {
           </View>
         )}
         {!busy && !error && (!!city || tab === 'following') && <>
+          {tab === 'nearby' && forYouPosts.length>0 && <>
+            <Text style={styles.section}>FOR YOUR EARS</Text>
+            <Text style={styles.helper}>Music conversations you might enjoy, inspired by artists you've picked or connected. These are suggestions, not listening-history claims.</Text>
+            {forYouPosts.map(item=>(
+              <Pressable key={item.post.id} style={styles.post} accessibilityRole="button"
+                accessibilityLabel={'Explore '+item.matchingArtist+' music post'}
+                onPress={()=>router.push({pathname:'/post',params:{postId:item.post.id}})}>
+                {item.post.artwork_url ? <Image source={{uri:item.post.artwork_url}} style={styles.art}/> :
+                  <View style={[styles.art,styles.avatarEmpty]}><Text style={{color:green,fontSize:23}}>♫</Text></View>}
+                <View style={{flex:1}}>
+                  <Text style={styles.trendName} numberOfLines={1}>{item.post.collection?.title || item.post.song_title}</Text>
+                  <Text style={styles.muted} numberOfLines={1}>{item.matchingArtist} · shared by someone nearby</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+          </>}
           {tab === 'nearby' && <>
             <Text style={styles.section}>SHARED AROUND {city.toUpperCase()}</Text>
             <Text style={styles.helper}>Artists in recent posts and collections within about 35 miles.</Text>
