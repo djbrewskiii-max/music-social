@@ -196,8 +196,6 @@ export default function PublicSpotifyArtistsPreview(){
         userAgent={DESKTOP_SAFARI_UA}
         javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
         sharedCookiesEnabled={false} incognito
-        // Include HTTPS origins in the whitelist so the navigation callback,
-        // not iOS, decides whether a new top-level URL may open.
         originWhitelist={['https://*']}
         javaScriptCanOpenWindowsAutomatically={false}
         onOpenWindow={e=>onOpenExternalWindow(e.nativeEvent.targetUrl)}
