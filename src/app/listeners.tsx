@@ -12,6 +12,7 @@ import {
 
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
+import { sharedTasteNames, tasteKey, type TasteEvidence } from '../music-taste-evidence';
 
 type TopArtist = {
   name: string;
@@ -45,6 +46,7 @@ type Listener = Profile & {
   sharedArtists: string[];
   sharedTracks: MusicTrack[];
   overlapCount: number;
+  matchScore: number;
   hasMusicDNA: boolean;
 };
 
@@ -247,6 +249,23 @@ export default function ListenersScreen() {
         throw musicDNAError;
       }
 
+      const [myTaste,othersTaste]=await Promise.all([
+        supabase.from('music_taste_artists')
+          .select('artist_key,artist_name,source,song_count,playlist_count,share_for_matching')
+          .eq('user_id',user.id).limit(400),
+        supabase.from('music_taste_artists')
+          .select('user_id,artist_key,artist_name,source,song_count,playlist_count,share_for_matching')
+          .in('user_id',otherUserIds.slice(0,500))
+          .eq('share_for_matching',true).limit(3000),
+      ]);
+      const ownEvidence=(myTaste.data||[]) as TasteEvidence[];
+      const sharedByUser=new Map<string,TasteEvidence[]>();
+      for(const row of othersTaste.data||[]){
+        const list=sharedByUser.get(row.user_id)||[];
+        list.push(row as TasteEvidence);
+        sharedByUser.set(row.user_id,list);
+      }
+
       const dnaByUser =
         new Map<string, MusicDNA>();
 
@@ -276,12 +295,26 @@ export default function ListenersScreen() {
                 theirDNA
               );
 
+            const weighted=sharedTasteNames(
+              ownEvidence,sharedByUser.get(profile.user_id||'')||[],5
+            );
+            const names=[
+              ...weighted.map(x=>x.name),
+              ...comparison.sharedArtists.filter(name=>
+                !weighted.some(x=>tasteKey(x.name)===tasteKey(name))
+              ),
+            ].slice(0,6);
             return {
               ...profile,
               ...comparison,
+              sharedArtists:names,
+              overlapCount:names.length+comparison.sharedTracks.length,
+              matchScore:weighted.reduce((sum,x)=>sum+x.score,0)+comparison.overlapCount*3,
+              hasMusicDNA:comparison.hasMusicDNA||weighted.length>0,
             } as Listener;
           })
           .sort((a, b) => {
+            if(b.matchScore!==a.matchScore)return b.matchScore-a.matchScore;
             if (
               b.overlapCount !==
               a.overlapCount
