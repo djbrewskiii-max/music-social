@@ -4,7 +4,7 @@
  * Caller must obtain a user-authorized user-read-recently-played token.
  * Never persist tokens or expose these observations on public OVRLEE profiles.
  */
-import { spotifyAPI } from './spotify-owned-playlists';
+import { spotifyAPI } from './spotify-owned-playlists.ts';
 
 export type SpotifyRecentArtist = {
   id: string;
