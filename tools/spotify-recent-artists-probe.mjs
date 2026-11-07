@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+// One-off technical feasibility test only. Not a production collector.
+// Reads the explicitly public, unauthenticated recently-played artist page.
+const url='https://open.spotify.com/user/8712xitaly/recently-played-artists';
+const {chromium}=await import('playwright');
+const browser=await chromium.launch({headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1280,height:900}});
+ const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
+ await page.waitForTimeout(5000);
+ const details=await page.evaluate(()=>{
+  const cards=[...document.querySelectorAll('[data-encore-id="card"]')];
+  const artistLinks=[...document.querySelectorAll('a[href*="/artist/"]')];
+  const titleFor=a=>a.closest('[data-encore-id="card"]')?.querySelector('[data-encore-id="cardTitle"]')?.getAttribute('title')
+      || a.querySelector('[data-encore-id="cardTitle"]')?.getAttribute('title')||a.getAttribute('title')||a.textContent?.trim();
+  const artists=[...new Map(artistLinks.map(a=>[a.getAttribute('href'),titleFor(a)]).filter(([href,title])=>href&&title).map(([href,title])=>[href,{name:title,href}])).values()];
+  return {title:document.title,bodySnippet:document.body?.innerText?.slice(0,650),
+    gridCount:document.querySelectorAll('[data-testid="grid-container"]').length,
+    cardCount:cards.length,artistLinkCount:artistLinks.length,
+    artists:artists.slice(0,20)};
+ });
+ console.log('PUBLIC_ARTIST_PROBE',JSON.stringify({status:response?.status(),url,...details}));
+}finally{await browser.close();}
