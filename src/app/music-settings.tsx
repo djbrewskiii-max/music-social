@@ -1,6 +1,8 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { supabase } from '../supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizePublicProfile } from '../spotify-public-reader';
 import { ActivityIndicator, Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { getMusicProvider, setMusicProvider, type MusicProvider } from '../music-provider';
 export default function MusicSettingsScreen() {
@@ -8,14 +10,25 @@ export default function MusicSettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [sharePlaylistArtists,setSharePlaylistArtists]=useState(false);
   const [privacyBusy,setPrivacyBusy]=useState(false);
+  const [linkedProfileId,setLinkedProfileId]=useState<string|null>(null);
   useFocusEffect(useCallback(()=>{
     let active=true;
     getMusicProvider().then(v=>{if(active)setProvider(v);}).catch(()=>{});
     (async()=>{
       const {data:{user}}=await supabase.auth.getUser();
       if(!user||!active)return;
+      const saved=await AsyncStorage.getItem('ovrlee.spotifyPublicProfile.'+user.id);
+      let spotifyId:string|null=null;
+      if(saved)try{
+        const profile=JSON.parse(saved) as {url?:string;mine?:boolean};
+        if(profile.mine&&profile.url)spotifyId=normalizePublicProfile(profile.url).userId;
+      }catch{}
+      if(!active)return;
+      setLinkedProfileId(spotifyId);
+      if(!spotifyId){setSharePlaylistArtists(false);return;}
       const result=await supabase.from('music_taste_artists')
-        .select('share_for_matching').eq('user_id',user.id).eq('source','playlist').limit(100);
+        .select('share_for_matching').eq('user_id',user.id).eq('source','playlist')
+        .eq('spotify_profile_id',spotifyId).limit(100);
       if(active&&!result.error)setSharePlaylistArtists((result.data||[]).some(row=>row.share_for_matching));
     })().catch(()=>{});
     return()=>{active=false;};
@@ -27,7 +40,7 @@ export default function MusicSettingsScreen() {
     finally { setBusy(false); }
   };
   const togglePlaylistMatching=async()=>{
-    if(privacyBusy)return;
+    if(privacyBusy||!linkedProfileId)return;
     const next=!sharePlaylistArtists;
     setPrivacyBusy(true);
     try{
@@ -35,7 +48,8 @@ export default function MusicSettingsScreen() {
       if(!user)throw new Error('Sign in to change your preferences.');
       const result=await supabase.from('music_taste_artists')
         .update({share_for_matching:next,updated_at:new Date().toISOString()})
-        .eq('user_id',user.id).eq('source','playlist');
+        .eq('user_id',user.id).eq('source','playlist')
+        .eq('spotify_profile_id',linkedProfileId);
       if(result.error)throw result.error;
       setSharePlaylistArtists(next);
     }catch(e){Alert.alert('Could not update music privacy',e instanceof Error?e.message:'Try again.');}
@@ -53,11 +67,11 @@ export default function MusicSettingsScreen() {
     </Pressable>
     <Text style={s.note}>Choose five or more favorite artists and decide what you want to share.</Text>
     <Text style={s.section}>MUSIC PRIVACY</Text>
-    <Pressable accessibilityRole="switch" accessibilityState={{checked:sharePlaylistArtists,disabled:privacyBusy}}
-      onPress={()=>void togglePlaylistMatching()} disabled={privacyBusy} style={s.option}>
+    <Pressable accessibilityRole="switch" accessibilityState={{checked:sharePlaylistArtists,disabled:privacyBusy||!linkedProfileId}}
+      onPress={()=>void togglePlaylistMatching()} disabled={privacyBusy||!linkedProfileId} style={s.option}>
       <View style={{flex:1,paddingRight:12}}>
         <Text style={s.name}>Shared playlist artists</Text>
-        <Text style={s.note}>Allow artists found in your connected public playlists to count toward mutual music matches. This does not publish playlists or songs.</Text>
+        <Text style={s.note}>Count artists from the public profile you chose during setup toward mutual matches. Nothing is published about your individual playlists or songs.</Text>
       </View>
       <Text style={s.check}>{sharePlaylistArtists?'ON':'OFF'}</Text>
     </Pressable>
