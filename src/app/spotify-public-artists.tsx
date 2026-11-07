@@ -289,7 +289,7 @@ export default function PublicSpotifyArtistsPreview(){
           onPress={()=>{
             setArtists([]);setSelected([]);setQuery('');setShowBrowser(true);
             setLoaded(false);setSecurityChallenge(false);setAppHandoff(false);
-            setPopupNote('');setMessage('Open Spotify's public artist page, then bring those artists into OVRLEE.');
+            setPopupNote('');setMessage("Open Spotify's public artist page, then bring those artists into OVRLEE.");
           }}>
           <Text style={s.againText}>SCAN AGAIN</Text>
         </Pressable>
