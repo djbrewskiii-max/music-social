@@ -71,6 +71,9 @@ export default function SpotifyPublicLibrary() {
      // A re-built native client is required for the additional OAuth scope.
      const started=await SpotifyRemote.authorizeForPlaylists();
      if(!started)throw new Error('Spotify authorization is unavailable in this development build. Install the latest iOS development build.');
+     // Authorization completes via the native event after returning to OVRLEE;
+     // don't leave the Connect control spinning indefinitely if consent is cancelled.
+     setConnectingRecent(false);
    }catch(e){
      setRecentError(e instanceof Error?e.message:'Could not open Spotify authorization.');
      setConnectingRecent(false);
