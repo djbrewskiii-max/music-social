@@ -93,6 +93,22 @@ export default function SpotifyPublicLibrary() {
     if(accountId){
       await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
         JSON.stringify({url:result.url,confirmed:true,mine:mySpotifyProfile,share:mySpotifyProfile&&sharePlaylistTaste})).catch(()=>{});
+      if(mySpotifyProfile){
+        // Save the canonical link under the authenticated account. This
+        // registry is not an instruction to scrape Spotify in the background.
+        const linked=await supabase.from('member_music_connections').upsert({
+          user_id:accountId,provider:'spotify',provider_user_id:result.userId,
+          public_profile_url:result.url,self_declared_owner:true,
+          used_for_private_suggestions:true,
+          share_playlist_artists:sharePlaylistTaste,
+          last_user_initiated_scan_at:new Date().toISOString(),
+          updated_at:new Date().toISOString(),
+        },{onConflict:'user_id'});
+        if(linked.error){
+          console.log('Music connection registry:',linked.error.message);
+          setSyncWarning('Music suggestions saved, but your profile connection could not sync.');
+        }
+      }
     }
     // Read account-level history first, then merge any legacy local observations.
     // Only user-initiated scans update the saved observation history.
