@@ -13,8 +13,8 @@ import {
 
 export default function ConnectMusicScreen() {
   const [connecting, setConnecting] = useState(false);
-  // This screen only starts Spotify authorization. The /callback route is the
-  // sole owner of the redirect, native token exchange, and connection result.
+  // The current Spotify entry uses the public-profile reader. Legacy native
+  // OAuth callback support is retained separately until its dependencies are audited.
   const connectSpotify = () => {
     // Public profile reader is user-initiated and does not use Spotify OAuth.
     router.push('/spotify-library');
