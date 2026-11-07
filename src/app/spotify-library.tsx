@@ -305,6 +305,11 @@ export default function SpotifyPublicLibrary() {
         </Pressable>;
       })}
     </>}
+    <Pressable accessibilityRole="button" onPress={()=>setShowManualArtists(value=>!value)}
+      style={s.manualToggle}>
+      <Text style={s.manualText}>{showManualArtists?'− CLOSE MANUAL ENTRY':'+ ADD ARTISTS MANUALLY'}</Text>
+    </Pressable>
+    {showManualArtists&&<>
     <TextInput multiline numberOfLines={3} value={artistText}
       onChangeText={value=>{
         setArtistText(value);
@@ -325,6 +330,7 @@ export default function SpotifyPublicLibrary() {
       onPress={()=>void saveArtists()} style={[s.primary,(artistSaving||!selectedArtists.length)&&{opacity:.5}]}>
       {artistSaving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {selectedArtists.length} ARTISTS TO OVRLEE →</Text>}
     </Pressable>
+    </>}
    </>}
    {chosen&&<>
      <Pressable onPress={()=>setChosen(null)} style={s.backTo}><Text style={s.backToText}>‹ ALL PLAYLISTS</Text></Pressable>
@@ -359,7 +365,7 @@ const s=StyleSheet.create({
  screen:{flex:1,backgroundColor:'#090909'},header:{height:60,borderBottomWidth:1,borderColor:'#242424',flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:20},back:{color:'#fff',fontSize:30},headTitle:{fontSize:11,fontWeight:'900',letterSpacing:1.1,color:'#fff'},
  content:{padding:21,paddingBottom:105},freshSummary:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:18},newText:{color:GREEN,fontSize:10,fontWeight:'900',marginTop:5},eyebrow:{color:GREEN,fontWeight:'900',letterSpacing:1.5,fontSize:11},title:{color:'#fff',fontWeight:'900',fontSize:29,lineHeight:36,marginTop:12},body:{color:'#aaa',fontSize:13,lineHeight:21,marginTop:12},
  section:{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:.8,marginTop:28,marginBottom:14},input:{borderColor:'#343434',borderWidth:1,backgroundColor:'#181818',borderRadius:12,color:'#fff',padding:15,fontSize:14},
- sample:{paddingVertical:12},sampleText:{color:GREEN,fontSize:11,fontWeight:'900'},consentRow:{flexDirection:'row',gap:12,alignItems:'center',paddingVertical:14},consentCopy:{color:'#aaa',fontSize:12,lineHeight:19,flex:1},
+ manualToggle:{borderRadius:12,backgroundColor:'#151E17',paddingVertical:15,paddingHorizontal:16,marginTop:19,borderWidth:1,borderColor:'#2C4632'},manualText:{color:GREEN,fontWeight:'900',fontSize:11,letterSpacing:.6},consentRow:{flexDirection:'row',gap:12,alignItems:'center',paddingVertical:14},consentCopy:{color:'#aaa',fontSize:12,lineHeight:19,flex:1},
  check:{height:25,width:25,borderWidth:1,borderColor:'#555',borderRadius:7,alignItems:'center',justifyContent:'center'},checkActive:{backgroundColor:GREEN,borderColor:GREEN},checkMark:{color:'#000',fontWeight:'900'},
  primary:{backgroundColor:GREEN,borderRadius:12,padding:17,alignItems:'center',marginTop:10},primaryText:{color:'#090909',fontSize:12,fontWeight:'900'},progress:{color:GREEN,fontSize:12,marginTop:18},error:{color:'#ff9898',fontSize:12,lineHeight:20,marginTop:16},
  resultHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},small:{color:'#999',fontSize:11},playlist:{flexDirection:'row',alignItems:'center',gap:12,borderBottomColor:'#242424',borderBottomWidth:1,paddingVertical:13},listIcon:{width:49,height:49,borderRadius:8,backgroundColor:'#16241A',alignItems:'center',justifyContent:'center'},playlistName:{color:'#fff',fontSize:15,fontWeight:'800'},sub:{color:'#999',fontSize:12,marginTop:5},arrow:{color:GREEN,fontSize:24},warning:{color:'#d6b27d',fontSize:12,lineHeight:19,marginTop:12},
