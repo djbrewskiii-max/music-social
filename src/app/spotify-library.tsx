@@ -289,7 +289,7 @@ export default function SpotifyPublicLibrary() {
         if(!consent){Alert.alert('Review permission','Confirm that you understand this is an experimental preview of publicly displayed Spotify music.');return;}
         try{
           const profile=normalizePublicProfile(url);
-          router.push({pathname:'/spotify-public-artists',params:{url:profile.url}});
+          router.push({pathname:'/spotify-public-artists',params:{url:profile.url,...(fromOnboarding?{onboarding:'1'}:{})}});
         }catch(e){Alert.alert('Spotify profile link needed',e instanceof Error?e.message:'Enter a valid profile URL first.');}
       }} style={[s.primary,{marginBottom:12}]}>
       <Text style={s.primaryText}>EXPLORE ARTISTS →</Text>
