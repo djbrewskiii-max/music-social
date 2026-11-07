@@ -13,6 +13,7 @@ export default function MusicSettingsScreen() {
   const [weeklyRefresh,setWeeklyRefresh]=useState(false);
   const [weeklyBusy,setWeeklyBusy]=useState(false);
   const [linkedProfileId,setLinkedProfileId]=useState<string|null>(null);
+  const [connectionLoaded,setConnectionLoaded]=useState(false);
   useFocusEffect(useCallback(()=>{
     let active=true;
     getMusicProvider().then(v=>{if(active)setProvider(v);}).catch(()=>{});
@@ -25,13 +26,15 @@ export default function MusicSettingsScreen() {
         const profile=JSON.parse(saved) as {url?:string;mine?:boolean};
         if(profile.mine&&profile.url)spotifyId=normalizePublicProfile(profile.url).userId;
       }catch{}
-      if(!active)return;
-      setLinkedProfileId(spotifyId);
-      if(!spotifyId){setSharePlaylistArtists(false);setWeeklyRefresh(false);return;}
       const {data:connection}=await supabase.from('member_music_connections')
-        .select('weekly_public_refresh_opt_in').eq('user_id',user.id)
-        .eq('provider_user_id',spotifyId).maybeSingle();
-      if(active)setWeeklyRefresh(connection?.weekly_public_refresh_opt_in===true);
+        .select('provider_user_id,weekly_public_refresh_opt_in')
+        .eq('user_id',user.id).maybeSingle();
+      if(!active)return;
+      spotifyId=connection?.provider_user_id||spotifyId;
+      setLinkedProfileId(spotifyId);
+      setConnectionLoaded(true);
+      if(!spotifyId){setSharePlaylistArtists(false);setWeeklyRefresh(false);return;}
+      setWeeklyRefresh(connection?.weekly_public_refresh_opt_in===true);
       const result=await supabase.from('music_taste_artists')
         .select('share_for_matching').eq('user_id',user.id).eq('source','playlist')
         .eq('spotify_profile_id',spotifyId).limit(100);
@@ -111,6 +114,14 @@ export default function MusicSettingsScreen() {
       <Text style={s.name}>My favorite artists</Text><Text style={s.check}>›</Text>
     </Pressable>
     <Text style={s.note}>Choose five or more favorite artists and decide what you want to share.</Text>
+    {connectionLoaded&&!linkedProfileId&&<Pressable accessibilityRole="button"
+      onPress={()=>router.push({pathname:'/spotify-library',params:{onboarding:'1'}})} style={s.option}>
+      <View style={{flex:1}}>
+        <Text style={s.name}>Finish your music setup</Text>
+        <Text style={s.note}>Connect your own public music profile once so OVRLEE can make more relevant suggestions.</Text>
+      </View>
+      <Text style={s.check}>›</Text>
+    </Pressable>}
     <Text style={s.section}>KEEP YOUR MUSIC CURRENT</Text>
     <Pressable accessibilityRole="switch"
       accessibilityState={{checked:weeklyRefresh,disabled:weeklyBusy||!linkedProfileId}}
