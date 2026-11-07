@@ -837,7 +837,7 @@ export default function UnifiedRotation({
 
       <View style={{alignItems:'flex-end',gap:6}}>
         {freshImportKeys.includes(trackKey(item))&&
-          <Text style={{color:GREEN,fontSize:9,fontWeight:'900'}}>RECENT IMPORT</Text>}
+          <Text style={{color:GREEN,fontSize:9,fontWeight:'900'}}>NEW SUGGESTION</Text>}
         <Text style={[styles.plus,pins.length===5&&!editingId&&{fontSize:12,fontWeight:'900'}]}>
           {pins.length===5&&!editingId?'SWAP':'+'}
         </Text>
@@ -1138,7 +1138,7 @@ export default function UnifiedRotation({
                     ✦ SUGGEST MY ROTATION
                   </Text>
                   <Text style={{ color: '#B5B5B5', fontSize: 11, lineHeight: 17, marginTop: 5 }}>
-                    Fill from songs you've shared, connected or imported into OVRLEE. Review before saving.
+                    Find songs from your music activity and selections. Review before pinning.
                   </Text>
                 </Pressable>
               )}
