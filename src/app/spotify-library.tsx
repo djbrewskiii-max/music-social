@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -16,6 +16,8 @@ import { playlistArtistEvidence } from '../music-taste-evidence';
 const GREEN='#39E75F';
 
 export default function SpotifyPublicLibrary() {
+ const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
+ const fromOnboarding=onboarding==='1';
  const [url,setUrl]=useState('');
  const [scan,setScan]=useState<PublicProfileResult|null>(null);
  const [artistText,setArtistText]=useState('');
@@ -56,7 +58,7 @@ export default function SpotifyPublicLibrary() {
       .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
     if(writeError)throw writeError;
     Alert.alert('Artists saved',selectedArtists.length+' artists are ready to help OVRLEE discover more music and people for you.',
-      [{text:'Stay here'},{text:'Explore music',onPress:()=>router.push('/music-discovery')}]);
+      [{text:'Stay here'},{text:fromOnboarding?'Finish setup':'Explore music',onPress:()=>router.replace(fromOnboarding?'/now':'/music-discovery')}]);
   }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
   finally{setArtistSaving(false);}
  };
@@ -224,7 +226,7 @@ export default function SpotifyPublicLibrary() {
      fresh.length+' new song'+(fresh.length===1?'':'s')+' saved. '+duplicateCount+
      ' were already saved. Your public rotation stays yours to curate.',
      [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
-      {text:'Explore music',onPress:()=>router.push('/music-discovery')},
+      {text:fromOnboarding?'Finish setup':'Explore music',onPress:()=>router.replace(fromOnboarding?'/now':'/music-discovery')},
       {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
   }catch(e){Alert.alert('Could not save suggestions',e instanceof Error?e.message:'Try again.');}
   finally{setSaving(false);}
@@ -357,6 +359,10 @@ export default function SpotifyPublicLibrary() {
       {saving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {checkedCount} SONGS AS SUGGESTIONS →</Text>}
      </Pressable>
     </>}
+   {fromOnboarding&&<Pressable accessibilityRole="button"
+      onPress={()=>router.replace('/now')} style={[s.primary,{backgroundColor:'#242424',marginTop:32}]}>
+      <Text style={[s.primaryText,{color:'#fff'}]}>FINISH SETUP · ENTER OVRLEE →</Text>
+    </Pressable>}
    <Text style={s.footer}>Only publicly available music appears here. Spotify may limit what's visible. This isn't live playback, an official Spotify API connection or automatic posting. OVRLEE must resolve permission requirements before automated commercial collection.</Text>
   </ScrollView>
  </SafeAreaView>;
