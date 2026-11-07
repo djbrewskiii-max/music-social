@@ -22,7 +22,7 @@ concurrency:
 jobs:
   weekly-profile-refresh:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 30
     env:
       OVRLEE_SYNC_URL: https://ebflucbdptxpboqjxaox.supabase.co/functions/v1/ovrlee-weekly-public-sync
     steps:
