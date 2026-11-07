@@ -18,6 +18,14 @@ This document replaces the old prototype-specific research notes. Git history re
 - `src/music-taste-evidence.ts`, `src/music-suggestion-signals.ts`: Shared-taste weights and private discovery ranking.
 - `src/app/music-discovery.tsx`, `src/app/nearby.tsx`, `src/app/listeners.tsx`, `src/app/profile.tsx`: Music-signal consumers.
 
+## Private Spotify profile registry and delta snapshots
+
+- `member_music_connections` now stores a canonical `https://open.spotify.com/user/{id}` link and Spotify username **only for the member who identifies that profile as their own**. RLS permits only the member to read and edit their registration.
+- On a successful user-initiated playlist scan, the canonical link is saved in Supabase. Existing local self-declared profiles migrate once on app entry; no old sharing preference is automatically enabled.
+- Playlist scan history already persists previously observed track keys; the comparison now also reports newly visible playlist IDs. A playlist's first appearance establishes its song baseline and doesn't create fictitious "new listening" events.
+- On successful user-initiated artist rendering for that same registered profile, OVRLEE privately saves the observed artist IDs and which IDs were absent from the previous observation. Initial observation is a baseline. The artist panel remains optional and is not shown during normal app use.
+- The registry does **not** schedule requests to Spotify. There is no unattended Chromium/Playwright worker or authorized Spotify API credential. Public availability and member consent alone do not authorize unattended scraping under Spotify's published terms.
+
 ## Weekly backend refresh — deployed
 
 - Supabase pg_cron job: `ovrlee-personalize-music-from-app-activity-weekly`, Sunday at 07:10 UTC.
