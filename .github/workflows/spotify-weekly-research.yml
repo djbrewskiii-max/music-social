@@ -35,10 +35,15 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install isolated Chromium collector
+      - name: Check which members are due through GitHub identity
+        id: due
+        run: node tools/weekly-music-due-check.mjs
+      - name: Install isolated Chromium only when needed
+        if: steps.due.outputs.has_due == 'true'
         run: |
           npm ci
           npm install --no-save --package-lock=false playwright@1.58.2
           npx playwright install --with-deps chromium
       - name: Refresh opted-in profiles through verified GitHub identity
+        if: steps.due.outputs.has_due == 'true'
         run: node --experimental-strip-types tools/spotify-weekly-refresh.mjs
