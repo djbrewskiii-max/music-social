@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { musicSuggestionSeeds, selectSuggestedPosts } from '../src/music-suggestion-signals.ts';
+import { musicPostAffinity, musicSuggestionSeeds, selectSuggestedPosts } from '../src/music-suggestion-signals.ts';
 
 const seeds=musicSuggestionSeeds(
   ['Lorde','girl in red','Lorde',''],
@@ -25,4 +25,10 @@ assert.deepEqual(matches.map(x=>x.post.id),['c','b','e']);
 assert.equal(matches[0].matchingArtist,'My Chemical Romance');
 assert.equal(selectSuggestedPosts([post('x','someone','Unknown')],seeds).length,0);
 assert.equal(selectSuggestedPosts([post('y','someone','Lorde')],[],4).length,0);
+assert.equal(musicPostAffinity(post('1','a','My Chemical Romance'),seeds),1.15);
+assert.equal(musicPostAffinity(post('2','a','Lorde'),seeds),0.85);
+assert.equal(musicPostAffinity(post('3','a','Unknown',[{artist:'Panic! At The Disco'}]),seeds),0.45);
+assert.equal(musicPostAffinity(post('4','a','Unknown'),seeds),0);
+assert.equal(musicPostAffinity(post('5','a','My Chemical Romance'),[]),0);
+assert.equal(musicPostAffinity(post('6','a','my chemical romance'),seeds),1.15);
 console.log('PASS: private music suggestions rank only known public music posts, deduplicate and never infer listening history');
