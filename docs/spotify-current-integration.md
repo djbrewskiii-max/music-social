@@ -18,6 +18,16 @@ This document replaces the old prototype-specific research notes. Git history re
 - `src/music-taste-evidence.ts`, `src/music-suggestion-signals.ts`: Shared-taste weights and private discovery ranking.
 - `src/app/music-discovery.tsx`, `src/app/nearby.tsx`, `src/app/listeners.tsx`, `src/app/profile.tsx`: Music-signal consumers.
 
+## Weekly backend refresh — deployed
+
+- Supabase pg_cron job: `ovrlee-personalize-music-from-app-activity-weekly`, Sunday at 07:10 UTC.
+- Database function: `ovrlee_internal.refresh_music_activity_signals()`. It reads **OVRLEE's own posts, collection artist credits, and liked posts**, deduplicates artists per post, and populates owner-only `public.music_activity_artists`.
+- The function is not callable by app users; the private table is read-only to its row owner under RLS.
+- The feed's bounded ranking bonus and Music Discovery use these private activity hints automatically. Following, freshness and active conversations remain primary.
+- A first manual refresh ran successfully during deployment. Subsequent activity snapshots are scheduled weekly.
+- **This job does not visit Spotify, use browser automation, or refresh Spotify public pages.** Spotify's Developer Terms restrict automated crawling and user-profile derivation. User consent in OVRLEE does not replace a Spotify-approved access route.
+- For a permitted future Spotify integration, use provider-approved authorization/refresh tokens stored server-side, explicit scopes and revocation, rate limiting, and source provenance; only enable scheduled provider calls after Spotify authorizes the requested use case.
+
 ## Current data boundaries
 - `music_import_tracks`, `music_import_artists`: Private, user-reviewed song/artist suggestions.
 - `music_taste_artists`: Source-qualified favorites and own-playlist artist evidence. Shared-artist matching requires `share_for_matching=true`. Source `playlist` is only populated when a user explicitly self-identifies the Spotify profile as their own; owner assertion is not independently verified.
