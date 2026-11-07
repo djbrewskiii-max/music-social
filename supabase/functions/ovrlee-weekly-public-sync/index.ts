@@ -29,12 +29,19 @@ async function requireGitHub(req:Request){
   const token=req.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if(!token)throw Error('Missing identity token');
   const {payload}=await jwtVerify(token,jwks,{issuer,audience});
-  if(payload.repository!==repo||
-    payload.ref!=='refs/heads/main'||
-    payload.sub!=='repo:'+repo+':ref:refs/heads/main'||
-    payload.workflow_ref!==workflow||
-    !['schedule','workflow_dispatch','push'].includes(String(payload.event_name||'')))
+  const checks={
+    repository:payload.repository===repo,
+    ref:payload.ref==='refs/heads/main',
+    subject:payload.sub==='repo:'+repo+':ref:refs/heads/main',
+    workflow:payload.workflow_ref===workflow,
+    event:['schedule','workflow_dispatch','push'].includes(String(payload.event_name||'')),
+  };
+  if(Object.values(checks).some(ok=>!ok)){
+    // Log only which public workflow claims matched; never log the JWT,
+    // identity token, or other claim contents.
+    console.warn('OVRLEE GitHub workflow claim mismatch:',JSON.stringify(checks));
     throw Error('Untrusted workflow identity');
+  }
 }
 const validText=(s:unknown,max:number)=>{
   if(typeof s!=='string')return '';
@@ -243,8 +250,10 @@ Deno.serve(async req=>{
     return json({error:'Unknown action'},400);
   }catch(error){
     const message=String(error instanceof Error?error.message:error);
-    if(/identity token|workflow identity|signature verification|JWT|JWKS|Untrusted/i.test(message))
+    if(/identity token|workflow identity|signature verification|JWT|JWKS|Untrusted|signature|claim|unexpected.*issuer/i.test(message)){
+      console.warn('OVRLEE weekly OIDC validation failed:',error instanceof Error?error.name:'Unknown');
       return json({error:'Unauthorized'},401);
+    }
     console.error('OVRLEE weekly sync:',message.slice(0,250));
     return json({error:'Sync unavailable'},500);
   }
