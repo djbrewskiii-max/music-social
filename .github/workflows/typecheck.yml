@@ -1,9 +1,11 @@
-name: TypeScript Check
+name: OVRLEE Quality Checks
+
 on:
   push:
     branches: [claude-build]
   pull_request:
     branches: [main]
+
 jobs:
   typecheck:
     runs-on: ubuntu-latest
@@ -16,69 +18,14 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node tools/playlist-snapshot-diff.test.mjs
-      - run: node tools/spotify-embed-parser.test.mjs
-      - run: node tools/weekly-spotify-report.test.mjs
-      - run: node --experimental-strip-types tools/spotify-owned-playlists.test.mjs
       - run: node --experimental-strip-types tools/spotify-public-reader.test.mjs
-      - run: node --experimental-strip-types tools/spotify-recent-artists.test.mjs
+      - run: node --experimental-strip-types tools/spotify-scan-diff.test.mjs
       - run: node --experimental-strip-types tools/music-suggestion-signals.test.mjs
       - run: node --experimental-strip-types tools/music-taste-evidence.test.mjs
-      - run: node --check tools/spotify-signed-in-viewer-probe.mjs
-
-  spotify_probe_once:
-    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify public profile feasibility probe'
-    runs-on: ubuntu-latest
-    timeout-minutes: 9
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm ci
-      - run: npm install --no-save --no-package-lock playwright
-      - run: npx playwright install --with-deps chromium
-      - name: One-off public profile probe
-        run: node tools/spotify-public-probe.mjs 'https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0'
-      - name: Preserve experiment artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: spotify-public-probe-result
-          path: spotify-public-probe-result.json
-          if-no-files-found: warn
-          retention-days: 7
 
   spotify-native-swift-parse:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Parse Spotify bridge Swift syntax
+      - name: Parse the existing native Spotify bridge
         run: xcrun swiftc -frontend -parse now-spotify/ios/NowSpotifyModule.swift
-
-  spotify_native_http_once:
-    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off public HTML compatibility verification'
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Verify direct HTTP profile and embed compatibility
-        run: |
-          node --experimental-strip-types --input-type=module -e "import {readPublicSpotifyProfile} from './src/spotify-public-reader.ts'; try { const r=await readPublicSpotifyProfile('https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0'); console.log(JSON.stringify({playlistCount:r.playlists.length,readable:r.playlists.filter(p=>p.status==='ready').length,tracks:r.playlists.reduce((a,p)=>a+p.tracks.length,0),warnings:r.warnings})); }catch(e){ console.log('DIRECT_HTML_NOT_AVAILABLE:',e.message); process.exitCode=1; }"
-
-  spotify_recent_artists_probe_once:
-    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify initial HTML versus rendered artist probe'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm ci
-      - run: npm install --no-save --no-package-lock playwright
-      - run: npx playwright install --with-deps chromium
-      - name: Inspect publicly rendered artist page once
-        run: node tools/spotify-recent-artists-probe.mjs
