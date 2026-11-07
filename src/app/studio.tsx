@@ -197,12 +197,20 @@ export default function StudioScreen() {
     };
   }, [query]);
 
+  // iOS photo picker can hand us an ephemeral library URL which expires or
+  // isn't readable by React Native's Image. The picker also returns JPEG
+  // image bytes; use that stable local preview for the slide renderer.
+  // Publishing still uses the original photo records and upload pipeline.
+  const previewPhotos=useMemo(() => photos.map(photo=>
+    photo.base64 ? 'data:image/jpeg;base64,'+photo.base64 : photo.uri
+  ),[photos]);
+
   const editingSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }, true),
-    [template, title, caption, items, photos, coverArtId, photoFocus]
+    () => buildSlides(template, { title, caption, items, photos: previewPhotos, coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }, true),
+    [template, title, caption, items, previewPhotos, photos, coverArtId, photoFocus]
   );
   const finalSlides = useMemo(
-    () => buildSlides(template, { title, caption, items, photos: photos.map((p) => p.uri), coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }),
+    () => buildSlides(template, { title, caption, items, photos: previewPhotos, coverArtId, photoFocus, photoAspects: photos.map(p => p.aspect || 1) }),
     [template, title, caption, items, photos, coverArtId, photoFocus]
   );
 
