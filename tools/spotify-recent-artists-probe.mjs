@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One-off technical feasibility test only. Not a production collector.
 // Reads the explicitly public, unauthenticated recently-played artist page.
-const url='https://open.spotify.com/user/8712xitaly/recently-played-artists';
+const url='https://open.spotify.com/user/8712xitlaly/recently-played-artists';
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true});
 try{
