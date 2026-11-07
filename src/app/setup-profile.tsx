@@ -167,7 +167,7 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    router.replace('/now');
+    router.replace(existingProfile ? '/now' : '/pick-artists');
   };
 
   const canContinue =
@@ -199,14 +199,14 @@ export default function SetupProfileScreen() {
       >
         <View style={styles.content}>
           <View>
-            <Text style={styles.logo}>NOW</Text>
+            <Text style={styles.logo}>OVRLEE</Text>
 
             <Text style={styles.heading}>
               Make it yours.
             </Text>
 
             <Text style={styles.subheading}>
-              This is how people will know you on NOW.
+              This is how people will know you on OVRLEE.
             </Text>
 
             <View style={styles.form}>
