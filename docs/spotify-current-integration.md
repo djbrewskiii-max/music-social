@@ -2,6 +2,14 @@
 
 This document replaces the old prototype-specific research notes. Git history retains the experiments.
 
+## Product boundary: invisible after initial setup
+
+- Music connections and public Spotify consent appear in **account onboarding only**. The setup screen can optionally read visible playlists or artists once and store their reviewed signals.
+- Normal OVRLEE screens (profiles, settings, In Rotation, Nearby, listener recommendations) no longer expose Spotify scanners, imported-library management or public Spotify showcase cards.
+- Users see only music-driven recommendations and genuine mutual artists, not source-specific import mechanics. The public showcase database and editor implementation are retained as dormant legacy code to avoid destructive migration; they have no default navigation entries.
+- The generic Music Settings screen retains service-opening preferences and a scoped music-privacy control so a user can revoke playlist-artist matching without returning to the scanner.
+- **No background Spotify scraping or ongoing account synchronization is implemented.** Saved signals continue to influence OVRLEE recommendations automatically; future updates require a permitted data source, not a hidden WebView or unattended public-page polling. The public profile consent is not Spotify OAuth or formal API access.
+
 ## Live screens
 - `src/app/spotify-library.tsx`: Public Spotify profile link, visible public playlist HTML/embed scan, private reviewed song suggestions, optional self-identified profile + opt-in artist matching, recent scan comparisons.
 - `src/app/spotify-public-artists.tsx`: On-device Spotify public artist grid in a WebView; user taps to read the visibly rendered cards (up to 50), reviews artists, and saves selections as private suggestions. No Spotify OAuth or browser cookie/token reading. Browser navigation is contained in-app; genuine security challenges are not circumvented.
