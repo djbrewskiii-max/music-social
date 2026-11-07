@@ -96,6 +96,33 @@ export function recentArtistsFromPublicHTML(html:string):PublicArtist[] {
  return result;
 }
 
+/**
+ * A standalone public artist listing uses cards rather than a section heading.
+ * Scope strictly to this dedicated page; don't treat unrelated profile
+ * recommendations as recently played artists.
+ */
+export function artistsFromRecentlyPlayedPage(html:string):PublicArtist[] {
+ const root=html.match(/<div\\b[^>]*data-testid=["']grid-container["'][^>]*>([\\s\\S]*)/i)?.[1]||html;
+ const anchors=/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+ const artists:PublicArtist[]=[];
+ const seen=new Set<string>();
+ let m:RegExpExecArray|null;
+ while((m=anchors.exec(root))!==null&&artists.length<50) {
+   const href=m[1].match(/\\bhref\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
+   const url=unescapeHTML(href);
+   const id=url.match(/(?:^|\\/)(?:intl-[a-z-]+\\/)?artist\\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/)?.[1];
+   if(!id||seen.has(id))continue;
+   const cardTitle=m[2].match(/data-encore-id=["']cardTitle["'][^>]*\\btitle=["']([^"']+)["']/i)?.[1] ||
+      m[2].match(/\\btitle=["']([^"']+)["'][^>]*data-encore-id=["']cardTitle["']/i)?.[1];
+   const imageAlt=m[2].match(/<img\\b[^>]*\\balt=["']([^"']+)["']/i)?.[1];
+   const name=stripHTML(cardTitle || stripHTML(m[2]) || imageAlt || '');
+   if(!name||name.length>120)continue;
+   seen.add(id);
+   artists.push({name,spotifyArtistUrl:spotifyBase+'/artist/'+id});
+ }
+ return artists;
+}
+
 function findTrackList(value:unknown,depth=0,seen=new WeakSet<object>()):Record<string,unknown>|null {
  if(!value||typeof value!=='object'||depth>16||seen.has(value))return null;
  seen.add(value);
@@ -154,7 +181,16 @@ export async function readPublicSpotifyProfile(
  options?.onProgress?.('Reading your public Spotify profile…');
  const html=await getHTML(profile.url,options?.signal);
  const anchors=playlistLinksFromPublicHTML(html);
- const recentlyPlayedArtists=recentArtistsFromPublicHTML(html);
+ let recentlyPlayedArtists=recentArtistsFromPublicHTML(html);
+ if(!recentlyPlayedArtists.length){
+   // Spotify may expose an independent, user-visible artist-grid page even
+   // when the profile's initial HTML has no such section.
+   try{
+     options?.onProgress?.('Checking the public recently played artists page…');
+     const artistHTML=await getHTML(profile.url+'/recently-played-artists',options?.signal);
+     recentlyPlayedArtists=artistsFromRecentlyPlayedPage(artistHTML);
+   }catch(e){ if(options?.signal?.aborted)throw e; }
+ }
  const playlists:PublicPlaylist[]=[];
  for(const [index,link] of anchors.slice(0,MAX_PLAYLISTS).entries()){
   options?.onProgress?.('Reading playlist '+(index+1)+' of '+Math.min(anchors.length,MAX_PLAYLISTS)+'…');
