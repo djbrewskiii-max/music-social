@@ -24,7 +24,7 @@ export default function MusicSettingsScreen() {
     </Pressable>
     <Text style={s.note}>Choose five or more favorites and decide whether OVRLEE can show shared artists in compatibility.</Text>
     {busy && <ActivityIndicator color="#39E75F" />}
-    <Text style={s.note}>Spotify links open the matching search in Spotify when an exact track URL is unavailable. Automatic Spotify listening sync is not enabled yet.</Text>
+    <Text style={s.note}>Music services are used for opening songs. Your artist preferences personalize OVRLEE privately.</Text>
   </View></SafeAreaView>;
 }
 const s=StyleSheet.create({root:{flex:1,backgroundColor:'#000'},content:{padding:24,gap:18},back:{color:'#aaa',fontSize:17},title:{color:'#fff',fontSize:32,fontWeight:'800',marginTop:16},description:{color:'#aaa',lineHeight:22},option:{borderWidth:1,borderColor:'#333',borderRadius:16,padding:20,flexDirection:'row',justifyContent:'space-between'},name:{color:'#fff',fontSize:18,fontWeight:'700'},check:{color:'#39E75F',fontSize:22},note:{color:'#888',lineHeight:20,marginTop:12}});
