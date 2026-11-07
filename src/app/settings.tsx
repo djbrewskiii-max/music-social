@@ -88,12 +88,6 @@ export default function SettingsScreen() {
             onPress={() => router.push('/music-settings')} />
           <SettingRow icon="link.circle" label="Connect Apple Music" detail="Manage access to your listening library"
             onPress={() => router.push('/connect-music')} />
-          <SettingRow icon="music.note.list" label="Spotify public showcase"
-            detail="Feature your Spotify profile and chosen public playlists"
-            onPress={() => router.push('/spotify-showcase')} />
-          <SettingRow icon="music.note.list" label="Read my public Spotify playlists"
-            detail="Use a profile link to suggest songs for In Rotation"
-            onPress={() => router.push('/spotify-library')} />
 
         </View>
 
@@ -102,7 +96,7 @@ export default function SettingsScreen() {
           <SettingRow first icon="bell" label="Notifications" detail="Posts, replies, friends and messages"
             onPress={() => router.push('/notification-settings')} />
           <SettingRow icon="sparkles" label="Overly opening animation"
-            detail="Play the intro no more than once per day" trailing={introEnabled ? 'ON' : 'OFF'}
+            detail="Replay the opening sequence during design review" trailing={introEnabled ? 'ON' : 'OFF'}
             onPress={toggleIntro} />
         </View>
 
