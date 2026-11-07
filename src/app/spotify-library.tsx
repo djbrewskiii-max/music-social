@@ -18,6 +18,9 @@ const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 export default function SpotifyPublicLibrary() {
  const [url,setUrl]=useState('');
  const [scan,setScan]=useState<PublicProfileResult|null>(null);
+ const [artistText,setArtistText]=useState('');
+ const [artistChecked,setArtistChecked]=useState<string[]>([]);
+ const [artistSaving,setArtistSaving]=useState(false);
  const [changes,setChanges]=useState<Record<string,string[]>>({});
  const [firstScan,setFirstScan]=useState(true);
  const [chosen,setChosen]=useState<PublicPlaylist|null>(null);
@@ -30,6 +33,30 @@ export default function SpotifyPublicLibrary() {
  const [consent,setConsent]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
  const [accountId,setAccountId]=useState<string|null>(null);
+ const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').trim().toLowerCase();
+ const manualArtists=useMemo(()=>[...new Set(artistText.split(/[,\\n]/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<=120))].slice(0,50),[artistText]);
+ const selectedArtists=useMemo(()=>{
+   const candidates=[...(scan?.recentlyPlayedArtists.map(a=>a.name)||[]),...manualArtists];
+   return [...new Map(candidates.map(a=>[normalizeArtist(a),a])).entries()].filter(([key])=>artistChecked.includes(key)).map(([,name])=>name);
+ },[scan,manualArtists,artistChecked]);
+ const saveArtists=async()=>{
+  if(artistSaving||!selectedArtists.length)return;
+  setArtistSaving(true);
+  try{
+    const {data:{user}}=await supabase.auth.getUser();
+    if(!user)throw new Error('Sign in to OVRLEE first.');
+    const rows=selectedArtists.map(artist=>({
+      user_id:user.id,artist,artist_key:normalizeArtist(artist),
+      source_label:'Spotify profile · user reviewed'
+    }));
+    const {error:writeError}=await supabase.from('music_import_artists')
+      .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
+    if(writeError)throw writeError;
+    Alert.alert('Artists saved',selectedArtists.length+' artist suggestions saved privately. Explore conversations about them in My Imported Music.',
+      [{text:'Stay here'},{text:'Explore my music',onPress:()=>router.push('/imported-music')}]);
+  }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
+  finally{setArtistSaving(false);}
+ };
 
  useEffect(()=>{
   let active=true;
@@ -55,7 +82,7 @@ export default function SpotifyPublicLibrary() {
   if(loading)return;
   if(!consent){Alert.alert('Confirm before reading','Only connect a Spotify profile you own or are authorized to use for OVRLEE music suggestions.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
-  setLoading(true);setScan(null);setChosen(null);setChanges({});setError('');setSyncWarning('');setProgress('');
+  setLoading(true);setScan(null);setChosen(null);setChanges({});setArtistChecked([]);setError('');setSyncWarning('');setProgress('');
   try{
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
     if(accountId){
@@ -123,7 +150,9 @@ export default function SpotifyPublicLibrary() {
       }
     }
     setScan(result);
-    if(result.playlists.every(p=>p.status==='unavailable'))setError('Playlist links were found, but Spotify did not expose any readable tracks to this device. The experimental GitHub browser reader may behave differently.');
+    setArtistChecked(result.recentlyPlayedArtists.map(a=>normalizeArtist(a.name)));
+    if(result.playlists.length>0&&result.playlists.every(p=>p.status==='unavailable'))
+      setError('Public playlist links were found, but their song lists were not readable on this device. You can still save selected artists below.');
   }catch(e){setError(e instanceof Error?e.message:'Spotify public profile reading failed.');}
   finally{setLoading(false);setProgress('');}
  };
@@ -173,7 +202,7 @@ export default function SpotifyPublicLibrary() {
   <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
    <Text style={s.eyebrow}>OVRLEE × PUBLIC MUSIC</Text>
    <Text style={s.title}>Bring your public playlists to OVRLEE.</Text>
-   <Text style={s.body}>Paste your Spotify profile link once. OVRLEE will try to find playlists you share publicly and read their visible song titles and artists. No Spotify login or Premium required for this experiment.</Text>
+   <Text style={s.body}>Connect music from your public Spotify profile: playlists where available, plus artists you choose to share. No Spotify login or Premium needed for this experiment.</Text>
    {!chosen&&<>
     <Text style={s.section}>YOUR SPOTIFY PROFILE</Text>
     <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
@@ -204,6 +233,41 @@ export default function SpotifyPublicLibrary() {
      </Pressable>)}
      {scan.warnings.map((w,i)=><Text key={i} style={s.warning}>{w}</Text>)}
     </>}
+   </>}
+   {!chosen&&<>
+    <Text style={s.section}>RECENTLY PLAYED ARTISTS</Text>
+    <Text style={s.body}>Spotify can show artists on your profile even when it exposes no playlists. If OVRLEE can't read them automatically, type the artists you see in Spotify. Only artists you select and save are added privately to OVRLEE.</Text>
+    {scan&&scan.recentlyPlayedArtists.length>0&&<>
+      <Text style={s.freshSummary}>{scan.recentlyPlayedArtists.length} ARTISTS FOUND IN PUBLIC PAGE</Text>
+      {scan.recentlyPlayedArtists.map(a=>{
+        const key=normalizeArtist(a.name),selected=artistChecked.includes(key);
+        return <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{checked:selected}}
+          onPress={()=>setArtistChecked(prev=>selected?prev.filter(k=>k!==key):[...prev,key])} style={s.track}>
+          <View style={[s.check,selected&&s.checkActive]}><Text style={s.checkMark}>{selected?'✓':''}</Text></View>
+          <Text style={s.song}>{a.name}</Text>
+        </Pressable>;
+      })}
+    </>}
+    <TextInput multiline numberOfLines={3} value={artistText}
+      onChangeText={value=>{
+        setArtistText(value);
+        const names=[...new Set(value.split(/[,\\n]/).map(s=>s.trim()).filter(Boolean))].slice(0,50);
+        setArtistChecked(prev=>[...new Set([...prev,...names.map(normalizeArtist)])]);
+      }}
+      autoCapitalize="words" placeholder="Add artists you see in Spotify, one per line"
+      placeholderTextColor="#777" style={[s.input,{minHeight:96,textAlignVertical:'top',marginTop:14}]}/>
+    {manualArtists.map(name=>{
+      const key=normalizeArtist(name),selected=artistChecked.includes(key);
+      return <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{checked:selected}}
+        onPress={()=>setArtistChecked(prev=>selected?prev.filter(k=>k!==key):[...prev,key])} style={s.track}>
+        <View style={[s.check,selected&&s.checkActive]}><Text style={s.checkMark}>{selected?'✓':''}</Text></View>
+        <Text style={s.song}>{name}</Text>
+      </Pressable>;
+    })}
+    <Pressable accessibilityRole="button" disabled={artistSaving||!selectedArtists.length}
+      onPress={()=>void saveArtists()} style={[s.primary,(artistSaving||!selectedArtists.length)&&{opacity:.5}]}>
+      {artistSaving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {selectedArtists.length} ARTISTS TO OVRLEE →</Text>}
+    </Pressable>
    </>}
    {chosen&&<>
      <Pressable onPress={()=>setChosen(null)} style={s.backTo}><Text style={s.backToText}>‹ ALL PLAYLISTS</Text></Pressable>
