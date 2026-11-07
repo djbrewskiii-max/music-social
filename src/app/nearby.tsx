@@ -6,13 +6,14 @@ import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { isInNearbyArea, resolveCity } from '../city-locations';
 import { distanceMiles } from '../world-cities';
+import { sharedTasteNames, type TasteEvidence } from '../music-taste-evidence';
 import { musicSuggestionSeeds, selectSuggestedPosts, type SuggestedPost } from '../music-suggestion-signals';
 
 type Profile = { user_id: string | null; display_name: string | null; username: string | null; avatar_url: string | null; city: string | null; city_lat: number | null; city_lon: number | null; nearby_visible: boolean };
 type Post = { id: string; user_id: string; artist_name: string; song_title: string; artwork_url: string | null; created_at: string; collection: { title?: string } | null; music_items: { song?: string; artist?: string }[] | null };
 type Trend = { artist: string; count: number; listeners: number };
 type SongTrend = { song: string; artist: string; count: number; listeners: number };
-type Person = Profile & { sharedArtists: string[]; isFollowing: boolean; recentArtist: string | null };
+type Person = Profile & { sharedArtists: string[]; sharedScore: number; isFollowing: boolean; recentArtist: string | null };
 
 const green = '#39E75F';
 const norm = (s: string) => s.trim().toLocaleLowerCase();
@@ -37,7 +38,7 @@ export default function NearbyScreen() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) { router.replace('/login'); return; }
       setMyId(user.id);
-      const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult, selectedArtistResult, selectedTrackResult] = await Promise.all([
+      const [mine, profilesResult, followResult, blockResult, blockedByResult, myDnaResult, selectedArtistResult, selectedTrackResult, myTasteResult] = await Promise.all([
         supabase.from('profiles').select('city,city_lat,city_lon').eq('user_id', user.id).maybeSingle(),
         supabase.from('profiles').select('user_id,display_name,username,avatar_url,city,city_lat,city_lon,nearby_visible').eq('nearby_visible',true).limit(500),
         supabase.from('user_follows').select('following_id').eq('follower_id', user.id),
@@ -46,6 +47,7 @@ export default function NearbyScreen() {
         supabase.from('music_dna').select('top_artists').eq('user_id', user.id).maybeSingle(),
         supabase.from('music_import_artists').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
         supabase.from('music_import_tracks').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
+        supabase.from('music_taste_artists').select('artist_key,artist_name,source,song_count,playlist_count,share_for_matching').eq('user_id',user.id).limit(400),
       ]);
       if (mine.error) throw mine.error;
       if (profilesResult.error) throw profilesResult.error;
@@ -86,11 +88,12 @@ export default function NearbyScreen() {
 
       // Only public posts exposed under the existing posts RLS policy are used.
       // This is posted music, not inferred real-time playback.
-      const [postsResult, dnaResult] = await Promise.all([
+      const [postsResult, dnaResult, sharedTasteResult] = await Promise.all([
         supabase.from('posts')
           .select('id,user_id,artist_name,song_title,artwork_url,created_at,collection,music_items')
           .in('user_id', ids).order('created_at', { ascending: false }).limit(200),
         supabase.from('music_dna').select('user_id,top_artists').in('user_id', ids),
+        supabase.from('music_taste_artists').select('user_id,artist_key,artist_name,source,song_count,playlist_count,share_for_matching').in('user_id',ids).eq('share_for_matching',true).limit(3000),
       ]);
       if (postsResult.error) throw postsResult.error;
       const posts = (postsResult.data || []) as Post[];
@@ -100,23 +103,36 @@ export default function NearbyScreen() {
       const chosenArtists=(selectedArtistResult.data||[]).map(row=>row.artist);
       const chosenTracks=(selectedTrackResult.data||[]).map(row=>({artist:row.artist}));
       const ownDnaArtists=((myDnaResult.data?.top_artists||[]) as {name:string}[]).map(row=>row.name);
-      const seeds=musicSuggestionSeeds(chosenArtists,chosenTracks,ownDnaArtists);
+      const favoriteSeeds=(myTasteResult.data||[]).filter(row=>row.source==='favorite').map(row=>row.artist_name);
+      const playlistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist').map(row=>({artist:row.artist_name}));
+      const seeds=musicSuggestionSeeds([...favoriteSeeds,...chosenArtists],[...playlistSeeds,...chosenTracks],ownDnaArtists);
       setForYouPosts(selectSuggestedPosts(posts,seeds,6));
       const following = new Set((followResult.data || []).map(row => row.following_id));
       const myArtists = new Set(((myDnaResult.data?.top_artists || []) as { name: string }[]).map(a => norm(a.name)));
+      const ownTaste=(myTasteResult.data||[]) as TasteEvidence[];
+      const tasteByUser=new Map<string,TasteEvidence[]>();
+      for(const row of sharedTasteResult.data||[]){
+        const list=tasteByUser.get(row.user_id)||[];
+        list.push(row as TasteEvidence);
+        tasteByUser.set(row.user_id,list);
+      }
       const dnaById = new Map<string, { top_artists: { name: string }[] }>(
         (dnaResult.data || []).map(row => [row.user_id, { top_artists: (row.top_artists || []) as { name: string }[] }])
       );
       setPeople(localProfiles.map(p => {
         const artists = (dnaById.get(p.user_id!)?.top_artists || [])
           .map(a => a.name).filter(name => !!name && myArtists.has(norm(name))).slice(0, 3);
+        const weighted=sharedTasteNames(ownTaste,tasteByUser.get(p.user_id!)||[],3);
+        const combined=[...weighted.map(x=>x.name),...artists.filter(name=>
+          !weighted.some(w=>norm(w.name)===norm(name)))].slice(0,3);
         return {
           ...p,
-          sharedArtists: artists,
+          sharedArtists: combined,
+          sharedScore: weighted.reduce((sum,x)=>sum+x.score,0)+artists.length*3,
           isFollowing: following.has(p.user_id),
           recentArtist: posts.find(post => post.user_id === p.user_id)?.artist_name || null,
         };
-      }).sort((a, b) => b.sharedArtists.length - a.sharedArtists.length
+      }).sort((a, b) => b.sharedScore - a.sharedScore || b.sharedArtists.length - a.sharedArtists.length
         || Number(b.isFollowing) - Number(a.isFollowing)
         || (a.display_name || '').localeCompare(b.display_name || '')));
       const counts = new Map<string, { name: string; posts: Set<string>; listeners: Set<string> }>();
