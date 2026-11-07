@@ -34,6 +34,7 @@ import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
+import { reconcileExistingMusicConnection } from '../music-connection-registry';
 import { activityMusicSeeds, mergeMusicSeeds, musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
 import { openMusicCard } from '../music-card';
@@ -275,6 +276,17 @@ export default function NowScreen() {
     useState<FeedPost[]>([]);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [feedError, setFeedError] = useState<string | null>(null);
+  // Once per app entry, register any previously linked, self-declared
+  // Spotify profile from local account setup. This only reads local
+  // storage and our own database: it does not contact Spotify.
+  useEffect(()=>{
+    void supabase.auth.getUser().then(({data:{user}})=>{
+      if(user)void reconcileExistingMusicConnection(user.id).catch(
+        error=>console.log('Connection registry migration:',error)
+      );
+    }).catch(()=>{});
+  },[]);
+
 
   const [
     listeningPeople,
