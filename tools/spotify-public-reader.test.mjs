@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { normalizePublicProfile, playlistLinksFromPublicHTML, parsePublicPlaylistEmbed, recentArtistsFromPublicHTML, readPublicSpotifyProfile } from '../src/spotify-public-reader.ts';
+import { normalizePublicProfile, playlistLinksFromPublicHTML, parsePublicPlaylistEmbed, recentArtistsFromPublicHTML, artistsFromRecentlyPlayedPage, readPublicSpotifyProfile } from '../src/spotify-public-reader.ts';
 const expected='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 assert.equal(normalizePublicProfile(expected+'?si=abc').url,expected);
 assert.equal(normalizePublicProfile('7je6xz1iqqn2ru3njokrxp6l0').url,expected);
@@ -38,3 +38,16 @@ try{
  assert.deepEqual(emptyPlaylist.recentlyPlayedArtists.map(a=>a.name),['Arturo Sandoval','Lorde']);
 }finally{globalThis.fetch=priorFetch;}
 console.log('PASS: playlist-free profile and explicitly labeled recent artist extraction');
+
+const grid='<div data-testid="grid-container">'+
+'<a href="/artist/1234567890ABCDEFGHIJKL"><p data-encore-id="cardTitle" title="girl in red">girl in red</p></a>'+
+'<a href="/artist/ABCDEFGHIJKLMNOPQRSTUV"><p data-encore-id="cardTitle" title="Panic! At The Disco">Panic!</p></a>'+
+'</div>';
+assert.deepEqual(artistsFromRecentlyPlayedPage(grid).map(x=>x.name),['girl in red','Panic! At The Disco']);
+const fetchBefore=globalThis.fetch;
+try{
+ globalThis.fetch=async url=>({ok:true,text:async()=>String(url).includes('/recently-played-artists')?grid:'<main><h1>Profile with no listed artists</h1></main>'});
+ const result=await readPublicSpotifyProfile(expected);
+ assert.deepEqual(result.recentlyPlayedArtists.map(a=>a.name),['girl in red','Panic! At The Disco']);
+}finally{globalThis.fetch=fetchBefore;}
+console.log('PASS: dedicated recently-played public page fallback');
