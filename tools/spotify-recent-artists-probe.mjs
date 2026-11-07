@@ -10,6 +10,14 @@ try{
    locale:'en-US'});
  const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
  await page.waitForTimeout(5000);
+ const initialHtml=await response?.text().catch(()=>null);
+ const rawHtmlSignals={
+   bytes:initialHtml?.length||0,
+   hasRecentHeading:/Recently played artists/i.test(initialHtml||''),
+   artistHrefCount:(initialHtml?.match(/href=["'][^"']*\/artist\//g)||[]).length,
+   gridMarkerPresent:(initialHtml||'').includes('grid-container'),
+   knownArtistPresent:/girl in red/i.test(initialHtml||''),
+ };
  const details=await page.evaluate(()=>{
   const cards=[...document.querySelectorAll('[data-encore-id="card"]')];
   const artistLinks=[...document.querySelectorAll('a[href*="/artist/"]')];
@@ -21,5 +29,5 @@ try{
     cardCount:cards.length,artistLinkCount:artistLinks.length,
     artists:artists.slice(0,20)};
  });
- console.log('PUBLIC_ARTIST_PROBE',JSON.stringify({status:response?.status(),url,...details}));
+ console.log('PUBLIC_ARTIST_PROBE',JSON.stringify({status:response?.status(),url,rawHtmlSignals,...details}));
 }finally{await browser.close();}
