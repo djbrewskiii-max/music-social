@@ -1108,7 +1108,7 @@ export default function UnifiedRotation({
               {!editingId && (
                 <Pressable accessibilityRole="button"
                   accessibilityLabel="Discover conversations around music you enjoy"
-                  onPress={() => { clearEditor(); router.push('/nearby'); }}
+                  onPress={() => { clearEditor(); router.push('/music-discovery'); }}
                   style={{paddingVertical:11,marginBottom:5}}>
                   <Text style={{color:GREEN,fontWeight:'900',fontSize:12}}>
                     ♫ EXPLORE YOUR MUSIC SUGGESTIONS →
