@@ -80,7 +80,7 @@ export default function SpotifyPublicLibrary() {
  },[chosen,changes]);
  const run=async()=>{
   if(loading)return;
-  if(!consent){Alert.alert('Confirm before reading','Only connect a Spotify profile you own or are authorized to use for OVRLEE music suggestions.');return;}
+  if(!consent){Alert.alert('Confirm before reading','This is an experimental reading of music publicly displayed on a Spotify profile. Spotify has not approved this collection for commercial use; only save artists after reviewing them.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
   setLoading(true);setScan(null);setChosen(null);setChanges({});setArtistChecked([]);setError('');setSyncWarning('');setProgress('');
   try{
@@ -210,7 +210,7 @@ export default function SpotifyPublicLibrary() {
     {__DEV__&&<Pressable onPress={()=>setUrl(SAMPLE)} style={s.sample}><Text style={s.sampleText}>USE TEST PROFILE (LEOSKEPI) →</Text></Pressable>}
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
-     <Text style={s.consentCopy}>I own this Spotify profile or have permission to use its public music for my OVRLEE suggestions.</Text>
+     <Text style={s.consentCopy}>I understand this is an experimental preview of publicly displayed Spotify music; I will review artists before saving.</Text>
     </Pressable>
     <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
       {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'SCAN PROFILE AGAIN →':'READ PUBLIC PLAYLISTS →'}</Text>}
@@ -238,7 +238,7 @@ export default function SpotifyPublicLibrary() {
     <Text style={s.section}>RECENTLY PLAYED ARTISTS</Text>
     <Pressable accessibilityRole="button"
       onPress={()=>{
-        if(!consent){Alert.alert('Review permission','Confirm you own this Spotify profile or have permission to review the music displayed publicly.');return;}
+        if(!consent){Alert.alert('Review permission','Confirm that you understand this is an experimental preview of publicly displayed Spotify music.');return;}
         try{
           const profile=normalizePublicProfile(url);
           router.push({pathname:'/spotify-public-artists',params:{url:profile.url}});
