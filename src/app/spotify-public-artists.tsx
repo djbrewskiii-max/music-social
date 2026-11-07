@@ -76,24 +76,52 @@ export default function PublicSpotifyArtistsPreview(){
   const [loaded,setLoaded] = useState(false);
   const [message,setMessage] = useState('Open the public artist page, then tap Read visible artists.');
   const [navigation,setNavigation] = useState('');
+  const [popupNote,setPopupNote] = useState('');
   const page = profile ? profile.url+'/recently-played-artists' : null;
-  const currentOriginIsSpotify = !!page && navigation.split('?')[0].replace(/\\/$/,'') === page;
-  const onPublicPageNavigation = (request:{url:string}) => {
-    let address:URL;
-    try { address = new URL(request.url); } catch { return false; }
-    // Reject top-level navigation into Spotify's separate security challenge.
-    // Never attempt to solve, hide, or circumvent CAPTCHA.
-    const challenge = address.hostname === 'challenge.spotify.com'
-      || address.hostname === 'www.google.com' && address.pathname.includes('recaptcha')
-      || address.hostname === 'www.recaptcha.net';
-    if(challenge){
-      setSecurityChallenge(true);
-      setLoaded(false);
-      setMessage('Spotify requested a security challenge, so the public artist preview is unavailable in this embedded browser.');
+  const isPreviewPage=(value:string)=>{
+    if(!page)return false;
+    try{
+      const target=new URL(value);
+      return target.origin==='https://open.spotify.com'
+        && target.pathname.replace(/\/$/,'')===new URL(page).pathname;
+    }catch{return false;}
+  };
+  const currentOriginIsSpotify=isPreviewPage(navigation);
+  const isVerificationURL=(value:URL)=>value.hostname==='challenge.spotify.com'
+    || (value.hostname==='www.google.com'&&value.pathname.includes('recaptcha'))
+    || value.hostname==='www.recaptcha.net';
+  const onPublicPageNavigation=(request:{url:string;isTopFrame?:boolean;hasTargetFrame?:boolean})=>{
+    if(request.url==='about:blank')return true;
+    // Don't obstruct embedded page resources or subordinate frames.
+    if(request.isTopFrame===false)return true;
+    let target:URL;
+    try{target=new URL(request.url);}catch{return false;}
+    if(isVerificationURL(target)){
+      // A genuine top-level challenge means the public artist page is
+      // not available. We do not attempt to circumvent verification.
+      if(request.hasTargetFrame!==false){
+        setSecurityChallenge(true);
+        setLoaded(false);
+        setMessage('Spotify requested browser verification. Artist preview is unavailable until Spotify permits this page.');
+      }else{
+        setPopupNote('Spotify requested another window. OVRLEE kept the original preview open.');
+      }
       return false;
     }
-    if(address.hostname !== 'open.spotify.com')return false;
-    return true;
+    // Only the exact, user-selected public artist page may replace the view.
+    // Returning false also prevents iOS from opening unrelated websites.
+    return isPreviewPage(request.url);
+  };
+  const onOpenExternalWindow=(targetUrl:string)=>{
+    // onOpenWindow intentionally does not open a browser or follow the URL.
+    // This preserves the artist page when Spotify requests an extra window.
+    try{
+      if(isVerificationURL(new URL(targetUrl))){
+        setPopupNote('Spotify attempted a separate verification window. The public preview remains visible, but we will not bypass a required challenge.');
+      }else{
+        setPopupNote('A separate browser window was requested. OVRLEE stayed on the public artist preview.');
+      }
+    }catch{setPopupNote('A separate browser window was blocked.');}
   };
   const read = () => {
     if(securityChallenge){
@@ -114,7 +142,7 @@ export default function PublicSpotifyArtistsPreview(){
     let result:BrowserResult;
     try { result = JSON.parse(event.nativeEvent.data) as BrowserResult; }
     catch { setMessage('Spotify returned an unreadable page result.'); return; }
-    if(result.type !== 'artists' || !page || !result.url?.startsWith(page)) {
+    if(result.type !== 'artists' || !result.url || !isPreviewPage(result.url)) {
       setMessage('The browser navigated away from this public artist page.');
       return;
     }
@@ -168,11 +196,15 @@ export default function PublicSpotifyArtistsPreview(){
         userAgent={DESKTOP_SAFARI_UA}
         javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
         sharedCookiesEnabled={false} incognito
-        originWhitelist={['https://open.spotify.com']}
+        // Include HTTPS origins in the whitelist so the navigation callback,
+        // not iOS, decides whether a new top-level URL may open.
+        originWhitelist={['https://*']}
+        javaScriptCanOpenWindowsAutomatically={false}
+        onOpenWindow={e=>onOpenExternalWindow(e.nativeEvent.targetUrl)}
         onShouldStartLoadWithRequest={onPublicPageNavigation}
         onNavigationStateChange={state=>{
           setNavigation(state.url);
-          setLoaded(!state.loading && state.url.split('?')[0].replace(/\\/$/,'') === page);
+          setLoaded(!state.loading && isPreviewPage(state.url) && !securityChallenge);
         }}
         onMessage={receive}
         onError={()=>{setLoaded(false);setMessage('Spotify could not load this page in the embedded browser.');}}
@@ -186,7 +218,8 @@ export default function PublicSpotifyArtistsPreview(){
         {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
       </Pressable>
       <Text style={s.message}>{message}</Text>
-      {securityChallenge&&<Text style={s.error}>Spotify is requesting reCAPTCHA rather than loading artist cards. This WebView approach cannot continue. No further login or Download App attempts are needed.</Text>}
+      {!!popupNote&&<Text style={s.popupNote}>{popupNote}</Text>}
+      {securityChallenge&&<Text style={s.error}>Spotify is requesting reCAPTCHA in the main browser view. We will not bypass verification or report unverified artists.</Text>}
       {appHandoff&&<Text style={s.error}>The embedded browser is not receiving the desktop artist page. Don't press Download App again; this path is unavailable on this device.</Text>}
       {artists.length>0&&<ScrollView style={{maxHeight:205}} contentContainerStyle={{paddingBottom:8}}>
         {artists.map(a=>{
@@ -214,5 +247,5 @@ const s=StyleSheet.create({
   buttonText:{fontSize:12,color:'#070707',fontWeight:'900'},message:{color:'#b6b6b6',fontSize:12,marginVertical:12,lineHeight:18},
   artist:{borderBottomWidth:1,borderBottomColor:'#222',paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
   artistName:{fontSize:13,color:'#fff',fontWeight:'700'},tick:{fontSize:19,color:GREEN},save:{backgroundColor:GREEN,padding:13,borderRadius:12,alignItems:'center',marginTop:10},
-  notice:{fontSize:10,color:'#777',marginTop:10,lineHeight:15},error:{color:'#f99',fontSize:14,margin:24},link:{color:GREEN,fontWeight:'900',margin:20},
+  notice:{fontSize:10,color:'#777',marginTop:10,lineHeight:15},popupNote:{fontSize:11,color:'#d6b27d',marginBottom:8,lineHeight:16},error:{color:'#f99',fontSize:13,marginVertical:8},link:{color:GREEN,fontWeight:'900',margin:20},
 });
