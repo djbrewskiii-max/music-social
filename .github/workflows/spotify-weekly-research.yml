@@ -1,67 +1,53 @@
-name: Spotify Public Playlist Weekly Research Check
+name: OVRLEE Weekly Public Music Profile Check
+
+# GitHub schedules execute from main; collector code is on claude-build.
+# An opted-in member and a configured backend secret are both required.
 on:
   schedule:
-    - cron: '17 18 * * 5'
+    - cron: '23 9 * * 0'
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
 
 concurrency:
-  group: spotify-public-weekly-research
+  group: ovrlee-weekly-public-music-refresh
   cancel-in-progress: false
 
 jobs:
-  weekly-public-check:
+  weekly-profile-refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 35
+    env:
+      SUPABASE_URL: https://ebflucbdptxpboqjxaox.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OVRLEE_SUPABASE_SERVICE_ROLE_KEY }}
+      MAX_PROFILES: '10'
     steps:
-      - name: Checkout OVRLEE development collector
+      - name: Check whether secure backend sync is configured
+        id: configured
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "The OVRLEE backend credential has not been configured; no public profiles were scanned."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout current OVRLEE collector
+        if: steps.configured.outputs.ready == 'true'
         uses: actions/checkout@v4
         with:
           ref: claude-build
       - uses: actions/setup-node@v4
+        if: steps.configured.outputs.ready == 'true'
         with:
           node-version: '22'
-      - name: Install isolated browser dependencies
+          cache: npm
+      - name: Install isolated Chromium collector
+        if: steps.configured.outputs.ready == 'true'
         run: |
           npm ci
-          npm install --no-save --no-package-lock playwright
+          npm install --no-save --package-lock=false playwright@1.58.2
           npx playwright install --with-deps chromium
-      - name: Retrieve previous successful snapshot
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=spotify-public-weekly-snapshot&per_page=25" --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].id // empty')
-          if [ -z "$artifact_id" ]; then
-            echo "No previous reference snapshot; first check will create one."
-            exit 0
-          fi
-          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > previous-snapshot.zip
-          unzip -oq previous-snapshot.zip -d previous/
-          test -s previous/spotify-weekly-snapshot.json || { echo "Previous snapshot missing: keeping new run independent"; rm -rf previous; }
-      - name: Read public profile once and inspect bounded playlist embeds
-        run: |
-          node tools/spotify-public-probe.mjs "https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0"
-      - name: Compare and keep only genuine changes
-        id: compare
-        run: |
-          node tools/weekly-spotify-report.mjs previous/spotify-weekly-snapshot.json spotify-public-probe-result.json
-      - name: Preserve weekly baseline
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: spotify-public-weekly-snapshot
-          path: spotify-weekly-snapshot.json
-          retention-days: 60
-          if-no-files-found: error
-      - name: Preserve change report only if changed
-        if: steps.compare.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: spotify-public-weekly-changes
-          path: spotify-weekly-report.json
-          retention-days: 60
-          if-no-files-found: error
+      - name: Process only opted-in and due public profiles
+        if: steps.configured.outputs.ready == 'true'
+        run: node --experimental-strip-types tools/spotify-weekly-refresh.mjs
