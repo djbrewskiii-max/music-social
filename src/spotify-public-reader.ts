@@ -5,6 +5,7 @@
  * Keep Spotify source material out of publicly visible OVRLEE profiles
  * until the user reviews and explicitly pins selected tracks.
  */
+export type PublicArtist = { name: string; spotifyArtistUrl: string | null };
 export type PublicTrack = { song: string; artist: string; spotifyTrackUrl: string | null };
 export type PublicPlaylist = {
  id: string; url: string; title: string;
@@ -13,6 +14,7 @@ export type PublicPlaylist = {
 };
 export type PublicProfileResult = {
  userId: string; url: string; playlists: PublicPlaylist[];
+ recentlyPlayedArtists: PublicArtist[];
  totalVisibleLinks: number; warnings: string[];
 };
 const MAX_PLAYLISTS=30;
@@ -61,6 +63,39 @@ export function playlistLinksFromPublicHTML(html:string):{id:string;url:string;t
  }
  return [...links.values()];
 }
+/**
+ * Extract only artist links directly inside an explicitly labeled
+ * "Recently played artists" section. Do not collect all artist URLs
+ * from a page's unrelated recommendations or metadata.
+ * Some public pages do not render this section in their HTML at all.
+ */
+export function recentArtistsFromPublicHTML(html:string):PublicArtist[] {
+ const heading=/<h[1-6]\\b[^>]*>[\\s\\S]*?recently\\s+played\\s+artists[\\s\\S]*?<\\/h[1-6]>/i.exec(html);
+ if(!heading || heading.index === undefined)return [];
+ const tail=html.slice(heading.index+heading[0].length);
+ const nextHeading=/<h[1-6]\\b/i.exec(tail);
+ const scope=tail.slice(0,Math.min(nextHeading?.index ?? tail.length,150000));
+ const result:PublicArtist[]=[];
+ const seen=new Set<string>();
+ const anchors=/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+ let m:RegExpExecArray|null;
+ while((m=anchors.exec(scope))!==null && result.length<50){
+   const href=m[1].match(/\\bhref\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
+   const target=unescapeHTML(href).match(/(?:^|\\/)(?:intl-[a-z-]+\\/)?artist\\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/);
+   if(!target)continue;
+   const text=stripHTML(m[2]);
+   const aria=m[1].match(/\\baria-label\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
+   const imgAlt=m[2].match(/<img\\b[^>]*\\balt\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
+   const name=stripHTML(text||aria||imgAlt).replace(/\\s*\\d[\\d,]*\\s+followers.*$/i,'').trim();
+   if(!name||name.length>120)continue;
+   const key=name.normalize('NFKD').toLowerCase();
+   if(seen.has(key))continue;
+   seen.add(key);
+   result.push({name,spotifyArtistUrl:spotifyBase+'/artist/'+target[1]});
+ }
+ return result;
+}
+
 function findTrackList(value:unknown,depth=0,seen=new WeakSet<object>()):Record<string,unknown>|null {
  if(!value||typeof value!=='object'||depth>16||seen.has(value))return null;
  seen.add(value);
@@ -119,7 +154,7 @@ export async function readPublicSpotifyProfile(
  options?.onProgress?.('Reading your public Spotify profile…');
  const html=await getHTML(profile.url,options?.signal);
  const anchors=playlistLinksFromPublicHTML(html);
- if(!anchors.length)throw new Error('Spotify did not expose playlist links in the page sent to this device. Public profiles may render differently in the Spotify app and on the web.');
+ const recentlyPlayedArtists=recentArtistsFromPublicHTML(html);
  const playlists:PublicPlaylist[]=[];
  for(const [index,link] of anchors.slice(0,MAX_PLAYLISTS).entries()){
   options?.onProgress?.('Reading playlist '+(index+1)+' of '+Math.min(anchors.length,MAX_PLAYLISTS)+'…');
@@ -131,8 +166,10 @@ export async function readPublicSpotifyProfile(
    playlists.push({...link,tracks:[],status:'unavailable',observedRows:0,limited:false});
   }
  }
- return {userId:profile.userId,url:profile.url,playlists,totalVisibleLinks:anchors.length,
+ return {userId:profile.userId,url:profile.url,playlists,recentlyPlayedArtists,totalVisibleLinks:anchors.length,
    warnings:[
+    ...(!anchors.length?['No public playlist links were exposed. Your Spotify profile can still be connected with recently played artists or manually chosen artists.']:[]),
+    ...(!recentlyPlayedArtists.length?['Spotify did not expose recent artists in the public web page sent to this device. You can add artists you see in Spotify manually.']:[]),
     ...(anchors.length>MAX_PLAYLISTS?['Only the first '+MAX_PLAYLISTS+' visible playlists were checked.']:[]),
     ...(playlists.some(p=>p.limited)?['Spotify public embeds may show only the first 50 songs; this is not the full playlist.']:[]),
     ...(playlists.some(p=>p.status==='unavailable')?['Some public playlist embeds did not expose songs.']:[])
