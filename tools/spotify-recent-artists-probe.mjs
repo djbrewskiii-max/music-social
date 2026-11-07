@@ -5,7 +5,9 @@ const url='https://open.spotify.com/user/8712xitaly/recently-played-artists';
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true});
 try{
- const page=await browser.newPage({viewport:{width:1280,height:900}});
+ const page=await browser.newPage({viewport:{width:1280,height:900},
+   userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+   locale:'en-US'});
  const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:35000});
  await page.waitForTimeout(5000);
  const details=await page.evaluate(()=>{
