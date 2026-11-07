@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '../supabase';
+import { musicSuggestionSeeds, selectSuggestedPosts } from '../music-suggestion-signals';
 
 type Post = {
   id: string;
@@ -24,14 +25,48 @@ export default function MusicDiscoveryScreen() {
   const song = typeof params.song === 'string' ? params.song.trim().slice(0, 120) : '';
   const [posts, setPosts] = useState<Post[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const [artistIdeas,setArtistIdeas] = useState<string[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    if (!artist) { setBusy(false); return; }
     setBusy(true);
     setError('');
     try {
+      // An unnamed discovery screen is a private, optional recommendation
+      // experience; do not export seed artists or write to music_dna.
+      if(!artist){
+        const {data:{user},error:authError}=await supabase.auth.getUser();
+        if(authError||!user){router.replace('/login');return;}
+        const [selected,tracks,dna,publicPosts]=await Promise.all([
+          supabase.from('music_import_artists').select('artist')
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
+          supabase.from('music_import_tracks').select('artist')
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
+          supabase.from('music_dna').select('top_artists')
+            .eq('user_id',user.id).maybeSingle(),
+          supabase.from('posts').select('id,user_id,body,song_title,artist_name,artwork_url,created_at,collection,music_items')
+            .order('created_at',{ascending:false}).limit(300),
+        ]);
+        if(publicPosts.error)throw publicPosts.error;
+        const known=((dna.data?.top_artists||[]) as {name:string}[]).map(t=>t.name);
+        const seeds=musicSuggestionSeeds(
+          (selected.data||[]).map(t=>t.artist),
+          (tracks.data||[]).map(t=>({artist:t.artist})),
+          known,20,
+        );
+        setArtistIdeas(seeds.map(s=>s.name));
+        const suggested=selectSuggestedPosts((publicPosts.data||[]) as (Post&{music_items?:{artist?:string;song?:string}[]|null})[],seeds,15);
+        const recommended=suggested.map(s=>s.post);
+        setPosts(recommended);
+        const authors=[...new Set(recommended.map(post=>post.user_id))].slice(0,40);
+        if(!authors.length){setPeople([]);return;}
+        const profiles=await supabase.from('profiles')
+          .select('user_id,display_name,username,avatar_url').in('user_id',authors);
+        if(profiles.error)throw profiles.error;
+        setPeople((profiles.data||[]) as Person[]);
+        return;
+      }
       // Only posts visible under RLS can appear here. No private listening
       // history is exposed to other users.
       const safeArtist = artist.replace(/[%,()]/g, '').trim();
@@ -81,9 +116,11 @@ export default function MusicDiscoveryScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.overline}>MUSIC CONNECTS US</Text>
-        <Text style={styles.artist}>{artist || 'Discover music'}</Text>
+        <Text style={styles.artist}>{artist || 'For your ears.'}</Text>
         {!!song && <Text style={styles.song}>{song}</Text>}
-        <Text style={styles.description}>People who've posted music by this artist. Find a collection, discover a listener, or join the conversation.</Text>
+        <Text style={styles.description}>{artist
+          ? "People who've posted music by this artist. Find a collection, discover a listener, or join the conversation."
+          : "Artists and conversations to explore, based on music you've chosen or connected. These suggestions don't claim what you've listened to."}</Text>
 
         {busy && <ActivityIndicator color={green} style={{ marginTop: 40 }} />}
         {!!error && <Pressable onPress={() => void load()} style={styles.notice}>
@@ -92,7 +129,19 @@ export default function MusicDiscoveryScreen() {
 
         {!busy && !error && (
           <>
-            <Text style={styles.section}>LISTENERS · {people.length}</Text>
+            {!artist&&artistIdeas.length>0&&<>
+              <Text style={styles.section}>ARTISTS YOU MIGHT EXPLORE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{gap:9,paddingBottom:8}}>
+                {artistIdeas.map(name=><Pressable key={name}
+                  accessibilityRole="button" accessibilityLabel={'Explore '+name}
+                  style={styles.artistChip}
+                  onPress={()=>router.push({pathname:'/music-discovery',params:{artist:name}})}>
+                  <Text style={styles.chipText}>{name} ›</Text>
+                </Pressable>)}
+              </ScrollView>
+            </>}
+            <Text style={styles.section}>{artist?'LISTENERS':'PEOPLE POSTING THESE ARTISTS'} · {people.length}</Text>
             {people.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people}>
                 {people.map(person => (
@@ -107,9 +156,9 @@ export default function MusicDiscoveryScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
-            ) : <Text style={styles.empty}>No listeners have posted this artist yet.</Text>}
+            ) : <Text style={styles.empty}>{artist?'No listeners have posted this artist yet.':'As people post music you explore, relevant listeners can appear here.'}</Text>}
 
-            <Text style={styles.section}>POSTS & COLLECTIONS · {posts.length}</Text>
+            <Text style={styles.section}>{artist?'POSTS & COLLECTIONS':'CONVERSATIONS FOR YOU'} · {posts.length}</Text>
             {posts.map(post => {
               const person = people.find(p => p.user_id === post.user_id);
               return <Pressable key={post.id} style={styles.post} onPress={() => router.push({ pathname: '/post', params: { postId: post.id } })}>
@@ -123,7 +172,7 @@ export default function MusicDiscoveryScreen() {
                 <Text style={{ color: green, fontWeight: '900' }}>›</Text>
               </Pressable>;
             })}
-            {!posts.length && <Text style={styles.empty}>Be the first to post this artist to OVRLEE.</Text>}
+            {!posts.length && <Text style={styles.empty}>{artist?'Be the first to post this artist to OVRLEE.':'Explore an artist above to find more conversations. Suggestions improve as the community shares music.'}</Text>}
             <Pressable onPress={() => router.push('/create-post')} style={styles.cta}>
               <Text style={styles.ctaText}>POST MUSIC +</Text>
             </Pressable>
@@ -163,4 +212,6 @@ const styles = StyleSheet.create({
   noticeText: { color: '#FFB5B5', fontSize: 13 },
   cta: { backgroundColor: green, borderRadius: 13, padding: 15, alignItems: 'center', marginTop: 27 },
   ctaText: { color: '#070707', fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+  artistChip:{backgroundColor:'#142318',borderColor:'#315a38',borderWidth:1,borderRadius:18,paddingVertical:12,paddingHorizontal:15,maxWidth:200},
+  chipText:{color:green,fontSize:12,fontWeight:'900'},
 });
