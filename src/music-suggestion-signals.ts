@@ -65,6 +65,47 @@ export function musicPostAffinity(
   return highest===3?1.15:highest===2?.85:highest===1?.45:0;
 }
 
+/**
+ * Classify weekly OVRLEE activity, not external listening behavior.
+ * Posting music is a stronger signal than liking somebody else's post.
+ * Inputs come from an owner-only table maintained by a server-side cron job.
+ */
+export type MusicActivityArtist = {
+  artist_name: string;
+  posted_count: number;
+  liked_count: number;
+};
+export function activityMusicSeeds(rows: MusicActivityArtist[]): SuggestionArtist[] {
+  const result=new Map<string,SuggestionArtist>();
+  for(const row of rows.slice(0,300)){
+    const name=String(row.artist_name||'').trim().slice(0,120);
+    const key=normalizeMusicName(name);
+    if(!key)continue;
+    const posted=Math.max(0,Number(row.posted_count)||0);
+    const liked=Math.max(0,Number(row.liked_count)||0);
+    const weight=posted>=3 ? 3 : posted>=1||liked>=3 ? 2 : liked>=1 ? 1 : 0;
+    if(!weight)continue;
+    const existing=result.get(key);
+    if(!existing||existing.weight<weight)result.set(key,{name,weight});
+  }
+  return [...result.values()].sort((a,b)=>b.weight-a.weight||a.name.localeCompare(b.name));
+}
+
+/** Combine ranked signals without allowing duplicates to inflate evidence. */
+export function mergeMusicSeeds(...groups: SuggestionArtist[][]): SuggestionArtist[] {
+  const combined=new Map<string,SuggestionArtist>();
+  for(const group of groups){
+    for(const item of group){
+      const key=normalizeMusicName(item.name);
+      if(!key)continue;
+      const existing=combined.get(key);
+      if(!existing||existing.weight<item.weight)
+        combined.set(key,{name:item.name,weight:Math.min(3,Math.max(1,item.weight))});
+    }
+  }
+  return [...combined.values()].sort((a,b)=>b.weight-a.weight||a.name.localeCompare(b.name));
+}
+
 /** Match only public posts already fetched under Supabase RLS and city filters. */
 export function selectSuggestedPosts<T extends SuggestionPost>(
   posts: T[], seeds: SuggestionArtist[], limit = 6,
