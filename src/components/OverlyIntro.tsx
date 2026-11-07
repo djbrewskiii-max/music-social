@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { markOverlyIntroShown, shouldShowOverlyIntro } from '../overly-preferences';
+import { isOverlyIntroEnabled } from '../overly-preferences';
 
 const WORDS = ['OVERLY CURIOUS', 'OVERLY LOUD', 'OVERLY IN LOVE', 'OVERLY YOURSELF'];
 const HOLD_MS = 650;
@@ -20,10 +20,11 @@ export default function OverlyIntro({ active }: { active: boolean }) {
 
     (async () => {
       try {
-        if (!(await shouldShowOverlyIntro()) || !mounted) return;
+        // Temporary design-review mode: play on every entry to the main feed,
+        // not merely once every 24 hours. Do not rewrite the stored timestamp.
+        if (!(await isOverlyIntroEnabled()) || !mounted) return;
         const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
         if (!mounted) return;
-        await markOverlyIntroShown();
         setVisible(true);
         if (reduceMotion) {
           opacity.setValue(1);
@@ -55,6 +56,9 @@ export default function OverlyIntro({ active }: { active: boolean }) {
       mounted = false;
       if (timeout) clearTimeout(timeout);
       opacity.stopAnimation();
+      running.current = false;
+      setVisible(false);
+      setWord(0);
     };
   }, [active, opacity]);
 
