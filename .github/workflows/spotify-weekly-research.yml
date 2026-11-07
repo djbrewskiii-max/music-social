@@ -1,14 +1,19 @@
 name: OVRLEE Weekly Public Music Profile Check
 
-# GitHub schedules execute from main; collector code is on claude-build.
-# An opted-in member and a configured backend secret are both required.
+# Scheduled by GitHub from main. The collector runs from claude-build.
+# GitHub OIDC authenticates directly with OVRLEE's Supabase Edge Function;
+# no permanent backend secret is stored in GitHub.
 on:
   schedule:
     - cron: '23 9 * * 0'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/spotify-weekly-research.yml']
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: ovrlee-weekly-public-music-refresh
@@ -19,35 +24,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      SUPABASE_URL: https://ebflucbdptxpboqjxaox.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OVRLEE_SUPABASE_SERVICE_ROLE_KEY }}
-      MAX_PROFILES: '10'
+      OVRLEE_SYNC_URL: https://ebflucbdptxpboqjxaox.supabase.co/functions/v1/ovrlee-weekly-public-sync
     steps:
-      - name: Check whether secure backend sync is configured
-        id: configured
-        run: |
-          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "The OVRLEE backend credential has not been configured; no public profiles were scanned."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Checkout current OVRLEE collector
-        if: steps.configured.outputs.ready == 'true'
         uses: actions/checkout@v4
         with:
           ref: claude-build
       - uses: actions/setup-node@v4
-        if: steps.configured.outputs.ready == 'true'
         with:
           node-version: '22'
           cache: npm
       - name: Install isolated Chromium collector
-        if: steps.configured.outputs.ready == 'true'
         run: |
           npm ci
           npm install --no-save --package-lock=false playwright@1.58.2
           npx playwright install --with-deps chromium
-      - name: Process only opted-in and due public profiles
-        if: steps.configured.outputs.ready == 'true'
+      - name: Refresh opted-in profiles through verified GitHub identity
         run: node --experimental-strip-types tools/spotify-weekly-refresh.mjs
