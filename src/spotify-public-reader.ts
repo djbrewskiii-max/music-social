@@ -70,23 +70,23 @@ export function playlistLinksFromPublicHTML(html:string):{id:string;url:string;t
  * Some public pages do not render this section in their HTML at all.
  */
 export function recentArtistsFromPublicHTML(html:string):PublicArtist[] {
- const heading=/<h[1-6]\\b[^>]*>[\\s\\S]*?recently\\s+played\\s+artists[\\s\\S]*?<\\/h[1-6]>/i.exec(html);
+ const heading=/<h[1-6]\b[^>]*>[\s\S]*?recently\s+played\s+artists[\s\S]*?<\/h[1-6]>/i.exec(html);
  if(!heading || heading.index === undefined)return [];
  const tail=html.slice(heading.index+heading[0].length);
- const nextHeading=/<h[1-6]\\b/i.exec(tail);
+ const nextHeading=/<h[1-6]\b/i.exec(tail);
  const scope=tail.slice(0,Math.min(nextHeading?.index ?? tail.length,150000));
  const result:PublicArtist[]=[];
  const seen=new Set<string>();
- const anchors=/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+ const anchors=/<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
  let m:RegExpExecArray|null;
  while((m=anchors.exec(scope))!==null && result.length<50){
-   const href=m[1].match(/\\bhref\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
-   const target=unescapeHTML(href).match(/(?:^|\\/)(?:intl-[a-z-]+\\/)?artist\\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/);
+   const href=m[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1]||'';
+   const target=unescapeHTML(href).match(/(?:^|\/)(?:intl-[a-z-]+\/)?artist\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/);
    if(!target)continue;
    const text=stripHTML(m[2]);
-   const aria=m[1].match(/\\baria-label\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
-   const imgAlt=m[2].match(/<img\\b[^>]*\\balt\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
-   const name=stripHTML(text||aria||imgAlt).replace(/\\s*\\d[\\d,]*\\s+followers.*$/i,'').trim();
+   const aria=m[1].match(/\baria-label\s*=\s*["']([^"']+)["']/i)?.[1]||'';
+   const imgAlt=m[2].match(/<img\b[^>]*\balt\s*=\s*["']([^"']+)["']/i)?.[1]||'';
+   const name=stripHTML(text||aria||imgAlt).replace(/\s*\d[\d,]*\s+followers.*$/i,'').trim();
    if(!name||name.length>120)continue;
    const key=name.normalize('NFKD').toLowerCase();
    if(seen.has(key))continue;
