@@ -5,7 +5,10 @@
  * become a shared compatibility signal.
  */
 import type { PublicPlaylist } from './spotify-public-reader';
-import { trackKey } from './playlist-import.ts';
+// Keep the scoring module independent of Native or Node module resolution.
+const trackKey=(t:{song:string;artist:string})=>
+  (t.artist.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()+'::'+
+   t.song.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()).slice(0,450);
 
 export type TasteEvidence = {
  artist_key: string; artist_name: string;
