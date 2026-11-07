@@ -22,7 +22,7 @@ import {
 import { supabase } from '../supabase';
 import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
-import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
+
 import FirstListenShelf from '../components/FirstListenShelf';
 import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
@@ -1305,7 +1305,7 @@ export default function ProfileScreen() {
 
         {!isBlocked && !blockedByOther && (
           <>
-        <SpotifyShowcaseSection userId={typeof userId === 'string' ? userId : null} />
+        
         {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
         {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
         <View
