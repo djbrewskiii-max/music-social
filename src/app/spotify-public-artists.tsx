@@ -129,7 +129,7 @@ export default function PublicSpotifyArtistsPreview(){
     <Text style={s.explainer}>Experimental browser preview · no Spotify sign-in or API token required. Read artists only after the public page has loaded.</Text>
     <View style={s.browser}>
       <WebView ref={webRef} source={{uri:page}}
-        javaScriptEnabled domStorageEnabled={false} thirdPartyCookiesEnabled={false}
+        javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
         sharedCookiesEnabled={false} incognito
         originWhitelist={['https://open.spotify.com']}
         onNavigationStateChange={state=>{setNavigation(state.url);setLoaded(!state.loading);}}
