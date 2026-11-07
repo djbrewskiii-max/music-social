@@ -10,6 +10,8 @@ export default function MusicSettingsScreen() {
   const [busy, setBusy] = useState(false);
   const [sharePlaylistArtists,setSharePlaylistArtists]=useState(false);
   const [privacyBusy,setPrivacyBusy]=useState(false);
+  const [weeklyRefresh,setWeeklyRefresh]=useState(false);
+  const [weeklyBusy,setWeeklyBusy]=useState(false);
   const [linkedProfileId,setLinkedProfileId]=useState<string|null>(null);
   useFocusEffect(useCallback(()=>{
     let active=true;
@@ -25,7 +27,11 @@ export default function MusicSettingsScreen() {
       }catch{}
       if(!active)return;
       setLinkedProfileId(spotifyId);
-      if(!spotifyId){setSharePlaylistArtists(false);return;}
+      if(!spotifyId){setSharePlaylistArtists(false);setWeeklyRefresh(false);return;}
+      const {data:connection}=await supabase.from('member_music_connections')
+        .select('weekly_public_refresh_opt_in').eq('user_id',user.id)
+        .eq('provider_user_id',spotifyId).maybeSingle();
+      if(active)setWeeklyRefresh(connection?.weekly_public_refresh_opt_in===true);
       const result=await supabase.from('music_taste_artists')
         .select('share_for_matching').eq('user_id',user.id).eq('source','playlist')
         .eq('spotify_profile_id',spotifyId).limit(100);
@@ -55,6 +61,33 @@ export default function MusicSettingsScreen() {
     }catch(e){Alert.alert('Could not update music privacy',e instanceof Error?e.message:'Try again.');}
     finally{setPrivacyBusy(false);}
   };
+  const toggleWeeklyRefresh=async()=>{
+    if(weeklyBusy||!linkedProfileId)return;
+    setWeeklyBusy(true);
+    const next=!weeklyRefresh;
+    try{
+      const {data:{user}}=await supabase.auth.getUser();
+      if(!user)throw new Error('Sign in to change your preferences.');
+      const {data,error}=await supabase.from('member_music_connections')
+        .update({weekly_public_refresh_opt_in:next,updated_at:new Date().toISOString()})
+        .eq('user_id',user.id).eq('provider_user_id',linkedProfileId)
+        .select('user_id').maybeSingle();
+      if(error||!data)throw error||new Error('Your linked profile could not be updated.');
+      // Maintain compatibility with the onboarding reader's locally saved
+      // choice, so later manual reads cannot silently undo an opt-out.
+      const storageKey='ovrlee.spotifyPublicProfile.'+user.id;
+      const raw=await AsyncStorage.getItem(storageKey);
+      if(raw){
+        try{
+          const settings=JSON.parse(raw);
+          await AsyncStorage.setItem(storageKey,JSON.stringify({...settings,weekly:next}));
+        }catch{}
+      }
+      setWeeklyRefresh(next);
+    }catch(e){
+      Alert.alert('Could not save your music preference',e instanceof Error?e.message:'Try again.');
+    }finally{setWeeklyBusy(false);}
+  };
   return <SafeAreaView style={s.root}><View style={s.content}>
     <Pressable onPress={() => router.back()}><Text style={s.back}>‹ Back</Text></Pressable>
     <Text style={s.title}>Music service</Text>
@@ -66,6 +99,16 @@ export default function MusicSettingsScreen() {
       <Text style={s.name}>My favorite artists</Text><Text style={s.check}>›</Text>
     </Pressable>
     <Text style={s.note}>Choose five or more favorite artists and decide what you want to share.</Text>
+    <Text style={s.section}>KEEP YOUR MUSIC CURRENT</Text>
+    <Pressable accessibilityRole="switch"
+      accessibilityState={{checked:weeklyRefresh,disabled:weeklyBusy||!linkedProfileId}}
+      onPress={()=>void toggleWeeklyRefresh()} disabled={weeklyBusy||!linkedProfileId} style={s.option}>
+      <View style={{flex:1,paddingRight:12}}>
+        <Text style={s.name}>Refresh my music automatically</Text>
+        <Text style={s.note}>If enabled during setup, OVRLEE may check music visibly available on your connected public profile about once a week. Switch this off anytime.</Text>
+      </View>
+      <Text style={s.check}>{weeklyRefresh?'ON':'OFF'}</Text>
+    </Pressable>
     <Text style={s.section}>MUSIC PRIVACY</Text>
     <Pressable accessibilityRole="switch" accessibilityState={{checked:sharePlaylistArtists,disabled:privacyBusy||!linkedProfileId}}
       onPress={()=>void togglePlaylistMatching()} disabled={privacyBusy||!linkedProfileId} style={s.option}>
