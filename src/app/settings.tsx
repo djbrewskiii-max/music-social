@@ -86,8 +86,6 @@ export default function SettingsScreen() {
         <View style={styles.group}>
           <SettingRow first icon="music.note" label="Preferred music service" detail="Where songs and albums open"
             onPress={() => router.push('/music-settings')} />
-          <SettingRow icon="link.circle" label="Connect Apple Music" detail="Manage access to your listening library"
-            onPress={() => router.push('/connect-music')} />
 
         </View>
 
