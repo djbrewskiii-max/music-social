@@ -52,11 +52,14 @@ export default function MusicDiscoveryScreen() {
         if(publicPosts.error)throw publicPosts.error;
         const known=((dna.data?.top_artists||[]) as {name:string}[]).map(t=>t.name);
         const favorites=(taste.data||[]).filter(x=>x.source==='favorite').map(x=>x.artist_name);
-        const playlistArtists=(taste.data||[]).filter(x=>x.source==='playlist'&&x.song_count>=1);
+        const playlists=(taste.data||[]).filter(x=>x.source==='playlist'&&x.song_count>=1);
+        const high=playlists.filter(x=>x.song_count>=4).map(x=>x.artist_name);
+        const medium=playlists.filter(x=>x.song_count>=2&&x.song_count<4).map(x=>x.artist_name);
+        const low=playlists.filter(x=>x.song_count<2).map(x=>({artist:x.artist_name}));
         const seeds=musicSuggestionSeeds(
-          [...favorites,...(selected.data||[]).map(t=>t.artist)],
-          [...playlistArtists.map(x=>({artist:x.artist_name})),...(tracks.data||[]).map(t=>({artist:t.artist}))],
-          known,20,
+          [...medium,...(selected.data||[]).map(t=>t.artist)],
+          [...low,...(tracks.data||[]).map(t=>({artist:t.artist}))],
+          [...favorites,...high,...known],20,
         );
         setArtistIdeas(seeds.map(s=>s.name));
         const suggested=selectSuggestedPosts((publicPosts.data||[]) as (Post&{music_items?:{artist?:string;song?:string}[]|null})[],seeds,15);
