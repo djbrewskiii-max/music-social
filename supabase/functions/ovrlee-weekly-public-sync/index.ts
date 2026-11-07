@@ -29,10 +29,11 @@ async function requireGitHub(req:Request){
   const token=req.headers.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if(!token)throw Error('Missing identity token');
   const {payload}=await jwtVerify(token,jwks,{issuer,audience});
+  // GitHub permits customizable `sub` formats. The verified JWT's
+  // explicit repo, ref and workflow_ref claims carry the required binding.
   const checks={
     repository:payload.repository===repo,
     ref:payload.ref==='refs/heads/main',
-    subject:payload.sub==='repo:'+repo+':ref:refs/heads/main',
     workflow:payload.workflow_ref===workflow,
     event:['schedule','workflow_dispatch','push'].includes(String(payload.event_name||'')),
   };
