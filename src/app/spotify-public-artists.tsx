@@ -48,7 +48,7 @@ const READ_VISIBLE_ARTISTS = `(function(){
       seen[match[1]] = true;
       var img = card.querySelector('img');
       var imageUrl = img && (img.currentSrc || img.getAttribute('src') || '');
-      if (!/^https:\\/\\/i.test(imageUrl)) imageUrl = '';
+      if (typeof imageUrl !== 'string' || imageUrl.indexOf('https://') !== 0) imageUrl = '';
       artists.push({id:match[1],name:name,url:'https://open.spotify.com/artist/'+match[1],imageUrl:imageUrl});
     });
     window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -205,61 +205,132 @@ export default function PublicSpotifyArtistsPreview(){
       <Pressable accessibilityRole="button" onPress={()=>router.back()}><Text style={s.back}>‹</Text></Pressable>
       <Text style={s.headerText}>PUBLIC ARTIST PREVIEW</Text><View style={{width:22}}/>
     </View>
-    <Text style={s.explainer}>Experimental browser preview · no Spotify sign-in or API token required. Read artists only after the public page has loaded.</Text>
-    <View style={s.browser}>
-      <WebView ref={webRef} source={{uri:page}}
-        contentMode="desktop"
-        userAgent={DESKTOP_SAFARI_UA}
-        javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
-        sharedCookiesEnabled={false} incognito
-        originWhitelist={['https://*']}
-        javaScriptCanOpenWindowsAutomatically={false}
-        onOpenWindow={e=>onOpenExternalWindow(e.nativeEvent.targetUrl)}
-        onShouldStartLoadWithRequest={onPublicPageNavigation}
-        onNavigationStateChange={state=>{
-          setNavigation(state.url);
-          setLoaded(!state.loading && isPreviewPage(state.url) && !securityChallenge);
-        }}
-        onMessage={receive}
-        onError={()=>{setLoaded(false);setMessage('Spotify could not load this page in the embedded browser.');}}
-        onHttpError={e=>setMessage('Spotify page returned HTTP '+e.nativeEvent.statusCode)}
-        setSupportMultipleWindows={false}
-        style={{flex:1,backgroundColor:'#101010'}}/>
-    </View>
-    <View style={s.bottom}>
-      <Pressable style={[s.button,(!loaded || reading || securityChallenge)&&{opacity:.5}]}
-        disabled={!loaded || reading || securityChallenge} onPress={read}>
-        {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
-      </Pressable>
-      <Text style={s.message}>{message}</Text>
-      {!!popupNote&&<Text style={s.popupNote}>{popupNote}</Text>}
-      {securityChallenge&&<Text style={s.error}>Spotify is requesting reCAPTCHA in the main browser view. We will not bypass verification or report unverified artists.</Text>}
-      {appHandoff&&<Text style={s.error}>The embedded browser is not receiving the desktop artist page. Don't press Download App again; this path is unavailable on this device.</Text>}
-      {artists.length>0&&<ScrollView style={{maxHeight:205}} contentContainerStyle={{paddingBottom:8}}>
-        {artists.map(a=>{
-          const yes=selected.includes(a.id);
-          return <Pressable key={a.id} onPress={()=>setSelected(previous=>
-            yes?previous.filter(id=>id!==a.id):[...previous,a.id]
-          )} style={s.artist}>
-            <Text style={s.tick}>{yes?'✓':'○'}</Text><Text style={s.artistName}>{a.name}</Text>
+    {showBrowser || artists.length===0 ? <>
+      <Text style={s.explainer}>This is a user-initiated preview of publicly visible Spotify artists. Nothing is saved automatically.</Text>
+      <View style={s.browser}>
+        <WebView ref={webRef} source={{uri:page}}
+          contentMode="desktop"
+          userAgent={DESKTOP_SAFARI_UA}
+          javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
+          sharedCookiesEnabled={false} incognito
+          originWhitelist={['https://*']}
+          javaScriptCanOpenWindowsAutomatically={false}
+          onOpenWindow={e=>onOpenExternalWindow(e.nativeEvent.targetUrl)}
+          onShouldStartLoadWithRequest={onPublicPageNavigation}
+          onNavigationStateChange={state=>{
+            setNavigation(state.url);
+            setLoaded(!state.loading && isPreviewPage(state.url) && !securityChallenge);
+          }}
+          onMessage={receive}
+          onError={()=>{setLoaded(false);setMessage('Spotify could not load this page in the embedded browser.');}}
+          onHttpError={e=>setMessage('Spotify page returned HTTP '+e.nativeEvent.statusCode)}
+          setSupportMultipleWindows={false}
+          style={{flex:1,backgroundColor:'#101010'}}/>
+      </View>
+      <View style={s.bottom}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Read artists displayed in Spotify"
+          style={[s.button,(!loaded||reading||securityChallenge)&&{opacity:.5}]}
+          disabled={!loaded||reading||securityChallenge} onPress={read}>
+          {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
+        </Pressable>
+        <Text style={s.message}>{message}</Text>
+        {!!popupNote&&<Text style={s.popupNote}>{popupNote}</Text>}
+        {securityChallenge&&<Text style={s.error}>Spotify requires browser verification. Artist extraction is not available on this page.</Text>}
+        {appHandoff&&<Text style={s.error}>Spotify is showing its Download App screen instead of an artist list.</Text>}
+        <Text style={s.notice}>Experimental public-page reading. Spotify may change or restrict this experience. Review all results before saving anything.</Text>
+      </View>
+    </> : <>
+      <View style={s.reviewIntro}>
+        <Text style={s.kicker}>SPOTIFY × OVRLEE</Text>
+        <Text style={s.reviewTitle}>{artists.length} artists found</Text>
+        <Text style={s.reviewDescription}>Artists visible on this public Spotify page. Choose the artists you'd like to keep as private music suggestions.</Text>
+        <TextInput value={query} onChangeText={setQuery} placeholder="Search these artists"
+          placeholderTextColor="#777" style={s.search} autoCorrect={false}
+          accessibilityLabel="Search imported artists"/>
+        <View style={s.actions}>
+          <Text style={s.selectedText}>{selectedCount} of {artists.length} selected</Text>
+          <Pressable accessibilityRole="button" onPress={()=>setSelected(artists.map(a=>a.id))}>
+            <Text style={s.selectAction}>SELECT ALL</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={()=>setSelected([])}>
+            <Text style={s.selectAction}>CLEAR</Text>
+          </Pressable>
+        </View>
+      </View>
+      <ScrollView style={s.reviewList} contentContainerStyle={s.reviewContent} keyboardShouldPersistTaps="handled">
+        {filteredArtists.map((a,i)=>{
+          const checked=selected.includes(a.id);
+          return <Pressable key={a.id} accessibilityRole="checkbox"
+            accessibilityState={{checked}} accessibilityLabel={a.name}
+            onPress={()=>setSelected(previous=>checked
+              ? previous.filter(id=>id!==a.id) : [...previous,a.id])}
+            style={s.artistRow}>
+            {a.imageUrl
+              ? <Image source={{uri:a.imageUrl}} style={s.avatar}/>
+              : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{a.name.charAt(0).toUpperCase()}</Text></View>}
+            <View style={s.artistDetails}>
+              <Text style={s.artistName} numberOfLines={1}>{a.name}</Text>
+              <Text style={s.artistMeta}>Spotify artist</Text>
+            </View>
+            <View style={[s.checkCircle,checked&&s.checkCircleOn]}>
+              <Text style={{fontSize:14,fontWeight:'900',color:checked?'#090909':'#777'}}>{checked?'✓':'+'}</Text>
+            </View>
           </Pressable>;
         })}
-      </ScrollView>}
-      {artists.length>0&&<Pressable disabled={saving||!selected.length}
-        onPress={()=>void save()} style={[s.save,(!selected.length||saving)&&{opacity:.5}]}>
-        {saving?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>SAVE {selected.length} ARTISTS PRIVATELY</Text>}
-      </Pressable>}
-      <Text style={s.notice}>This is a user-initiated proof of concept, not an approved commercial Spotify data integration. No background scans or public posting.</Text>
-    </View>
+        {!filteredArtists.length&&<Text style={s.empty}>No artists match that search.</Text>}
+      </ScrollView>
+      <View style={s.reviewFooter}>
+        <Pressable accessibilityRole="button" disabled={saving||selectedCount===0}
+          onPress={()=>void save()} style={[s.button,(saving||selectedCount===0)&&{opacity:.45}]}>
+          {saving?<ActivityIndicator color="#000"/>:
+            <Text style={s.buttonText}>SAVE {selectedCount} ARTIST{selectedCount===1?'':'S'} PRIVATELY →</Text>}
+        </Pressable>
+        <Pressable accessibilityRole="button" style={s.again}
+          onPress={()=>{
+            setArtists([]);setSelected([]);setQuery('');setShowBrowser(true);
+            setLoaded(false);setSecurityChallenge(false);setAppHandoff(false);
+            setPopupNote('');setMessage('Open the public artist page, then tap Read visible artists.');
+          }}>
+          <Text style={s.againText}>REOPEN PUBLIC PAGE</Text>
+        </Pressable>
+        <Text style={s.notice}>Saving does not publish artists, establish listening frequency, or add anything to your public profile.</Text>
+      </View>
+    </>}
   </SafeAreaView>;
 }
 const s=StyleSheet.create({
-  root:{flex:1,backgroundColor:'#090909'},header:{paddingHorizontal:18,height:54,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#292929'},
+  root:{flex:1,backgroundColor:'#090909'},
+  header:{paddingHorizontal:18,height:54,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#292929'},
   back:{color:'#fff',fontSize:32},headerText:{color:'#fff',fontWeight:'900',letterSpacing:1,fontSize:12},
-  explainer:{fontSize:12,color:'#aaa',lineHeight:18,margin:14},browser:{flex:1,marginHorizontal:12,overflow:'hidden',borderRadius:13,borderWidth:1,borderColor:'#333'},
-  bottom:{paddingHorizontal:18,paddingTop:12,paddingBottom:12},button:{backgroundColor:GREEN,padding:15,alignItems:'center',borderRadius:12},
-  buttonText:{fontSize:12,color:'#070707',fontWeight:'900'},message:{color:'#b6b6b6',fontSize:12,marginVertical:12,lineHeight:18},
-  artist:{borderBottomWidth:1,borderBottomColor:'#222',paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
-  artistName:{fontSize:13,color:'#fff',fontWeight:'700'},tick:{fontSize:19,color:GREEN},save:{backgroundColor:GREEN,padding:13,borderRadius:12,alignItems:'center',marginTop:10},
-  notice:{fontSize:10,color:'#777',marginTop:10,lineHeight:15},popupNote:{fontSize:11,color:'#d6b27d',marginBottom:8,lineHeight:16},error:{color:'#f99',fontSize:13,marginVertical:8},link:{color:GREEN,fontWeight:'900',margin:20},
+  explainer:{fontSize:12,color:'#aaa',lineHeight:18,margin:14},
+  browser:{flex:1,marginHorizontal:12,overflow:'hidden',borderRadius:13,borderWidth:1,borderColor:'#333'},
+  bottom:{paddingHorizontal:18,paddingTop:12,paddingBottom:12},
+  button:{backgroundColor:GREEN,padding:15,alignItems:'center',borderRadius:12},
+  buttonText:{fontSize:12,color:'#070707',fontWeight:'900'},
+  message:{color:'#b6b6b6',fontSize:12,marginVertical:12,lineHeight:18},
+  notice:{fontSize:10,color:'#777',marginTop:10,lineHeight:15},
+  popupNote:{fontSize:11,color:'#d6b27d',marginBottom:8,lineHeight:16},
+  error:{color:'#f99',fontSize:13,marginVertical:8},
+  link:{color:GREEN,fontWeight:'900',margin:20},
+  kicker:{color:GREEN,fontSize:10,fontWeight:'900',letterSpacing:1.5},
+  reviewIntro:{paddingHorizontal:19,paddingTop:21,paddingBottom:10},
+  reviewTitle:{color:'#fff',fontSize:29,fontWeight:'900',marginTop:8},
+  reviewDescription:{color:'#aaa',fontSize:13,lineHeight:20,marginTop:9},
+  search:{backgroundColor:'#1B1B1B',color:'#fff',fontSize:14,padding:15,borderWidth:1,borderColor:'#333',borderRadius:12,marginTop:17},
+  actions:{flexDirection:'row',alignItems:'center',gap:15,marginTop:16,paddingBottom:5},
+  selectedText:{color:'#bcbcbc',fontSize:12,flex:1},
+  selectAction:{color:GREEN,fontSize:11,fontWeight:'900'},
+  reviewList:{flex:1},
+  reviewContent:{paddingHorizontal:19,paddingBottom:25},
+  artistRow:{flexDirection:'row',alignItems:'center',gap:12,borderBottomWidth:1,borderBottomColor:'#242424',paddingVertical:11},
+  avatar:{width:51,height:51,borderRadius:26,backgroundColor:'#232323'},
+  avatarFallback:{width:51,height:51,borderRadius:26,backgroundColor:'#18281D',alignItems:'center',justifyContent:'center'},
+  avatarLetter:{fontSize:20,color:GREEN,fontWeight:'900'},
+  artistDetails:{flex:1,gap:4},artistName:{color:'#fff',fontSize:15,fontWeight:'800'},
+  artistMeta:{color:'#888',fontSize:11},
+  checkCircle:{width:27,height:27,borderRadius:14,borderWidth:1,borderColor:'#555',alignItems:'center',justifyContent:'center'},
+  checkCircleOn:{backgroundColor:GREEN,borderColor:GREEN},
+  empty:{color:'#aaa',fontSize:13,paddingTop:30,textAlign:'center'},
+  reviewFooter:{paddingHorizontal:19,paddingTop:10,paddingBottom:14,borderTopWidth:1,borderTopColor:'#242424'},
+  again:{padding:12,alignItems:'center'},againText:{color:'#bcbcbc',fontSize:11,fontWeight:'900',letterSpacing:.6},
 });
