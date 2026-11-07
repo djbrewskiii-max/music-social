@@ -8,7 +8,7 @@ This document replaces the old prototype-specific research notes. Git history re
 - Normal OVRLEE screens (profiles, settings, In Rotation, Nearby, listener recommendations) no longer expose Spotify scanners, imported-library management or public Spotify showcase cards.
 - Users see only music-driven recommendations and genuine mutual artists, not source-specific import mechanics. The public showcase database and editor implementation are retained as dormant legacy code to avoid destructive migration; they have no default navigation entries.
 - The generic Music Settings screen retains service-opening preferences and a scoped music-privacy control so a user can revoke playlist-artist matching without returning to the scanner.
-- Weekly public-page refresh is an **opt-in experimental collector** and is not active until the secured GitHub Actions credential is supplied. It is not Spotify OAuth or approved provider access; commercial launch requires a permissions review.
+- Weekly public-page refresh is an **opt-in experimental collector** configured through GitHub OIDC and an authenticated Edge Function. This is not Spotify OAuth or approved provider access; commercial launch requires a permissions review.
 
 ## Live screens
 - `src/app/spotify-library.tsx`: Public Spotify profile link, visible public playlist HTML/embed scan, private reviewed song suggestions, optional self-identified profile + opt-in artist matching, recent scan comparisons.
@@ -26,15 +26,16 @@ This document replaces the old prototype-specific research notes. Git history re
 - On successful user-initiated artist rendering for that same registered profile, OVRLEE privately saves the observed artist IDs and which IDs were absent from the previous observation. Initial observation is a baseline. The artist panel remains optional and is not shown during normal app use.
 - The registry has a separate `weekly_public_refresh_opt_in` flag (false by default). An opt-in during onboarding is required for automatic public-page checks; members can disable it in Music Settings.
 
-## Weekly Spotify public-profile delta worker — staged
+## Weekly Spotify public-profile delta worker — deployed with GitHub OIDC
 
-- GitHub Actions default branch: `.github/workflows/spotify-weekly-research.yml`, Sundays at 09:23 UTC. It checks out `claude-build` and runs `tools/spotify-weekly-refresh.mjs` with Playwright Chromium and bounded public playlist embed requests.
-- Requires ONE repository Actions secret: `OVRLEE_SUPABASE_SERVICE_ROLE_KEY`. The Supabase project URL is configured publicly in the workflow. Without the secret the workflow **skips without collecting any Spotify data**.
-- Collects only member-owned profile URLs where `weekly_public_refresh_opt_in=true`. First observations establish baselines. Changes update `spotify_scan_history`, `member_music_connections`, private `music_import_tracks` / `music_import_artists`, and playlist-weighted `music_taste_artists`.
-- DOM artist extraction uses only the visible public `recently-played-artists` grid. No logged-in session, challenge bypass, or token extraction. An unavailable grid does not erase previous observations.
-- The member can turn recurring checks off at any time; the job rechecks this before writing results. It processes up to 10 due profiles per run and waits at least six days after the last attempt.
-- GitHub Actions secret must never be committed, logged, or bundled into the mobile client.
-- **Policy risk:** Spotify's developer terms restrict automated retrieval/indexing and user-profile derivation. This is a technical research implementation, not confirmation of authorization to operate commercially. Seek appropriate Spotify permission before enabling it for a public launch.
+- GitHub Actions scheduled workflow is on the repository's **default branch** at `.github/workflows/spotify-weekly-research.yml`, Sundays at 09:23 UTC. It checks out `claude-build` to run `tools/spotify-weekly-refresh.mjs`.
+- A Supabase Edge Function `ovrlee-weekly-public-sync` is deployed. It verifies a short-lived GitHub Actions OIDC JWT against the GitHub signing keys, audience, repository, workflow filename, and `main` branch. No permanent Supabase administrator key is stored in GitHub.
+- **Default off per member:** the onboarding user must opt in to `weekly_public_refresh_opt_in`. An opt-out in Music Settings immediately makes the user ineligible for the next check.
+- The browser reads public profile links, public playlist embed HTML, and the rendered, visible public recently-played artist grid, without Spotify login or security challenge bypass. An unreadable page never erases historical observations.
+- The Edge Function checks consent again before saving. It compares previously observed playlist IDs, distinct song keys, and recently visible artist IDs. Initial observations establish a baseline; newly observed music is used only for **private suggestions** and permitted shared artist matching. No posting to the member's public profile occurs.
+- Up to 10 due profiles are checked per weekly run, with a six-day cooldown after a prior attempt.
+- **Operational status:** code, DB schema, Edge Function and workflow are installed. The first end-to-end scheduled browser/Edge Function invocation and an actual opted-in profile refresh remain unverified; no members were enrolled at deployment time.
+- **Policy risk:** Spotify's terms restrict automated indexing and using its content to build user profiles. OVRLEE must resolve rights/permissions before commercial-scale operation. Member consent alone does not override provider restrictions.
 
 ## Weekly backend refresh — deployed
 
