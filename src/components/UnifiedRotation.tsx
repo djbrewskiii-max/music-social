@@ -1107,14 +1107,14 @@ export default function UnifiedRotation({
 
               {!editingId && (
                 <Pressable accessibilityRole="button"
-                  accessibilityLabel="Browse my imported music and discover artists"
-                  onPress={() => { clearEditor(); router.push('/imported-music'); }}
+                  accessibilityLabel="Discover conversations around music you enjoy"
+                  onPress={() => { clearEditor(); router.push('/nearby'); }}
                   style={{paddingVertical:11,marginBottom:5}}>
                   <Text style={{color:GREEN,fontWeight:'900',fontSize:12}}>
-                    ♫ BROWSE MY IMPORTED MUSIC →
+                    ♫ EXPLORE YOUR MUSIC SUGGESTIONS →
                   </Text>
                   <Text style={{color:'#999',fontSize:11,marginTop:5}}>
-                    Review saved songs and find people posting your artists.
+                    Find posts and people around the music you've chosen.
                   </Text>
                 </Pressable>
               )}
