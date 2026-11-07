@@ -21,6 +21,7 @@ jobs:
       - run: node --experimental-strip-types tools/spotify-owned-playlists.test.mjs
       - run: node --experimental-strip-types tools/spotify-public-reader.test.mjs
       - run: node --experimental-strip-types tools/spotify-recent-artists.test.mjs
+      - run: node --check tools/spotify-signed-in-viewer-probe.mjs
 
   spotify_probe_once:
     if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify public profile feasibility probe'
