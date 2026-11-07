@@ -4,7 +4,19 @@
  * Caller must obtain a user-authorized user-read-recently-played token.
  * Never persist tokens or expose these observations on public OVRLEE profiles.
  */
-import { spotifyAPI } from './spotify-owned-playlists.ts';
+// Keep this helper independent so Node's native TypeScript test runner can
+// verify it without a nonstandard module-resolution loader.
+async function fetchRecentTracks<T>(token:string,signal?:AbortSignal):Promise<T> {
+  if(!token)throw new Error('Connect Spotify to view your recent artists.');
+  const response=await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=50',{
+    headers:{Authorization:'Bearer '+token},signal,
+  });
+  if(response.status===401)throw new Error('Spotify authorization expired. Connect again.');
+  if(response.status===403)throw new Error('Spotify denied recent listening access. Check developer app access, requested permission, and Spotify eligibility.');
+  if(response.status===429)throw new Error('Spotify rate limit reached. Try again later.');
+  if(!response.ok)throw new Error('Spotify recently played endpoint returned '+response.status+'.');
+  return await response.json() as T;
+}
 
 export type SpotifyRecentArtist = {
   id: string;
@@ -31,9 +43,7 @@ const MAX_ARTISTS = 50;
 export async function getMySpotifyRecentArtists(
   token: string, signal?: AbortSignal,
 ): Promise<SpotifyRecentArtist[]> {
-  const response = await spotifyAPI<SpotifyRecentlyPlayedResponse>(
-    '/me/player/recently-played?limit=50', token, signal,
-  );
+  const response = await fetchRecentTracks<SpotifyRecentlyPlayedResponse>(token,signal);
   const seen = new Map<string,SpotifyRecentArtist>();
   for (const item of response.items || []) {
     if (!item.track || !Array.isArray(item.track.artists)) continue;
