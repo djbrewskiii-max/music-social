@@ -8,37 +8,7 @@
 import { chromium } from 'playwright';
 import { normalizePublicProfile, parsePublicPlaylistEmbed } from '../src/spotify-public-reader.ts';
 
-const syncUrl=process.env.OVRLEE_SYNC_URL||
-  'https://ebflucbdptxpboqjxaox.supabase.co/functions/v1/ovrlee-weekly-public-sync';
-const aud='ovrlee-weekly-public-sync';
-
-async function githubIdentityToken(){
-  const endpoint=process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
-  const requestToken=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
-  if(!endpoint||!requestToken)
-    throw new Error('GitHub OIDC identity is unavailable. Run from the scheduled Actions workflow.');
-  const uri=new URL(endpoint);
-  uri.searchParams.set('audience',aud);
-  const response=await fetch(uri,{
-    headers:{Authorization:'Bearer '+requestToken},
-    signal:AbortSignal.timeout(10000),
-  });
-  if(!response.ok)throw new Error('GitHub identity request failed: HTTP '+response.status);
-  const json=await response.json();
-  if(typeof json.value!=='string')throw new Error('GitHub returned no identity token');
-  return json.value;
-}
-async function syncCall(payload){
-  const jwt=await githubIdentityToken();
-  const response=await fetch(syncUrl,{
-    method:'POST',
-    headers:{Authorization:'Bearer '+jwt,'Content-Type':'application/json'},
-    body:JSON.stringify(payload),
-    signal:AbortSignal.timeout(40000),
-  });
-  if(!response.ok)throw new Error('OVRLEE sync returned HTTP '+response.status);
-  return response.json();
-}
+import { syncCall } from './weekly-music-identity.mjs';
 
 const MAX_PROFILES=10;
 const MAX_PLAYLISTS=20;
