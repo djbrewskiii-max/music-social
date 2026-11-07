@@ -116,6 +116,7 @@ try {
           el => /recently played artists/i.test(el.textContent || '')
         ),
         hasLoginCallToAction: /Log in|Sign up/.test(document.body?.innerText || ''),
+        profileNotFound: /couldn['’]?t find that page|page not found|we can['’]?t seem to find/i.test(document.body?.innerText || ''),
         documentTitle: document.title,
         visibleHeadings: [...document.querySelectorAll('h1,h2,h3')]
           .filter(el => !!el.getClientRects().length)
@@ -133,6 +134,7 @@ try {
       visibleArtistCards: observed.artistCount,
       sectionVisible: observed.hasRecentHeading,
       loginCallToActionVisible: observed.hasLoginCallToAction,
+      profileNotFound: observed.profileNotFound,
       pageTitle: observed.documentTitle,
       headings: observed.visibleHeadings,
       artistLinksVisible: observed.visibleArtistLinks,
@@ -145,9 +147,13 @@ try {
   }
   console.log('\nSPOTIFY SIGNED-IN VIEWER FEASIBILITY');
   console.log(JSON.stringify({ target, evidence, artists: found }, null, 2));
-  console.log(found.length
-    ? '\nPublic artist cards were visible to the signed-in viewer. This proves a browser-session route for this profile, not legal approval for automated product collection.'
-    : '\nNo public artist cards found. Check the profile in the browser: if visible, the selectors need adapting; if not, Spotify may restrict this session or view.');
+  if(evidence.some(e=>e.path===new URL(target).pathname && e.profileNotFound)){
+    console.log('\nPROFILE PAGE NOT FOUND: Spotify did not resolve this user URL in Chrome. Copy the exact profile link using Spotify mobile → three dots → Share → Copy link to profile. Do not infer the URL from the display name.');
+  }else{
+    console.log(found.length
+      ? '\nPublic artist cards were found on this profile.'
+      : '\nNo artist cards found. Use the visible headings and page excerpt above to distinguish missing content from selector issues.');
+  }
   await reader.question('Inspect the final Spotify profile page in Chrome. Press ENTER to close it: ');
 } finally {
   reader.close();
