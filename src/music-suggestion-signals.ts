@@ -43,6 +43,28 @@ export function musicSuggestionSeeds(
   return [...weighted.values()].sort((a,b)=>b.weight-a.weight || a.name.localeCompare(b.name)).slice(0,Math.max(0,limit));
 }
 
+/**
+ * A bounded personalization bonus for an ordinary social feed.
+ * A music match helps a post, but cannot overpower freshness or following.
+ * Keep these private, read-only hints separate from public compatibility data.
+ */
+export function musicPostAffinity(
+  post: { artist_name?: string | null; music_items?: { artist?: string }[] | null },
+  seeds: SuggestionArtist[],
+): number {
+  if(!seeds.length)return 0;
+  const weightByArtist=new Map(seeds.map(s=>[normalizeMusicName(s.name),s.weight]));
+  let highest=0;
+  const artists=[post.artist_name||'',...(post.music_items||[]).map(item=>item.artist||'')];
+  for(const artist of artists){
+    const value=weightByArtist.get(normalizeMusicName(artist))||0;
+    if(value>highest)highest=value;
+  }
+  // Explicit favorites and repeatedly represented playlist artists carry
+  // more weight; all values remain too small to replace freshness signals.
+  return highest===3?1.15:highest===2?.85:highest===1?.45:0;
+}
+
 /** Match only public posts already fetched under Supabase RLS and city filters. */
 export function selectSuggestedPosts<T extends SuggestionPost>(
   posts: T[], seeds: SuggestionArtist[], limit = 6,
