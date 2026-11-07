@@ -109,7 +109,7 @@ export default function SetupProfileScreen() {
     const { data: existingProfile, error: checkError } =
       await supabase
         .from('profiles')
-        .select('id')
+        .select('id,display_name,username,city')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -167,7 +167,8 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    router.replace(existingProfile ? '/now' : '/pick-artists');
+    const hadCompletedProfile=!!(existingProfile?.display_name && existingProfile?.username && existingProfile?.city);
+    router.replace(hadCompletedProfile ? '/now' : '/pick-artists');
   };
 
   const canContinue =
