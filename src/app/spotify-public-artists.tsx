@@ -170,7 +170,27 @@ export default function PublicSpotifyArtistsPreview(){
     setAppHandoff(result.appHandoff===true);
     setArtists(deduped);
     setSelected(deduped.map(a=>a.id));
-    if(deduped.length)setShowBrowser(false);
+    if(deduped.length){
+      setShowBrowser(false);
+      // Preserve only a successful, explicit observation of the member's
+      // own registered profile. Browsing a different profile must not
+      // change the member's musical identity or saved source snapshots.
+      void (async()=>{
+        const {data:{user}}=await supabase.auth.getUser();
+        if(!user||!profile)return;
+        const {data:connection,error}=await supabase.from('member_music_connections')
+          .select('provider_user_id,self_declared_owner')
+          .eq('user_id',user.id).maybeSingle();
+        if(error||!connection?.self_declared_owner||connection.provider_user_id!==profile.userId)return;
+        const {error:writeError}=await supabase.from('member_music_connections')
+          .update({
+            last_observed_artist_ids:deduped.map(a=>a.id),
+            last_observed_artist_at:new Date().toISOString(),
+            updated_at:new Date().toISOString(),
+          }).eq('user_id',user.id).eq('provider_user_id',profile.userId);
+        if(writeError)console.log('Artist observation sync:',writeError.message);
+      })().catch(error=>console.log('Artist observation sync:',error));
+    }
     setMessage(deduped.length
       ? deduped.length+' visible artist cards found. Choose which to save privately.'
       : result.appHandoff ? 'Spotify is showing its Download App screen instead of the artist grid. That screen cannot provide artist data in this viewer.'
