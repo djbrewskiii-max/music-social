@@ -82,7 +82,7 @@ try {
   const evidence = [];
   for (const url of checks) {
     const response = await page.goto(url, {waitUntil:'domcontentloaded',timeout:35000});
-    await page.waitForTimeout(4500);
+    await page.waitForTimeout(6500);
     // Only the on-screen artist cards or the specifically labeled section.
     // Do not collect hidden app state, session information, or unrelated links.
     const observed = await page.evaluate(() => {
@@ -116,6 +116,15 @@ try {
           el => /recently played artists/i.test(el.textContent || '')
         ),
         hasLoginCallToAction: /Log in|Sign up/.test(document.body?.innerText || ''),
+        documentTitle: document.title,
+        visibleHeadings: [...document.querySelectorAll('h1,h2,h3')]
+          .filter(el => !!el.getClientRects().length)
+          .map(el => (el.textContent || '').trim().replace(/\s+/g,' ').slice(0,100))
+          .filter(Boolean).slice(0,12),
+        visibleArtistLinks: [...document.querySelectorAll('a[href*="/artist/"]')]
+          .filter(el => !!el.getClientRects().length).length,
+        visiblePageExcerpt: (document.querySelector('main')?.innerText || document.body?.innerText || '')
+          .replace(/\s+/g,' ').slice(0,420),
       };
     });
     evidence.push({
@@ -124,6 +133,10 @@ try {
       visibleArtistCards: observed.artistCount,
       sectionVisible: observed.hasRecentHeading,
       loginCallToActionVisible: observed.hasLoginCallToAction,
+      pageTitle: observed.documentTitle,
+      headings: observed.visibleHeadings,
+      artistLinksVisible: observed.visibleArtistLinks,
+      pageExcerpt: observed.visiblePageExcerpt,
     });
     if (observed.artists.length) {
       found = observed.artists.map(({name,id}) => ({ name: safeText(name), spotifyArtistUrl:'https://open.spotify.com/artist/'+id }));
@@ -135,6 +148,7 @@ try {
   console.log(found.length
     ? '\nPublic artist cards were visible to the signed-in viewer. This proves a browser-session route for this profile, not legal approval for automated product collection.'
     : '\nNo public artist cards found. Check the profile in the browser: if visible, the selectors need adapting; if not, Spotify may restrict this session or view.');
+  await reader.question('Inspect the final Spotify profile page in Chrome. Press ENTER to close it: ');
 } finally {
   reader.close();
   await context.close(); // session stays in memory only; no cookies exported
