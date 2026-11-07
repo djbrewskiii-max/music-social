@@ -11,6 +11,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import { normalizePublicProfile } from '../spotify-public-reader';
+import { newlyVisibleArtistIds } from '../spotify-observation-diff';
 import { supabase } from '../supabase';
 
 const GREEN = '#39E75F';
@@ -179,12 +180,17 @@ export default function PublicSpotifyArtistsPreview(){
         const {data:{user}}=await supabase.auth.getUser();
         if(!user||!profile)return;
         const {data:connection,error}=await supabase.from('member_music_connections')
-          .select('provider_user_id,self_declared_owner')
+          .select('provider_user_id,self_declared_owner,last_observed_artist_ids,last_observed_artist_at')
           .eq('user_id',user.id).maybeSingle();
         if(error||!connection?.self_declared_owner||connection.provider_user_id!==profile.userId)return;
+        const latestIds=deduped.map(a=>a.id);
+        const previouslyObserved=connection.last_observed_artist_at
+          ? connection.last_observed_artist_ids as string[] : null;
+        const newArtistIds=newlyVisibleArtistIds(previouslyObserved,latestIds);
         const {error:writeError}=await supabase.from('member_music_connections')
           .update({
-            last_observed_artist_ids:deduped.map(a=>a.id),
+            last_observed_artist_ids:latestIds,
+            last_new_artist_ids:newArtistIds,
             last_observed_artist_at:new Date().toISOString(),
             updated_at:new Date().toISOString(),
           }).eq('user_id',user.id).eq('provider_user_id',profile.userId);
