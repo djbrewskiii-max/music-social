@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '../supabase';
-import { musicSuggestionSeeds, selectSuggestedPosts } from '../music-suggestion-signals';
+import { activityMusicSeeds, mergeMusicSeeds, musicSuggestionSeeds, selectSuggestedPosts } from '../music-suggestion-signals';
 
 type Post = {
   id: string;
@@ -38,7 +38,7 @@ export default function MusicDiscoveryScreen() {
       if(!artist){
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user){router.replace('/login');return;}
-        const [selected,tracks,dna,publicPosts,taste]=await Promise.all([
+        const [selected,tracks,dna,publicPosts,taste,appActivity]=await Promise.all([
           supabase.from('music_import_artists').select('artist')
             .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
           supabase.from('music_import_tracks').select('artist')
@@ -48,6 +48,8 @@ export default function MusicDiscoveryScreen() {
           supabase.from('posts').select('id,user_id,body,song_title,artist_name,artwork_url,created_at,collection,music_items')
             .order('created_at',{ascending:false}).limit(300),
           supabase.from('music_taste_artists').select('artist_name,source,song_count').eq('user_id',user.id).limit(400),
+          supabase.from('music_activity_artists').select('artist_name,posted_count,liked_count')
+            .eq('user_id',user.id).order('last_activity_at',{ascending:false}).limit(300),
         ]);
         if(publicPosts.error)throw publicPosts.error;
         const known=((dna.data?.top_artists||[]) as {name:string}[]).map(t=>t.name);
@@ -61,8 +63,9 @@ export default function MusicDiscoveryScreen() {
           [...low,...(tracks.data||[]).map(t=>({artist:t.artist}))],
           [...favorites,...high,...known],20,
         );
-        setArtistIdeas(seeds.map(s=>s.name));
-        const suggested=selectSuggestedPosts((publicPosts.data||[]) as (Post&{music_items?:{artist?:string;song?:string}[]|null})[],seeds,15);
+        const combinedSeeds=mergeMusicSeeds(seeds,activityMusicSeeds(appActivity.data||[])).slice(0,50);
+        setArtistIdeas(combinedSeeds.slice(0,20).map(s=>s.name));
+        const suggested=selectSuggestedPosts((publicPosts.data||[]) as (Post&{music_items?:{artist?:string;song?:string}[]|null})[],combinedSeeds,15);
         const recommended=suggested.map(s=>s.post);
         setPosts(recommended);
         const authors=[...new Set(recommended.map(post=>post.user_id))].slice(0,40);
