@@ -12,6 +12,7 @@ export type SpotifyScanHistory = {
 export type SpotifyScanChanges = {
   firstScan: boolean;
   newByPlaylist: Record<string, string[]>;
+  newPlaylistIds: string[];
   removedFromView: Record<string, number>;
   history: SpotifyScanHistory;
 };
@@ -26,11 +27,14 @@ export function compareSpotifyScans(
   };
   const newByPlaylist: Record<string, string[]> = {};
   const removedFromView: Record<string, number> = {};
+  const newPlaylistIds: string[] = [];
   const firstScan = !previous || previous.version !== 1;
   for (const playlist of result.playlists) {
     // Unreadable playlists are not removals; never erase their observations.
     if (playlist.status !== 'ready') continue;
     const before = next.playlists[playlist.id];
+    // A newly visible playlist counts as new only after a baseline exists.
+    if(!firstScan && !before) newPlaylistIds.push(playlist.id);
     const current = [...new Set(playlist.tracks.map(trackKey))];
     const seen = new Set(before || []);
     // First encounter with a playlist establishes a baseline, not fake 'new' music.
@@ -41,5 +45,5 @@ export function compareSpotifyScans(
     // when the first-50 view shifts, including rearranged tracks.
     next.playlists[playlist.id] = [...seen, ...current.filter(key => !seen.has(key))].slice(-5000);
   }
-  return { firstScan, newByPlaylist, removedFromView, history: next };
+  return { firstScan, newByPlaylist, newPlaylistIds, removedFromView, history: next };
 }
