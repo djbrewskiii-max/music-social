@@ -71,13 +71,35 @@ export default function PublicSpotifyArtistsPreview(){
   const [selected,setSelected] = useState<string[]>([]);
   const [reading,setReading] = useState(false);
   const [appHandoff,setAppHandoff] = useState(false);
+  const [securityChallenge,setSecurityChallenge] = useState(false);
   const [saving,setSaving] = useState(false);
   const [loaded,setLoaded] = useState(false);
   const [message,setMessage] = useState('Open the public artist page, then tap Read visible artists.');
   const [navigation,setNavigation] = useState('');
   const page = profile ? profile.url+'/recently-played-artists' : null;
-  const currentOriginIsSpotify = navigation.startsWith('https://open.spotify.com/');
+  const currentOriginIsSpotify = !!page && navigation.split('?')[0].replace(/\\/$/,'') === page;
+  const onPublicPageNavigation = (request:{url:string}) => {
+    let address:URL;
+    try { address = new URL(request.url); } catch { return false; }
+    // Reject top-level navigation into Spotify's separate security challenge.
+    // Never attempt to solve, hide, or circumvent CAPTCHA.
+    const challenge = address.hostname === 'challenge.spotify.com'
+      || address.hostname === 'www.google.com' && address.pathname.includes('recaptcha')
+      || address.hostname === 'www.recaptcha.net';
+    if(challenge){
+      setSecurityChallenge(true);
+      setLoaded(false);
+      setMessage('Spotify requested a security challenge, so the public artist preview is unavailable in this embedded browser.');
+      return false;
+    }
+    if(address.hostname !== 'open.spotify.com')return false;
+    return true;
+  };
   const read = () => {
+    if(securityChallenge){
+      setMessage('Spotify blocked the embedded preview with a security challenge. Artist extraction is unavailable here.');
+      return;
+    }
     if(!loaded || !currentOriginIsSpotify || !webRef.current) {
       setMessage('Spotify has not finished loading the public artist page.');
       return;
@@ -147,7 +169,11 @@ export default function PublicSpotifyArtistsPreview(){
         javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
         sharedCookiesEnabled={false} incognito
         originWhitelist={['https://open.spotify.com']}
-        onNavigationStateChange={state=>{setNavigation(state.url);setLoaded(!state.loading);}}
+        onShouldStartLoadWithRequest={onPublicPageNavigation}
+        onNavigationStateChange={state=>{
+          setNavigation(state.url);
+          setLoaded(!state.loading && state.url.split('?')[0].replace(/\\/$/,'') === page);
+        }}
         onMessage={receive}
         onError={()=>{setLoaded(false);setMessage('Spotify could not load this page in the embedded browser.');}}
         onHttpError={e=>setMessage('Spotify page returned HTTP '+e.nativeEvent.statusCode)}
@@ -155,11 +181,12 @@ export default function PublicSpotifyArtistsPreview(){
         style={{flex:1,backgroundColor:'#101010'}}/>
     </View>
     <View style={s.bottom}>
-      <Pressable style={[s.button,(!loaded || reading)&&{opacity:.5}]}
-        disabled={!loaded || reading} onPress={read}>
+      <Pressable style={[s.button,(!loaded || reading || securityChallenge)&&{opacity:.5}]}
+        disabled={!loaded || reading || securityChallenge} onPress={read}>
         {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
       </Pressable>
       <Text style={s.message}>{message}</Text>
+      {securityChallenge&&<Text style={s.error}>Spotify is requesting reCAPTCHA rather than loading artist cards. This WebView approach cannot continue. No further login or Download App attempts are needed.</Text>}
       {appHandoff&&<Text style={s.error}>The embedded browser is not receiving the desktop artist page. Don't press Download App again; this path is unavailable on this device.</Text>}
       {artists.length>0&&<ScrollView style={{maxHeight:205}} contentContainerStyle={{paddingBottom:8}}>
         {artists.map(a=>{
