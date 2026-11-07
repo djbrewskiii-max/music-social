@@ -24,8 +24,10 @@ export function playlistArtistEvidence(playlists:PublicPlaylist[]):TasteEvidence
  for(const p of playlists.slice(0,30)){
   if(p.status!=='ready')continue;
   for(const track of p.tracks.slice(0,50)){
-   // Don't assume every comma-separated collaborator is an individual lead artist.
-   const name=String(track.artist||'').split(',')[0].trim().slice(0,120);
+   // Keep the displayed artist credit intact; commas can be part of
+   // an actual artist's name (e.g. Earth, Wind & Fire).
+   // Matching a combined credit is safer than inventing a lead artist.
+   const name=String(track.artist||'').trim().slice(0,120);
    const key=tasteKey(name);
    if(!key || key.length>160)continue;
    const song=trackKey(track);
