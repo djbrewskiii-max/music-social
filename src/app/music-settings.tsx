@@ -52,11 +52,23 @@ export default function MusicSettingsScreen() {
     try{
       const {data:{user}}=await supabase.auth.getUser();
       if(!user)throw new Error('Sign in to change your preferences.');
+      // Keep the recurring worker's preference in sync with this privacy
+      // control; otherwise a later refresh could reinstate a removed match.
+      const {error:connectionError}=await supabase.from('member_music_connections')
+        .update({share_playlist_artists:next,updated_at:new Date().toISOString()})
+        .eq('user_id',user.id).eq('provider_user_id',linkedProfileId);
+      if(connectionError)throw connectionError;
       const result=await supabase.from('music_taste_artists')
         .update({share_for_matching:next,updated_at:new Date().toISOString()})
         .eq('user_id',user.id).eq('source','playlist')
         .eq('spotify_profile_id',linkedProfileId);
       if(result.error)throw result.error;
+      const key='ovrlee.spotifyPublicProfile.'+user.id;
+      const raw=await AsyncStorage.getItem(key);
+      if(raw)try{
+        const saved=JSON.parse(raw);
+        await AsyncStorage.setItem(key,JSON.stringify({...saved,share:next}));
+      }catch{}
       setSharePlaylistArtists(next);
     }catch(e){Alert.alert('Could not update music privacy',e instanceof Error?e.message:'Try again.');}
     finally{setPrivacyBusy(false);}
