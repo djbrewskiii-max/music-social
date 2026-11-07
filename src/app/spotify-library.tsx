@@ -242,7 +242,7 @@ export default function SpotifyPublicLibrary() {
     <Text style={s.section}>SPOTIFY PROFILE LINK</Text>
     <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
-    <Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>}
+    <Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
      <Text style={s.consentCopy}>Review music visible on this public Spotify profile.</Text>
