@@ -17,7 +17,7 @@ export default function ConnectMusicScreen() {
   // OAuth callback support is retained separately until its dependencies are audited.
   const connectSpotify = () => {
     // Public profile reader is user-initiated and does not use Spotify OAuth.
-    router.push('/spotify-library');
+    router.push({pathname:'/spotify-library',params:{onboarding:'1'}});
   };
 
   const connectAppleMusic = async () => {
@@ -73,8 +73,7 @@ export default function ConnectMusicScreen() {
             <Text style={styles.heading}>Bring your music with you.</Text>
 
             <Text style={styles.subheading}>
-              Connect your music library so OVRLEE can find the people who listen
-              like you.
+              Help OVRLEE learn what you enjoy, so the right music and people find you.
             </Text>
           </View>
 
@@ -108,7 +107,7 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting to Spotify...' : 'Read my public Spotify'}
+                  {connecting ? 'Connecting to Spotify...' : 'Connect my public Spotify profile'}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
@@ -128,7 +127,7 @@ export default function ConnectMusicScreen() {
           </Pressable>
 
           <Text style={styles.footer}>
-            Your music. Your people. Right now.
+            Choose your music once. Let OVRLEE do the discovering.
           </Text>
         </View>
       </View>
