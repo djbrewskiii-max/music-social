@@ -135,6 +135,14 @@ export default function SpotifyPublicLibrary() {
       // Only a self-identified Spotify profile contributes own-taste evidence.
       // A profile looked up for discovery remains only a private suggestion.
       if(mySpotifyProfile){
+        // Only one self-identified Spotify profile contributes public matching
+        // at a time. Older linked profiles retain private observations but
+        // cannot continue appearing as shared taste after a profile switch.
+        const {error:oldLinkError}=await supabase.from('music_taste_artists')
+          .update({share_for_matching:false})
+          .eq('user_id',user.id).eq('source','playlist')
+          .neq('spotify_profile_id',result.userId);
+        if(oldLinkError)console.log('Previous Spotify profile unlink:',oldLinkError.message);
         const evidence=playlistArtistEvidence(result.playlists);
         if(evidence.length){
           const rows=evidence.map(artist=>({
