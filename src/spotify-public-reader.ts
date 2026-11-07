@@ -102,19 +102,19 @@ export function recentArtistsFromPublicHTML(html:string):PublicArtist[] {
  * recommendations as recently played artists.
  */
 export function artistsFromRecentlyPlayedPage(html:string):PublicArtist[] {
- const root=html.match(/<div\\b[^>]*data-testid=["']grid-container["'][^>]*>([\\s\\S]*)/i)?.[1]||html;
- const anchors=/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+ const root=html.match(/<div\b[^>]*data-testid=["']grid-container["'][^>]*>([\s\S]*)/i)?.[1]||html;
+ const anchors=/<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
  const artists:PublicArtist[]=[];
  const seen=new Set<string>();
  let m:RegExpExecArray|null;
  while((m=anchors.exec(root))!==null&&artists.length<50) {
-   const href=m[1].match(/\\bhref\\s*=\\s*["']([^"']+)["']/i)?.[1]||'';
+   const href=m[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1]||'';
    const url=unescapeHTML(href);
-   const id=url.match(/(?:^|\\/)(?:intl-[a-z-]+\\/)?artist\\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/)?.[1];
+   const id=url.match(/(?:^|\/)(?:intl-[a-z-]+\/)?artist\/([A-Za-z0-9]{10,64})(?:[/?#]|$)/)?.[1];
    if(!id||seen.has(id))continue;
-   const cardTitle=m[2].match(/data-encore-id=["']cardTitle["'][^>]*\\btitle=["']([^"']+)["']/i)?.[1] ||
-      m[2].match(/\\btitle=["']([^"']+)["'][^>]*data-encore-id=["']cardTitle["']/i)?.[1];
-   const imageAlt=m[2].match(/<img\\b[^>]*\\balt=["']([^"']+)["']/i)?.[1];
+   const cardTitle=m[2].match(/data-encore-id=["']cardTitle["'][^>]*\btitle=["']([^"']+)["']/i)?.[1] ||
+      m[2].match(/\btitle=["']([^"']+)["'][^>]*data-encore-id=["']cardTitle["']/i)?.[1];
+   const imageAlt=m[2].match(/<img\b[^>]*\balt=["']([^"']+)["']/i)?.[1];
    const name=stripHTML(cardTitle || stripHTML(m[2]) || imageAlt || '');
    if(!name||name.length>120)continue;
    seen.add(id);
