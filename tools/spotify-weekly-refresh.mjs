@@ -169,6 +169,7 @@ async function refreshOne(browser,profile){
   if(!still?.weekly_public_refresh_opt_in)return {status:'revoked'};
 
   let newPlaylists=0,newSongs=0,newArtists=0;
+  const newSongSuggestions=[];
   if(parsed.length){
     const {data:history,error}=await db.from('spotify_scan_history')
       .select('playlist_id,track_keys')
@@ -184,8 +185,21 @@ async function refreshOne(browser,profile){
       const current=[...new Set(playlist.tracks.map(trackKey))];
       if(old){
         const previous=new Set(old);
-        if(!isBaseline)newSongs+=current.filter(t=>!previous.has(t)).length;
-      }else if(!isBaseline)newPlaylists++;
+        if(!isBaseline){
+          const newlyVisible=new Set(current.filter(t=>!previous.has(t)));
+          newSongs+=newlyVisible.size;
+          for(const song of playlist.tracks){
+            if(newlyVisible.has(trackKey(song)))
+              newSongSuggestions.push({...song,playlist:playlist.title});
+          }
+        }
+      }else if(!isBaseline){
+        newPlaylists++;
+        // Newly visible playlists can seed suggestions, but their tracks
+        // aren't counted as newly added Spotify songs.
+        for(const song of playlist.tracks)
+          newSongSuggestions.push({...song,playlist:playlist.title});
+      }
       // Retain historical rows. A shifting first-50 embed is not a deletion.
       rows.push({
         user_id:profile.user_id,spotify_user_id:identity.userId,
@@ -197,6 +211,20 @@ async function refreshOne(browser,profile){
     const {error:saveHistory}=await db.from('spotify_scan_history')
       .upsert(rows,{onConflict:'user_id,spotify_user_id,playlist_id'});
     if(saveHistory)throw saveHistory;
+
+    if(newSongSuggestions.length){
+      // Private suggestions only. Never post or pin to the member's profile.
+      const deduped=[...new Map(newSongSuggestions.map(song=>[trackKey(song),song])).values()]
+        .slice(0,100);
+      const rows=deduped.map(song=>({
+        user_id:profile.user_id,song:song.song,artist:song.artist,
+        album:'',track_key:trackKey(song),
+        source_label:('Public Spotify playlist · '+song.playlist).slice(0,100),
+      }));
+      const {error:suggestionsError}=await db.from('music_import_tracks')
+        .upsert(rows,{onConflict:'user_id,track_key',ignoreDuplicates:true});
+      if(suggestionsError)throw suggestionsError;
+    }
 
     const evidence=playlistArtistEvidence(parsed);
     if(evidence.length){
@@ -213,6 +241,19 @@ async function refreshOne(browser,profile){
 
   const statusValues={};
   if(artists?.length){
+    // Artist visibility is a discovery hint, not evidence of a recent listen.
+    // Never overwrite the member's manually reviewed artist entries.
+    const artistRows=[...new Map(artists.map(a=>[norm(a.name),a])).entries()]
+      .filter(([key])=>key.length>0&&key.length<=160)
+      .map(([artist_key,a])=>({
+        user_id:profile.user_id,artist:a.name,artist_key,
+        source_label:'Spotify public profile · observed artist',
+      }));
+    if(artistRows.length){
+      const {error:artistError}=await db.from('music_import_artists')
+        .upsert(artistRows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
+      if(artistError)throw artistError;
+    }
     const ids=artists.map(a=>a.id);
     const previous=profile.last_observed_artist_at
       ? profile.last_observed_artist_ids||[]:null;
