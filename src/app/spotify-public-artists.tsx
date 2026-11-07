@@ -1,5 +1,5 @@
 /**
- * Experimental, user-initiated preview of artists visibly rendered on
+ * User-initiated preview of artists visibly rendered on
  * a public Spotify profile. No Spotify API token, login, hidden endpoints,
  * cookie extraction, playback history inference or background collection.
  *
@@ -77,7 +77,7 @@ export default function PublicSpotifyArtistsPreview(){
   const [securityChallenge,setSecurityChallenge] = useState(false);
   const [saving,setSaving] = useState(false);
   const [loaded,setLoaded] = useState(false);
-  const [message,setMessage] = useState('Open the public artist page, then tap Read visible artists.');
+  const [message,setMessage] = useState('Open Spotify's public artist page, then bring those artists into OVRLEE.');
   const [navigation,setNavigation] = useState('');
   const [popupNote,setPopupNote] = useState('');
   const [query,setQuery] = useState('');
@@ -203,10 +203,10 @@ export default function PublicSpotifyArtistsPreview(){
   return <SafeAreaView style={s.root}>
     <View style={s.header}>
       <Pressable accessibilityRole="button" onPress={()=>router.back()}><Text style={s.back}>‹</Text></Pressable>
-      <Text style={s.headerText}>PUBLIC ARTIST PREVIEW</Text><View style={{width:22}}/>
+      <Text style={s.headerText}>SPOTIFY ARTISTS</Text><View style={{width:22}}/>
     </View>
     {showBrowser || artists.length===0 ? <>
-      <Text style={s.explainer}>This is a user-initiated preview of publicly visible Spotify artists. Nothing is saved automatically.</Text>
+      <Text style={s.explainer}>Artists from the public Spotify profile. Nothing is saved until you choose.</Text>
       <View style={s.browser}>
         <WebView ref={webRef} source={{uri:page}}
           contentMode="desktop"
@@ -231,22 +231,22 @@ export default function PublicSpotifyArtistsPreview(){
         <Pressable accessibilityRole="button" accessibilityLabel="Read artists displayed in Spotify"
           style={[s.button,(!loaded||reading||securityChallenge)&&{opacity:.5}]}
           disabled={!loaded||reading||securityChallenge} onPress={read}>
-          {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
+          {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>FIND ARTISTS →</Text>}
         </Pressable>
         <Text style={s.message}>{message}</Text>
         {!!popupNote&&<Text style={s.popupNote}>{popupNote}</Text>}
         {securityChallenge&&<Text style={s.error}>Spotify requires browser verification. Artist extraction is not available on this page.</Text>}
         {appHandoff&&<Text style={s.error}>Spotify is showing its Download App screen instead of an artist list.</Text>}
-        <Text style={s.notice}>Experimental public-page reading. Spotify may change or restrict this experience. Review all results before saving anything.</Text>
+        <Text style={s.notice}>Spotify's public pages can change. This is not a live listening-history connection.</Text>
       </View>
     </> : <>
       <View style={s.reviewIntro}>
-        <Text style={s.kicker}>SPOTIFY × OVRLEE</Text>
+        <Text style={s.kicker}>OVRLEE × SPOTIFY</Text>
         <Text style={s.reviewTitle}>{artists.length} artists found</Text>
-        <Text style={s.reviewDescription}>Artists visible on this public Spotify page. Choose the artists you'd like to keep as private music suggestions.</Text>
+        <Text style={s.reviewDescription}>Choose what catches your ear. These selections quietly improve your music suggestions.</Text>
         <TextInput value={query} onChangeText={setQuery} placeholder="Search these artists"
           placeholderTextColor="#777" style={s.search} autoCorrect={false}
-          accessibilityLabel="Search imported artists"/>
+          accessibilityLabel="Search artist suggestions"/>
         <View style={s.actions}>
           <Text style={s.selectedText}>{selectedCount} of {artists.length} selected</Text>
           <Pressable accessibilityRole="button" onPress={()=>setSelected(artists.map(a=>a.id))}>
@@ -289,9 +289,9 @@ export default function PublicSpotifyArtistsPreview(){
           onPress={()=>{
             setArtists([]);setSelected([]);setQuery('');setShowBrowser(true);
             setLoaded(false);setSecurityChallenge(false);setAppHandoff(false);
-            setPopupNote('');setMessage('Open the public artist page, then tap Read visible artists.');
+            setPopupNote('');setMessage('Open Spotify's public artist page, then bring those artists into OVRLEE.');
           }}>
-          <Text style={s.againText}>REOPEN PUBLIC PAGE</Text>
+          <Text style={s.againText}>SCAN AGAIN</Text>
         </Pressable>
         <Text style={s.notice}>Saving does not publish artists, establish listening frequency, or add anything to your public profile.</Text>
       </View>
