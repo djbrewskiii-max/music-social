@@ -38,7 +38,7 @@ export default function MusicDiscoveryScreen() {
       if(!artist){
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user){router.replace('/login');return;}
-        const [selected,tracks,dna,publicPosts]=await Promise.all([
+        const [selected,tracks,dna,publicPosts,taste]=await Promise.all([
           supabase.from('music_import_artists').select('artist')
             .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
           supabase.from('music_import_tracks').select('artist')
@@ -47,12 +47,15 @@ export default function MusicDiscoveryScreen() {
             .eq('user_id',user.id).maybeSingle(),
           supabase.from('posts').select('id,user_id,body,song_title,artist_name,artwork_url,created_at,collection,music_items')
             .order('created_at',{ascending:false}).limit(300),
+          supabase.from('music_taste_artists').select('artist_name,source,song_count').eq('user_id',user.id).limit(400),
         ]);
         if(publicPosts.error)throw publicPosts.error;
         const known=((dna.data?.top_artists||[]) as {name:string}[]).map(t=>t.name);
+        const favorites=(taste.data||[]).filter(x=>x.source==='favorite').map(x=>x.artist_name);
+        const playlistArtists=(taste.data||[]).filter(x=>x.source==='playlist'&&x.song_count>=1);
         const seeds=musicSuggestionSeeds(
-          (selected.data||[]).map(t=>t.artist),
-          (tracks.data||[]).map(t=>({artist:t.artist})),
+          [...favorites,...(selected.data||[]).map(t=>t.artist)],
+          [...playlistArtists.map(x=>({artist:x.artist_name})),...(tracks.data||[]).map(t=>({artist:t.artist}))],
           known,20,
         );
         setArtistIdeas(seeds.map(s=>s.name));
