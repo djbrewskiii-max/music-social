@@ -1172,7 +1172,7 @@ export default function ProfileScreen() {
           </Text>
 
           {!!profile.overly_trait && (
-            <View style={{ alignSelf: 'flex-start', marginTop: 9, borderRadius: 20, borderWidth: 1, borderColor: '#37723E', backgroundColor: '#14281A', paddingHorizontal: 12, paddingVertical: 7 }}>
+            <View style={{ alignSelf: 'flex-end', marginTop: 9, marginRight: 8, borderRadius: 20, borderWidth: 1, borderColor: '#37723E', backgroundColor: '#14281A', paddingHorizontal: 12, paddingVertical: 7 }}>
               <Text style={{ color: '#BAF5BE', fontWeight: '800', fontSize: 12 }}>{profile.overly_trait}</Text>
             </View>
           )}
