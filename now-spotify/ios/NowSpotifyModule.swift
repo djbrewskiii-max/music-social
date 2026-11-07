@@ -181,8 +181,8 @@ public class NowSpotifyModule: Module {
         self.originalCallback = nil
         self.playlistWebToken = nil
         self.playlistTokenExpiry = nil
-        self.record("playlist_authorize", "requesting playlist read scopes")
-        let scope: SPTScope = [.playlistReadPrivate, .playlistReadCollaborative]
+        self.record("playlist_authorize", "requesting playlist and recent-listening read scopes")
+        let scope: SPTScope = [.playlistReadPrivate, .playlistReadCollaborative, .userReadRecentlyPlayed]
         self.ensureSessionManager().initiateSession(with: scope, options: .default, campaign: nil)
       }
       return true
