@@ -15,10 +15,14 @@ export default function MusicSettingsScreen() {
   return <SafeAreaView style={s.root}><View style={s.content}>
     <Pressable onPress={() => router.back()}><Text style={s.back}>‹ Back</Text></Pressable>
     <Text style={s.title}>Music service</Text>
-    <Text style={s.description}>Choose where NOW opens music. You can switch anytime. Posts and conversations stay the same.</Text>
+    <Text style={s.description}>Choose where OVRLEE opens music. You can switch anytime. Posts and conversations stay the same.</Text>
     {(['apple_music','spotify'] as const).map(value => <Pressable key={value} disabled={busy} onPress={() => choose(value)} style={s.option}>
       <Text style={s.name}>{value === 'spotify' ? 'Spotify' : 'Apple Music'}</Text><Text style={s.check}>{provider === value ? '✓' : '○'}</Text>
     </Pressable>)}
+    <Pressable accessibilityRole="button" onPress={()=>router.push({pathname:'/pick-artists',params:{edit:'1'}})} style={s.option}>
+      <Text style={s.name}>My favorite artists</Text><Text style={s.check}>›</Text>
+    </Pressable>
+    <Text style={s.note}>Choose five or more favorites and decide whether OVRLEE can show shared artists in compatibility.</Text>
     {busy && <ActivityIndicator color="#39E75F" />}
     <Text style={s.note}>Spotify links open the matching search in Spotify when an exact track URL is unavailable. Automatic Spotify listening sync is not enabled yet.</Text>
   </View></SafeAreaView>;
