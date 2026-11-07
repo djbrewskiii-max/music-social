@@ -14,7 +14,6 @@ import { compareSpotifyScans, type SpotifyScanHistory } from '../spotify-scan-di
 import { supabase } from '../supabase';
 import { playlistArtistEvidence } from '../music-taste-evidence';
 const GREEN='#39E75F';
-const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 
 export default function SpotifyPublicLibrary() {
  const [url,setUrl]=useState('');
@@ -22,6 +21,7 @@ export default function SpotifyPublicLibrary() {
  const [artistText,setArtistText]=useState('');
  const [artistChecked,setArtistChecked]=useState<string[]>([]);
  const [artistSaving,setArtistSaving]=useState(false);
+ const [showManualArtists,setShowManualArtists]=useState(false);
  const [changes,setChanges]=useState<Record<string,string[]>>({});
  const [firstScan,setFirstScan]=useState(true);
  const [chosen,setChosen]=useState<PublicPlaylist|null>(null);
@@ -55,7 +55,7 @@ export default function SpotifyPublicLibrary() {
     const {error:writeError}=await supabase.from('music_import_artists')
       .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
     if(writeError)throw writeError;
-    Alert.alert('Artists saved',selectedArtists.length+' artist suggestions saved privately. Explore conversations about them in My Imported Music.',
+    Alert.alert('Artists saved',selectedArtists.length+' artists are ready to help OVRLEE discover more music and people for you.',
       [{text:'Stay here'},{text:'Explore music',onPress:()=>router.push('/music-discovery')}]);
   }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
   finally{setArtistSaving(false);}
@@ -222,7 +222,7 @@ export default function SpotifyPublicLibrary() {
    const duplicateCount=rows.length-fresh.length;
    Alert.alert('Music suggestions updated',
      fresh.length+' new song'+(fresh.length===1?'':'s')+' saved. '+duplicateCount+
-     ' already in your library. Your public rotation stays unchanged until you choose songs.',
+     ' were already saved. Your public rotation stays yours to curate.',
      [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
       {text:'Explore music',onPress:()=>router.push('/music-discovery')},
       {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
@@ -232,34 +232,34 @@ export default function SpotifyPublicLibrary() {
  return <SafeAreaView style={s.screen}>
   <View style={s.header}>
    <Pressable accessibilityRole="button" onPress={()=>router.back()} hitSlop={12}><Text style={s.back}>‹</Text></Pressable>
-   <Text style={s.headTitle}>SPOTIFY MUSIC DISCOVERY</Text><View style={{width:24}}/>
+   <Text style={s.headTitle}>SPOTIFY × OVRLEE</Text><View style={{width:24}}/>
   </View>
   <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-   <Text style={s.eyebrow}>OVRLEE × PUBLIC MUSIC</Text>
-   <Text style={s.title}>Bring your public playlists to OVRLEE.</Text>
-   <Text style={s.body}>Connect music from your public Spotify profile: playlists where available, plus artists you choose to share. No Spotify login or Premium needed for this experiment.</Text>
+   <Text style={s.eyebrow}>MAKE IT SOUND LIKE YOU</Text>
+   <Text style={s.title}>Bring your music closer.</Text>
+   <Text style={s.body}>Your public Spotify profile can help OVRLEE suggest artists, conversations and people you might connect with. No Spotify login is required for this preview.</Text>
    {!chosen&&<>
-    <Text style={s.section}>YOUR SPOTIFY PROFILE</Text>
+    <Text style={s.section}>SPOTIFY PROFILE LINK</Text>
     <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
-    {__DEV__&&<Pressable onPress={()=>{setUrl(SAMPLE);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} style={s.sample}><Text style={s.sampleText}>USE TEST PROFILE (LEOSKEPI) →</Text></Pressable>}
+    <Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>}
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
-     <Text style={s.consentCopy}>I understand this is an experimental preview of publicly displayed Spotify music; I will review artists before saving.</Text>
+     <Text style={s.consentCopy}>Review music visible on this public Spotify profile.</Text>
     </Pressable>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:mySpotifyProfile}}
       onPress={()=>{setMySpotifyProfile(v=>!v);setSharePlaylistTaste(false);}} style={s.consentRow}>
       <View style={[s.check,mySpotifyProfile&&s.checkActive]}><Text style={s.checkMark}>{mySpotifyProfile?'✓':''}</Text></View>
-      <Text style={s.consentCopy}>This is my own Spotify profile. Use the visible songs in my playlists to improve music suggestions. Ownership is self-reported.</Text>
+      <Text style={s.consentCopy}>This is my Spotify profile. Use its public playlists to improve my music recommendations.</Text>
     </Pressable>
     {mySpotifyProfile&&<Pressable accessibilityRole="checkbox"
       accessibilityState={{checked:sharePlaylistTaste}}
       onPress={()=>setSharePlaylistTaste(v=>!v)} style={s.consentRow}>
       <View style={[s.check,sharePlaylistTaste&&s.checkActive]}><Text style={s.checkMark}>{sharePlaylistTaste?'✓':''}</Text></View>
-      <Text style={s.consentCopy}>Show these artists in shared-music matches. No one else can see my playlists or individual songs.</Text>
+      <Text style={s.consentCopy}>Show artists we have in common with other members. My playlists and individual tracks remain private.</Text>
     </Pressable>}
     <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
-      {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'SCAN PROFILE AGAIN →':'READ PUBLIC PLAYLISTS →'}</Text>}
+      {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
     {!!progress&&<Text style={s.progress}>{progress}</Text>}
     {!!error&&<Text style={s.error}>{error}</Text>}
@@ -281,7 +281,7 @@ export default function SpotifyPublicLibrary() {
     </>}
    </>}
    {!chosen&&<>
-    <Text style={s.section}>RECENTLY PLAYED ARTISTS</Text>
+    <Text style={s.section}>EXPLORE THEIR ARTISTS</Text>
     <Pressable accessibilityRole="button"
       onPress={()=>{
         if(!consent){Alert.alert('Review permission','Confirm that you understand this is an experimental preview of publicly displayed Spotify music.');return;}
@@ -290,10 +290,10 @@ export default function SpotifyPublicLibrary() {
           router.push({pathname:'/spotify-public-artists',params:{url:profile.url}});
         }catch(e){Alert.alert('Spotify profile link needed',e instanceof Error?e.message:'Enter a valid profile URL first.');}
       }} style={[s.primary,{marginBottom:12}]}>
-      <Text style={s.primaryText}>PREVIEW RENDERED PUBLIC ARTISTS →</Text>
+      <Text style={s.primaryText}>EXPLORE ARTISTS →</Text>
     </Pressable>
-    <Text style={s.sub}>Experimental on-device preview. Spotify renders this section after loading its page, so the regular HTML reader can miss it. Review artists before saving.</Text>
-    <Text style={s.body}>Review artists visible on the public profile or add names manually. Only the artists you select are saved privately.</Text>
+    <Text style={s.sub}>The artist preview lets you choose which publicly visible artists OVRLEE should remember.</Text>
+    <Text style={s.body}></Text>
     {scan&&scan.recentlyPlayedArtists.length>0&&<>
       <Text style={s.freshSummary}>{scan.recentlyPlayedArtists.length} ARTISTS FOUND IN PUBLIC PAGE</Text>
       {scan.recentlyPlayedArtists.map(a=>{
@@ -351,7 +351,7 @@ export default function SpotifyPublicLibrary() {
       {saving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {checkedCount} SONGS AS SUGGESTIONS →</Text>}
      </Pressable>
     </>}
-   <Text style={s.footer}>Experimental public-page reading. Spotify can change or restrict the pages at any time. Some playlists may not be readable, and only publicly exposed tracks are included. This is not Spotify's official API, listening history, or automatic posting. Spotify's published guidelines restrict automated scraping; resolve permission requirements before commercial rollout.</Text>
+   <Text style={s.footer}>Only publicly available music appears here. Spotify may limit what's visible. This isn't live playback, an official Spotify API connection or automatic posting. OVRLEE must resolve permission requirements before automated commercial collection.</Text>
   </ScrollView>
  </SafeAreaView>;
 }
