@@ -8,7 +8,7 @@ This document replaces the old prototype-specific research notes. Git history re
 - Normal OVRLEE screens (profiles, settings, In Rotation, Nearby, listener recommendations) no longer expose Spotify scanners, imported-library management or public Spotify showcase cards.
 - Users see only music-driven recommendations and genuine mutual artists, not source-specific import mechanics. The public showcase database and editor implementation are retained as dormant legacy code to avoid destructive migration; they have no default navigation entries.
 - The generic Music Settings screen retains service-opening preferences and a scoped music-privacy control so a user can revoke playlist-artist matching without returning to the scanner.
-- **No background Spotify scraping or ongoing account synchronization is implemented.** Saved signals continue to influence OVRLEE recommendations automatically; future updates require a permitted data source, not a hidden WebView or unattended public-page polling. The public profile consent is not Spotify OAuth or formal API access.
+- Weekly public-page refresh is an **opt-in experimental collector** and is not active until the secured GitHub Actions credential is supplied. It is not Spotify OAuth or approved provider access; commercial launch requires a permissions review.
 
 ## Live screens
 - `src/app/spotify-library.tsx`: Public Spotify profile link, visible public playlist HTML/embed scan, private reviewed song suggestions, optional self-identified profile + opt-in artist matching, recent scan comparisons.
@@ -24,7 +24,17 @@ This document replaces the old prototype-specific research notes. Git history re
 - On a successful user-initiated playlist scan, the canonical link is saved in Supabase. Existing local self-declared profiles migrate once on app entry; no old sharing preference is automatically enabled.
 - Playlist scan history already persists previously observed track keys; the comparison now also reports newly visible playlist IDs. A playlist's first appearance establishes its song baseline and doesn't create fictitious "new listening" events.
 - On successful user-initiated artist rendering for that same registered profile, OVRLEE privately saves the observed artist IDs and which IDs were absent from the previous observation. Initial observation is a baseline. The artist panel remains optional and is not shown during normal app use.
-- The registry does **not** schedule requests to Spotify. There is no unattended Chromium/Playwright worker or authorized Spotify API credential. Public availability and member consent alone do not authorize unattended scraping under Spotify's published terms.
+- The registry has a separate `weekly_public_refresh_opt_in` flag (false by default). An opt-in during onboarding is required for automatic public-page checks; members can disable it in Music Settings.
+
+## Weekly Spotify public-profile delta worker — staged
+
+- GitHub Actions default branch: `.github/workflows/spotify-weekly-research.yml`, Sundays at 09:23 UTC. It checks out `claude-build` and runs `tools/spotify-weekly-refresh.mjs` with Playwright Chromium and bounded public playlist embed requests.
+- Requires ONE repository Actions secret: `OVRLEE_SUPABASE_SERVICE_ROLE_KEY`. The Supabase project URL is configured publicly in the workflow. Without the secret the workflow **skips without collecting any Spotify data**.
+- Collects only member-owned profile URLs where `weekly_public_refresh_opt_in=true`. First observations establish baselines. Changes update `spotify_scan_history`, `member_music_connections`, private `music_import_tracks` / `music_import_artists`, and playlist-weighted `music_taste_artists`.
+- DOM artist extraction uses only the visible public `recently-played-artists` grid. No logged-in session, challenge bypass, or token extraction. An unavailable grid does not erase previous observations.
+- The member can turn recurring checks off at any time; the job rechecks this before writing results. It processes up to 10 due profiles per run and waits at least six days after the last attempt.
+- GitHub Actions secret must never be committed, logged, or bundled into the mobile client.
+- **Policy risk:** Spotify's developer terms restrict automated retrieval/indexing and user-profile derivation. This is a technical research implementation, not confirmation of authorization to operate commercially. Seek appropriate Spotify permission before enabling it for a public launch.
 
 ## Weekly backend refresh — deployed
 
@@ -37,11 +47,11 @@ This document replaces the old prototype-specific research notes. Git history re
 - For a permitted future Spotify integration, use provider-approved authorization/refresh tokens stored server-side, explicit scopes and revocation, rate limiting, and source provenance; only enable scheduled provider calls after Spotify authorizes the requested use case.
 
 ## Current data boundaries
-- `music_import_tracks`, `music_import_artists`: Private, user-reviewed song/artist suggestions.
+- `music_import_tracks`, `music_import_artists`: Private song/artist suggestions from user review, plus newly observed public content for explicitly opted-in weekly refresh.
 - `music_taste_artists`: Source-qualified favorites and own-playlist artist evidence. Shared-artist matching requires `share_for_matching=true`. Source `playlist` is only populated when a user explicitly self-identifies the Spotify profile as their own; owner assertion is not independently verified.
 - Spotify recently played artist cards viewed on any account do not, by themselves, become another OVRLEE member's publicly shared musical identity.
 - Distinct playlist songs contribute more weight than a single instance; only the publicly observed page portion is available, often at most 50 entries per playlist.
-- No continuous Spotify account sync or scraping automation. Spotify's commercial-use and data-collection restrictions require review before production release.
+- The weekly public-page collector is not an official Spotify sync and may fail as pages change. Spotify's commercial-use and data-collection restrictions require review before production release.
 
 ## Still present for compatibility
 - `now-spotify` native module, `src/app/callback.tsx`, native App Remote framework and iOS callback registration are retained for now because they are wired to native/deep-link paths. They must not be deleted piecemeal without a full native build and deep-link test. **The current public reader does not require App Remote.**
