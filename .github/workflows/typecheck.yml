@@ -67,7 +67,7 @@ jobs:
           node --experimental-strip-types --input-type=module -e "import {readPublicSpotifyProfile} from './src/spotify-public-reader.ts'; try { const r=await readPublicSpotifyProfile('https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0'); console.log(JSON.stringify({playlistCount:r.playlists.length,readable:r.playlists.filter(p=>p.status==='ready').length,tracks:r.playlists.reduce((a,p)=>a+p.tracks.length,0),warnings:r.warnings})); }catch(e){ console.log('DIRECT_HTML_NOT_AVAILABLE:',e.message); process.exitCode=1; }"
 
   spotify_recent_artists_probe_once:
-    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off correct Spotify profile artist page probe'
+    if: github.event_name == 'push' && github.event.head_commit.message == 'One-off Spotify initial HTML versus rendered artist probe'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
