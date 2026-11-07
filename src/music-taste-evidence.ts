@@ -5,7 +5,7 @@
  * become a shared compatibility signal.
  */
 import type { PublicPlaylist } from './spotify-public-reader';
-import { trackKey } from './playlist-import';
+import { trackKey } from './playlist-import.ts';
 
 export type TasteEvidence = {
  artist_key: string; artist_name: string;
