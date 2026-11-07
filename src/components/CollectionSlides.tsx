@@ -682,7 +682,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           <Text style={{ color: p.ink, fontSize: u(11.5), fontWeight: '900', letterSpacing: u(2.6) }}>OVRLEE</Text>
         </View>
         <Text style={{ color: p.sub, fontSize: u(9.5), fontWeight: '600' }}>
-          {spec.kind === 'song' ? 'listen on apple music · spotify' : `made on ovrlee${handle ? ` · ${handle}` : ''}`}
+          {`made on ovrlee${handle ? ` · ${handle}` : ''}`}
         </Text>
       </View>
     </View>
