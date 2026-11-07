@@ -36,6 +36,7 @@ export default function SpotifyPublicLibrary() {
  const [consent,setConsent]=useState(false);
  const [mySpotifyProfile,setMySpotifyProfile]=useState(false);
  const [sharePlaylistTaste,setSharePlaylistTaste]=useState(false);
+ const [weeklyRefresh,setWeeklyRefresh]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
  const [accountId,setAccountId]=useState<string|null>(null);
  const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
@@ -72,8 +73,8 @@ export default function SpotifyPublicLibrary() {
    const saved=await AsyncStorage.getItem('ovrlee.spotifyPublicProfile.'+user.id);
    if(!active||!saved)return;
    try{
-    const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean;mine?:boolean;share?:boolean};
-    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);setMySpotifyProfile(parsed.mine===true);setSharePlaylistTaste(parsed.share===true);}
+    const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean;mine?:boolean;share?:boolean;weekly?:boolean};
+    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);setMySpotifyProfile(parsed.mine===true);setSharePlaylistTaste(parsed.share===true);setWeeklyRefresh(parsed.weekly===true);}
    }catch{/* Ignore a stale or invalid saved profile. */}
   })().catch(()=>{});
   return ()=>{active=false;};
@@ -92,7 +93,7 @@ export default function SpotifyPublicLibrary() {
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
     if(accountId){
       await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
-        JSON.stringify({url:result.url,confirmed:true,mine:mySpotifyProfile,share:mySpotifyProfile&&sharePlaylistTaste})).catch(()=>{});
+        JSON.stringify({url:result.url,confirmed:true,mine:mySpotifyProfile,share:mySpotifyProfile&&sharePlaylistTaste,weekly:mySpotifyProfile&&weeklyRefresh})).catch(()=>{});
       if(mySpotifyProfile){
         // Save the canonical link under the authenticated account. This
         // registry is not an instruction to scrape Spotify in the background.
@@ -101,6 +102,7 @@ export default function SpotifyPublicLibrary() {
           public_profile_url:result.url,self_declared_owner:true,
           used_for_private_suggestions:true,
           share_playlist_artists:sharePlaylistTaste,
+          weekly_public_refresh_opt_in:weeklyRefresh,
           last_user_initiated_scan_at:new Date().toISOString(),
           updated_at:new Date().toISOString(),
         },{onConflict:'user_id'});
@@ -258,7 +260,7 @@ export default function SpotifyPublicLibrary() {
    <Text style={s.body}>Your public Spotify profile can help OVRLEE suggest artists, conversations and people you might connect with. No Spotify login is required for this preview.</Text>
    {!chosen&&<>
     <Text style={s.section}>SPOTIFY PROFILE LINK</Text>
-    <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
+    <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);setWeeklyRefresh(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
     <Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
@@ -266,7 +268,7 @@ export default function SpotifyPublicLibrary() {
      <Text style={s.consentCopy}>Review music visible on this public Spotify profile.</Text>
     </Pressable>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:mySpotifyProfile}}
-      onPress={()=>{setMySpotifyProfile(v=>!v);setSharePlaylistTaste(false);}} style={s.consentRow}>
+      onPress={()=>{setMySpotifyProfile(v=>!v);setSharePlaylistTaste(false);setWeeklyRefresh(false);}} style={s.consentRow}>
       <View style={[s.check,mySpotifyProfile&&s.checkActive]}><Text style={s.checkMark}>{mySpotifyProfile?'✓':''}</Text></View>
       <Text style={s.consentCopy}>This is my Spotify profile. Use its public playlists to improve my music recommendations.</Text>
     </Pressable>
@@ -276,6 +278,12 @@ export default function SpotifyPublicLibrary() {
       <View style={[s.check,sharePlaylistTaste&&s.checkActive]}><Text style={s.checkMark}>{sharePlaylistTaste?'✓':''}</Text></View>
       <Text style={s.consentCopy}>Show artists we have in common with other members. My playlists and individual tracks remain private.</Text>
     </Pressable>}
+    {mySpotifyProfile&&<Pressable accessibilityRole="checkbox"
+       accessibilityState={{checked:weeklyRefresh}}
+       onPress={()=>setWeeklyRefresh(v=>!v)} style={s.consentRow}>
+       <View style={[s.check,weeklyRefresh&&s.checkActive]}><Text style={s.checkMark}>{weeklyRefresh?'✓':''}</Text></View>
+       <Text style={s.consentCopy}>Keep my music suggestions up to date. Allow OVRLEE to recheck the public music visible on this profile about once a week. I can switch this off in Music Settings.</Text>
+     </Pressable>}
     <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
       {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
