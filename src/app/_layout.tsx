@@ -56,6 +56,7 @@ export default function RootLayout() {
         <Stack.Screen name="spotify-explore" />
         <Stack.Screen name="playlist-import" />
         <Stack.Screen name="spotify-library" />
+        <Stack.Screen name="spotify-public-artists" />
         <Stack.Screen name="activity" />
         <Stack.Screen name="notification-settings" />
         <Stack.Screen name="releases" />
