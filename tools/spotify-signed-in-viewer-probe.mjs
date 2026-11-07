@@ -44,7 +44,25 @@ try {
   console.error('Then run: npx playwright install chromium');
   process.exit(2);
 }
-const browser = await chromium.launch({ headless: false });
+// macOS Monterey cannot install Playwright's bundled Chromium build.
+// Prefer an already-installed Chromium-based browser on macOS.
+const { existsSync } = await import('node:fs');
+const candidates = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+];
+const browserPath = process.env.OVRLEE_BROWSER_PATH || candidates.find(existsSync);
+if (process.platform === 'darwin' && !browserPath) {
+  console.error('No supported Chrome/Edge/Brave/Chromium installation was found.');
+  console.error('Install Google Chrome on your Mac, or set OVRLEE_BROWSER_PATH to its executable.');
+  process.exit(2);
+}
+const browser = await chromium.launch({
+  headless: false,
+  ...(browserPath ? { executablePath: browserPath } : {}),
+});
 const context = await browser.newContext({ locale: 'en-US' });
 const page = await context.newPage();
 const reader = createInterface({ input: stdin, output: stdout });
