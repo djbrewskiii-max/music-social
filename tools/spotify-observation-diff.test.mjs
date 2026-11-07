@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { newlyVisibleArtistIds } from '../src/spotify-observation-diff.ts';
+const a='1234567890';
+const b='abcdefghij';
+const c='ABCDEFGHIJ';
+assert.deepEqual(newlyVisibleArtistIds(null,[a,b]),[]);
+assert.deepEqual(newlyVisibleArtistIds([a],[b,a,b]),[b]);
+assert.deepEqual(newlyVisibleArtistIds([a,b],[b,a]),[]);
+assert.deepEqual(newlyVisibleArtistIds([a],[a,'bad',c]),[c]);
+console.log('PASS: first observation is baseline; only newly visible unique artist IDs are reported');
