@@ -53,7 +53,7 @@ export default function SpotifyPublicLibrary() {
       .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
     if(writeError)throw writeError;
     Alert.alert('Artists saved',selectedArtists.length+' artist suggestions saved privately. Explore conversations about them in My Imported Music.',
-      [{text:'Stay here'},{text:'Explore my music',onPress:()=>router.push('/imported-music')}]);
+      [{text:'Stay here'},{text:'Explore music',onPress:()=>router.push('/nearby')}]);
   }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
   finally{setArtistSaving(false);}
  };
@@ -189,7 +189,7 @@ export default function SpotifyPublicLibrary() {
      fresh.length+' new song'+(fresh.length===1?'':'s')+' saved. '+duplicateCount+
      ' already in your library. Your public rotation stays unchanged until you choose songs.',
      [{text:'View playlists',style:'cancel',onPress:()=>setChosen(null)},
-      {text:'Browse imported music',onPress:()=>router.push('/imported-music')},
+      {text:'Explore music',onPress:()=>router.push('/nearby')},
       {text:'Open In Rotation',onPress:()=>router.push({pathname:'/my-profile',params:{openRotation:'1'}})}]);
   }catch(e){Alert.alert('Could not save suggestions',e instanceof Error?e.message:'Try again.');}
   finally{setSaving(false);}
