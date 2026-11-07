@@ -1093,20 +1093,6 @@ export default function UnifiedRotation({
 
               {!editingId && (
                 <Pressable accessibilityRole="button"
-                  accessibilityLabel="Read my public Spotify playlists"
-                  onPress={() => { clearEditor(); router.push('/spotify-library'); }}
-                  style={{ paddingVertical: 13, marginBottom: 8 }}>
-                  <Text style={{ color: GREEN, fontWeight: '900', fontSize: 12 }}>
-                    ♫ FIND MUSIC FROM MY SPOTIFY PROFILE →
-                  </Text>
-                  <Text style={{ color: '#999', fontSize: 11, marginTop: 5 }}>
-                    Enter your Spotify profile link. No Spotify login required.
-                  </Text>
-                </Pressable>
-              )}
-
-              {!editingId && (
-                <Pressable accessibilityRole="button"
                   accessibilityLabel="Discover conversations around music you enjoy"
                   onPress={() => { clearEditor(); router.push('/music-discovery'); }}
                   style={{paddingVertical:11,marginBottom:5}}>
