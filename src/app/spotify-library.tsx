@@ -12,6 +12,7 @@ import {
 import { trackKey } from '../playlist-import';
 import { compareSpotifyScans, type SpotifyScanHistory } from '../spotify-scan-diff';
 import { supabase } from '../supabase';
+import { playlistArtistEvidence } from '../music-taste-evidence';
 const GREEN='#39E75F';
 const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 
@@ -31,6 +32,8 @@ export default function SpotifyPublicLibrary() {
  const [error,setError]=useState('');
  const [syncWarning,setSyncWarning]=useState('');
  const [consent,setConsent]=useState(false);
+ const [mySpotifyProfile,setMySpotifyProfile]=useState(false);
+ const [sharePlaylistTaste,setSharePlaylistTaste]=useState(false);
  const checkedCount=useMemo(()=>chosen?.tracks.filter(t=>checked.includes(trackKey(t))).length||0,[checked,chosen]);
  const [accountId,setAccountId]=useState<string|null>(null);
  const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
@@ -67,8 +70,8 @@ export default function SpotifyPublicLibrary() {
    const saved=await AsyncStorage.getItem('ovrlee.spotifyPublicProfile.'+user.id);
    if(!active||!saved)return;
    try{
-    const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean};
-    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);}
+    const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean;mine?:boolean;share?:boolean};
+    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);setMySpotifyProfile(parsed.mine===true);setSharePlaylistTaste(parsed.share===true);}
    }catch{/* Ignore a stale or invalid saved profile. */}
   })().catch(()=>{});
   return ()=>{active=false;};
@@ -87,7 +90,7 @@ export default function SpotifyPublicLibrary() {
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
     if(accountId){
       await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
-        JSON.stringify({url:result.url,confirmed:true})).catch(()=>{});
+        JSON.stringify({url:result.url,confirmed:true,mine:mySpotifyProfile,share:mySpotifyProfile&&sharePlaylistTaste})).catch(()=>{});
     }
     // Read account-level history first, then merge any legacy local observations.
     // Only user-initiated scans update the saved observation history.
@@ -128,6 +131,30 @@ export default function SpotifyPublicLibrary() {
       }catch(e){
         console.log('Spotify scan history sync:',e);
         setSyncWarning('Account sync unavailable. This scan will be saved locally until you retry.');
+      }
+      // Only a self-identified Spotify profile contributes own-taste evidence.
+      // A profile looked up for discovery remains only a private suggestion.
+      if(mySpotifyProfile){
+        const evidence=playlistArtistEvidence(result.playlists);
+        if(evidence.length){
+          const rows=evidence.map(artist=>({
+            user_id:user.id,artist_key:artist.artist_key,artist_name:artist.artist_name,
+            source:'playlist',song_count:artist.song_count,playlist_count:artist.playlist_count,
+            spotify_profile_id:result.userId,
+            share_for_matching:sharePlaylistTaste,updated_at:new Date().toISOString(),
+          }));
+          const {error:tasteError}=await supabase.from('music_taste_artists')
+            .upsert(rows,{onConflict:'user_id,artist_key,source'});
+          if(tasteError){
+            console.log('Playlist taste sync:',tasteError.message);
+            setSyncWarning('Playlist observations saved, but taste suggestions did not sync. Please try again.');
+          }
+        }
+      }else{
+        // Revoking the association hides previously shared playlist evidence.
+        await supabase.from('music_taste_artists').update({share_for_matching:false})
+          .eq('user_id',user.id).eq('source','playlist')
+          .eq('spotify_profile_id',result.userId);
       }
       const comparison=compareSpotifyScans(result,previous);
       setChanges(comparison.newByPlaylist);
@@ -205,13 +232,24 @@ export default function SpotifyPublicLibrary() {
    <Text style={s.body}>Connect music from your public Spotify profile: playlists where available, plus artists you choose to share. No Spotify login or Premium needed for this experiment.</Text>
    {!chosen&&<>
     <Text style={s.section}>YOUR SPOTIFY PROFILE</Text>
-    <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
+    <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
-    {__DEV__&&<Pressable onPress={()=>setUrl(SAMPLE)} style={s.sample}><Text style={s.sampleText}>USE TEST PROFILE (LEOSKEPI) →</Text></Pressable>}
+    {__DEV__&&<Pressable onPress={()=>{setUrl(SAMPLE);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);}} style={s.sample}><Text style={s.sampleText}>USE TEST PROFILE (LEOSKEPI) →</Text></Pressable>}
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
      <Text style={s.consentCopy}>I understand this is an experimental preview of publicly displayed Spotify music; I will review artists before saving.</Text>
     </Pressable>
+    <Pressable accessibilityRole="checkbox" accessibilityState={{checked:mySpotifyProfile}}
+      onPress={()=>{setMySpotifyProfile(v=>!v);setSharePlaylistTaste(false);}} style={s.consentRow}>
+      <View style={[s.check,mySpotifyProfile&&s.checkActive]}><Text style={s.checkMark}>{mySpotifyProfile?'✓':''}</Text></View>
+      <Text style={s.consentCopy}>This is my own Spotify profile. Use the visible songs in my playlists to improve music suggestions. Ownership is self-reported.</Text>
+    </Pressable>
+    {mySpotifyProfile&&<Pressable accessibilityRole="checkbox"
+      accessibilityState={{checked:sharePlaylistTaste}}
+      onPress={()=>setSharePlaylistTaste(v=>!v)} style={s.consentRow}>
+      <View style={[s.check,sharePlaylistTaste&&s.checkActive]}><Text style={s.checkMark}>{sharePlaylistTaste?'✓':''}</Text></View>
+      <Text style={s.consentCopy}>Show these artists in shared-music matches. No one else can see my playlists or individual songs.</Text>
+    </Pressable>}
     <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
       {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'SCAN PROFILE AGAIN →':'READ PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
