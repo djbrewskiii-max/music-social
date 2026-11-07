@@ -22,6 +22,7 @@ const norm = (s: string) => (s || '').normalize('NFKD')
 
 export default function ImportedMusic() {
   const [tracks, setTracks] = useState<ImportedTrack[]>([]);
+  const [savedArtists, setSavedArtists] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
@@ -32,11 +33,18 @@ export default function ImportedMusic() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Sign in to see your imported music.');
-      const { data, error: fetchError } = await supabase.from('music_import_tracks')
-        .select('id,song,artist,album,source_label,created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }).limit(1000);
-      if (fetchError) throw fetchError;
+      const [trackResult,artistResult] = await Promise.all([
+        supabase.from('music_import_tracks')
+          .select('id,song,artist,album,source_label,created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }).limit(1000),
+        supabase.from('music_import_artists').select('artist')
+          .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
+      ]);
+      if (trackResult.error) throw trackResult.error;
+      if (artistResult.error) throw artistResult.error;
+      const data = trackResult.data;
+      setSavedArtists((artistResult.data||[]).map(a=>a.artist));
       const unique = new Map<string, ImportedTrack>();
       for (const row of (data || []) as ImportedTrack[]) {
         const key = trackKey(row);
@@ -62,8 +70,12 @@ export default function ImportedMusic() {
       if (current) current.count++;
       else count.set(k, { name, count: 1 });
     }
-    return [...count.values()].sort((a,b) => b.count-a.count || a.name.localeCompare(b.name)).slice(0, 15);
-  }, [tracks]);
+    for(const name of savedArtists){
+      const key=norm(name);
+      if(!count.has(key))count.set(key,{name,count:0});
+    }
+    return [...count.values()].sort((a,b) => b.count-a.count || a.name.localeCompare(b.name)).slice(0, 30);
+  }, [tracks,savedArtists]);
 
   const filtered = useMemo(() => {
     const q = norm(query);
@@ -89,8 +101,7 @@ export default function ImportedMusic() {
         <Text style={styles.eyebrow}>YOUR PRIVATE MUSIC LIBRARY</Text>
         <Text style={styles.title}>Music you've shared.</Text>
         <Text style={styles.description}>
-          Songs you've deliberately imported to OVRLEE. These aren't your listening history and
-          aren't public until you choose to pin or post them.
+          Songs and artists you've chosen to save privately. They aren't published to your profile unless you choose to pin or post music.
         </Text>
         <Pressable style={styles.cta} onPress={() => router.push('/spotify-library')}>
           <Text style={styles.ctaText}>FIND MORE MUSIC FROM SPOTIFY →</Text>
@@ -100,13 +111,13 @@ export default function ImportedMusic() {
           <Text style={styles.errorText}>{error} Tap to retry.</Text>
         </Pressable>}
         {!busy && !error && <>
-          <Text style={styles.section}>YOUR ARTISTS · {artists.length} TOP ARTISTS</Text>
+          <Text style={styles.section}>YOUR ARTISTS · {artists.length} DISCOVERABLE ARTISTS</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}
             contentContainerStyle={{gap:9,paddingVertical:8}}>
             {artists.map(a => <Pressable key={norm(a.name)} style={styles.artistChip}
               onPress={() => discover(a.name)}>
               <Text style={styles.chipName}>{a.name}</Text>
-              <Text style={styles.chipCount}>{a.count} {a.count===1?'song':'songs'} · DISCOVER ↗</Text>
+              <Text style={styles.chipCount}>{a.count ? a.count+' '+(a.count===1?'song':'songs') : 'Saved artist'} · DISCOVER ↗</Text>
             </Pressable>)}
           </ScrollView>
           <Text style={styles.section}>SAVED SUGGESTIONS · {tracks.length}</Text>
@@ -125,7 +136,7 @@ export default function ImportedMusic() {
             <Text style={styles.arrow}>↗</Text>
           </Pressable>)}
           {!filtered.length && <Text style={styles.empty}>
-            {tracks.length ? 'No songs match your search.' : 'No music imported yet. Start with a Spotify playlist.'}
+            {tracks.length ? 'No songs match your search.' : 'No song imports yet. You can still discover music using saved artists above.'}
           </Text>}
         </>}
       </ScrollView>
