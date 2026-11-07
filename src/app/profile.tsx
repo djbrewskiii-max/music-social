@@ -28,6 +28,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import { sharedTasteNames, type TasteEvidence, tasteKey } from '../music-taste-evidence';
 
 type Profile = {
   user_id: string | null;
@@ -501,17 +502,26 @@ export default function ProfileScreen() {
           (myDNAResult.data as MusicDNARow) ||
           null;
 
+        // Artist preferences and visible songs from self-identified playlists
+        // can support shared taste even when neither member has Apple Music DNA.
+        const [ownTasteResult,otherTasteResult]=await Promise.all([
+          supabase.from('music_taste_artists')
+            .select('artist_key,artist_name,source,song_count,playlist_count,share_for_matching')
+            .eq('user_id',user.id).limit(400),
+          supabase.from('music_taste_artists')
+            .select('artist_key,artist_name,source,song_count,playlist_count,share_for_matching')
+            .eq('user_id',userId).eq('share_for_matching',true).limit(400),
+        ]);
+        const weightedShared=sharedTasteNames(
+          (ownTasteResult.data||[]) as TasteEvidence[],
+          (otherTasteResult.data||[]) as TasteEvidence[],5,
+        );
         if (
           !loadedMyDNA ||
           !loadedTheirDNA
         ) {
-          setMusicDataAvailable(
-            false
-          );
-
-          setSharedArtists(
-            []
-          );
+          setMusicDataAvailable(weightedShared.length>0);
+          setSharedArtists(weightedShared.map(x=>({name:x.name,artworkUrl:''})));
 
           setSharedTracks(
             []
@@ -651,9 +661,16 @@ export default function ProfileScreen() {
             )
             .slice(0, 5);
 
-        setSharedArtists(
-          artistMatches
-        );
+        // Source-aware common artists are prioritized; never use
+        // someone else's browsed Spotify profile as their own taste signal.
+        const sharedFromTaste=weightedShared.map(match=>{
+          const existing=artistMatches.find(a=>tasteKey(a.name)===tasteKey(match.name));
+          return {name:match.name,artworkUrl:existing?.artworkUrl||''};
+        });
+        const combined=[...sharedFromTaste,...artistMatches.filter(a=>
+          !sharedFromTaste.some(t=>tasteKey(t.name)===tasteKey(a.name))
+        )].slice(0,5);
+        setSharedArtists(combined);
 
         setSharedTracks(
           trackMatches
