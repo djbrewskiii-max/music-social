@@ -8,7 +8,7 @@
  */
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import { normalizePublicProfile } from '../spotify-public-reader';
 import { supabase } from '../supabase';
@@ -18,7 +18,7 @@ const GREEN = '#39E75F';
 // This is a compatibility experiment, not a guarantee that WKWebView is supported.
 const DESKTOP_SAFARI_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
 const clean = (value: string) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-type VisibleArtist = { id: string; name: string; url: string };
+type VisibleArtist = { id: string; name: string; url: string; imageUrl?: string };
 type BrowserResult = { type: string; url: string; artists?: VisibleArtist[]; pageTitle?: string; headingVisible?: boolean; pageNotFound?: boolean; appHandoff?: boolean };
 
 // Only runs after the user explicitly taps "Read visible artists".
@@ -46,7 +46,10 @@ const READ_VISIBLE_ARTISTS = `(function(){
       var name = (label && (label.getAttribute('title') || label.textContent) || link && link.textContent || '').trim();
       if (!match || !name || name.length > 120 || seen[match[1]] || artists.length >= 50) return;
       seen[match[1]] = true;
-      artists.push({id:match[1],name:name,url:'https://open.spotify.com/artist/'+match[1]});
+      var img = card.querySelector('img');
+      var imageUrl = img && (img.currentSrc || img.getAttribute('src') || '');
+      if (!/^https:\\/\\/i.test(imageUrl)) imageUrl = '';
+      artists.push({id:match[1],name:name,url:'https://open.spotify.com/artist/'+match[1],imageUrl:imageUrl});
     });
     window.ReactNativeWebView.postMessage(JSON.stringify({
       type:'artists',url:location.href,artists:artists,
@@ -77,6 +80,13 @@ export default function PublicSpotifyArtistsPreview(){
   const [message,setMessage] = useState('Open the public artist page, then tap Read visible artists.');
   const [navigation,setNavigation] = useState('');
   const [popupNote,setPopupNote] = useState('');
+  const [query,setQuery] = useState('');
+  const [showBrowser,setShowBrowser] = useState(true);
+  const filteredArtists=useMemo(()=>{
+    const q=query.toLowerCase().trim();
+    return q ? artists.filter(a=>a.name.toLowerCase().includes(q)) : artists;
+  },[artists,query]);
+  const selectedCount=useMemo(()=>artists.filter(a=>selected.includes(a.id)).length,[artists,selected]);
   const page = profile ? profile.url+'/recently-played-artists' : null;
   const isPreviewPage=(value:string)=>{
     if(!page)return false;
@@ -149,11 +159,17 @@ export default function PublicSpotifyArtistsPreview(){
     const valid=(Array.isArray(result.artists)?result.artists:[])
       .filter(a => typeof a.id === 'string' && /^[A-Za-z0-9]{10,64}$/.test(a.id)
         && typeof a.name === 'string' && a.name.trim().length>0 && a.name.length<=120
-        && a.url==='https://open.spotify.com/artist/'+a.id);
+        && a.url==='https://open.spotify.com/artist/'+a.id)
+      .map(a=>({
+        ...a,
+        imageUrl:typeof a.imageUrl==='string' && /^https:\/\/(?:i\.scdn\.co|image-cdn-ak\.spotifycdn\.com)\//.test(a.imageUrl)
+          ? a.imageUrl : undefined
+      }));
     const deduped=[...new Map(valid.map(a=>[a.id,a])).values()].slice(0,50);
     setAppHandoff(result.appHandoff===true);
     setArtists(deduped);
     setSelected(deduped.map(a=>a.id));
+    if(deduped.length)setShowBrowser(false);
     setMessage(deduped.length
       ? deduped.length+' visible artist cards found. Choose which to save privately.'
       : result.appHandoff ? 'Spotify is showing its Download App screen instead of the artist grid. That screen cannot provide artist data in this viewer.'
