@@ -34,6 +34,7 @@ import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
+import { musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
 import { openMusicCard } from '../music-card';
 import { publishRecognizedSong } from '../presence';
@@ -708,6 +709,15 @@ export default function NowScreen() {
             });
           });
 
+          // Read private taste signals only for this viewer. Failure must not
+          // block the feed: it simply falls back to the existing ranking.
+          const tastesPromise=Promise.allSettled([
+            supabase.from('music_taste_artists')
+              .select('artist_name,source,song_count')
+              .eq('user_id',user.id).limit(400),
+            supabase.from('music_dna')
+              .select('top_artists').eq('user_id',user.id).maybeSingle(),
+          ]);
           const postFields =
             'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
 
@@ -961,6 +971,18 @@ export default function NowScreen() {
               }
             );
 
+          const tastes=await tastesPromise;
+          const tasteRows=tastes[0].status==='fulfilled'&&!tastes[0].value.error
+            ? tastes[0].value.data||[] : [];
+          const dnaRows=tastes[1].status==='fulfilled'&&!tastes[1].value.error
+            ? tastes[1].value.data?.top_artists||[] : [];
+          const favorites=tasteRows.filter(row=>row.source==='favorite').map(row=>row.artist_name);
+          const playlists=tasteRows.filter(row=>row.source==='playlist'&&row.song_count>=1);
+          const strong=playlists.filter(row=>row.song_count>=4).map(row=>row.artist_name);
+          const medium=playlists.filter(row=>row.song_count>=2&&row.song_count<4).map(row=>row.artist_name);
+          const light=playlists.filter(row=>row.song_count<2).map(row=>({artist:row.artist_name}));
+          const known=((dnaRows||[]) as {name:string}[]).map(row=>row.name);
+          const feedMusicSeeds=musicSuggestionSeeds(medium,light,[...favorites,...strong,...known],60);
           // For You: balance recent posts, followed voices, and active discussions.
           // Keep brand-new posts (including Studio collections) near the top.
           // Replies from other people count more than the author's own replies.
@@ -977,7 +999,7 @@ export default function NowScreen() {
             const activityAgeHours = Math.max(0, (nowMs - latestActivityMs) / 3600000);
             const score =
               (followed.has(post.user_id) ? 2.4 : 0) +
-              (post.user_id === user.id ? 0.35 : 0) +
+              (post.user_id === user.id ? 0.35 : musicPostAffinity(post,feedMusicSeeds)) +
               Math.min(uniqueParticipants, 4) * 0.65 +
               Math.min(post.likeCount, 12) * 0.10 +
               (post.likedByMe ? 0.3 : 0) +
