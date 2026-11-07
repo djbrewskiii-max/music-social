@@ -12,6 +12,8 @@ import {
 import { trackKey } from '../playlist-import';
 import { compareSpotifyScans, type SpotifyScanHistory } from '../spotify-scan-diff';
 import { supabase } from '../supabase';
+import SpotifyRemote from '../../now-spotify';
+import { getMySpotifyRecentArtists, type SpotifyRecentArtist } from '../spotify-recent-artists';
 const GREEN='#39E75F';
 const SAMPLE='https://open.spotify.com/user/7je6xz1iqqn2ru3njokrxp6l0';
 
@@ -21,6 +23,9 @@ export default function SpotifyPublicLibrary() {
  const [artistText,setArtistText]=useState('');
  const [artistChecked,setArtistChecked]=useState<string[]>([]);
  const [artistSaving,setArtistSaving]=useState(false);
+ const [connectedArtists,setConnectedArtists]=useState<SpotifyRecentArtist[]>([]);
+ const [connectingRecent,setConnectingRecent]=useState(false);
+ const [recentError,setRecentError]=useState('');
  const [changes,setChanges]=useState<Record<string,string[]>>({});
  const [firstScan,setFirstScan]=useState(true);
  const [chosen,setChosen]=useState<PublicPlaylist|null>(null);
@@ -36,9 +41,41 @@ export default function SpotifyPublicLibrary() {
  const normalizeArtist=(name:string)=>name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
  const manualArtists=useMemo(()=>[...new Set(artistText.split(/[,\n]/).map(s=>s.trim()).filter(s=>s.length>0&&s.length<=120))].slice(0,50),[artistText]);
  const selectedArtists=useMemo(()=>{
-   const candidates=[...(scan?.recentlyPlayedArtists.map(a=>a.name)||[]),...manualArtists];
+   const candidates=[...connectedArtists.map(a=>a.name),...(scan?.recentlyPlayedArtists.map(a=>a.name)||[]),...manualArtists];
    return [...new Map(candidates.map(a=>[normalizeArtist(a),a])).entries()].filter(([key])=>artistChecked.includes(key)).map(([,name])=>name);
- },[scan,manualArtists,artistChecked]);
+ },[scan,manualArtists,artistChecked,connectedArtists]);
+ const readAuthorizedArtists=async()=>{
+   setConnectingRecent(true);
+   setRecentError('');
+   try{
+     const token=SpotifyRemote.getPlaylistAccessToken();
+     if(!token)throw new Error('Spotify authorization is incomplete or expired. Connect Spotify again.');
+     const artists=await getMySpotifyRecentArtists(token);
+     setConnectedArtists(artists);
+     setArtistChecked(prev=>[...new Set([...prev,...artists.map(a=>normalizeArtist(a.name))])]);
+     if(!artists.length)setRecentError('Spotify returned no recent tracks for this account. It may not have listening history available through the API.');
+   }catch(e){
+     setRecentError(e instanceof Error?e.message:'Could not read Spotify recent artists.');
+   }finally{setConnectingRecent(false);}
+ };
+ useEffect(()=>{
+   const sub=SpotifyRemote.onPlaylistAuthorized(event=>{
+     if(event.authorized)void readAuthorizedArtists();
+   });
+   return ()=>sub.remove();
+ },[]);
+ const connectRecentArtists=async()=>{
+   setConnectingRecent(true);
+   setRecentError('');
+   try{
+     // A re-built native client is required for the additional OAuth scope.
+     const started=await SpotifyRemote.authorizeForPlaylists();
+     if(!started)throw new Error('Spotify authorization is unavailable in this development build. Install the latest iOS development build.');
+   }catch(e){
+     setRecentError(e instanceof Error?e.message:'Could not open Spotify authorization.');
+     setConnectingRecent(false);
+   }
+ };
  const saveArtists=async()=>{
   if(artistSaving||!selectedArtists.length)return;
   setArtistSaving(true);
@@ -47,7 +84,7 @@ export default function SpotifyPublicLibrary() {
     if(!user)throw new Error('Sign in to OVRLEE first.');
     const rows=selectedArtists.map(artist=>({
       user_id:user.id,artist,artist_key:normalizeArtist(artist),
-      source_label:'Spotify profile · user reviewed'
+      source_label:connectedArtists.length?'Spotify recent tracks · user reviewed':'Spotify profile · user reviewed'
     }));
     const {error:writeError}=await supabase.from('music_import_artists')
       .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
@@ -236,7 +273,31 @@ export default function SpotifyPublicLibrary() {
    </>}
    {!chosen&&<>
     <Text style={s.section}>RECENTLY PLAYED ARTISTS</Text>
-    <Text style={s.body}>Spotify can show artists on your profile even when it exposes no playlists. If OVRLEE can't read them automatically, type the artists you see in Spotify. Only artists you select and save are added privately to OVRLEE.</Text>
+    <Text style={s.body}>Connect your own Spotify listening history with permission, review artists visible on a public profile, or add names manually. Only the artists you select are saved privately.</Text>
+    <Pressable accessibilityRole="button" disabled={connectingRecent}
+      onPress={()=>void connectRecentArtists()} style={[s.primary,connectingRecent&&{opacity:.5}]}>
+      {connectingRecent?<ActivityIndicator color="#000"/>:
+        <Text style={s.primaryText}>CONNECT MY SPOTIFY RECENT ARTISTS →</Text>}
+    </Pressable>
+    <Text style={s.sub}>Optional, read-only Spotify authorization for your OWN listening history.
+      Requires an eligible Spotify developer app and a newer iOS build. This does not read another person's history.</Text>
+    {!!recentError&&<Text style={s.error}>{recentError}</Text>}
+    {connectedArtists.length>0&&<>
+      <Text style={s.freshSummary}>{connectedArtists.length} ARTISTS FROM YOUR RECENT SPOTIFY TRACKS</Text>
+      {connectedArtists.map(a=>{
+        const key=normalizeArtist(a.name),selected=artistChecked.includes(key);
+        return <Pressable key={a.id} accessibilityRole="checkbox"
+          accessibilityState={{checked:selected}}
+          onPress={()=>setArtistChecked(prev=>selected?prev.filter(k=>k!==key):[...prev,key])}
+          style={s.track}>
+          <View style={[s.check,selected&&s.checkActive]}><Text style={s.checkMark}>{selected?'✓':''}</Text></View>
+          <View style={{flex:1}}>
+            <Text style={s.song}>{a.name}</Text>
+            <Text style={s.sub}>{a.observedPlays} appearances in up to 50 recent tracks</Text>
+          </View>
+        </Pressable>;
+      })}
+    </>}
     {scan&&scan.recentlyPlayedArtists.length>0&&<>
       <Text style={s.freshSummary}>{scan.recentlyPlayedArtists.length} ARTISTS FOUND IN PUBLIC PAGE</Text>
       {scan.recentlyPlayedArtists.map(a=>{
