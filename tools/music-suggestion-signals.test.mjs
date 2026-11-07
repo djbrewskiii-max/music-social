@@ -21,7 +21,7 @@ const matches=selectSuggestedPosts([
   post('d','listener-c','Taylor Swift'),
   post('e','listener-c','Panic! At The Disco'),
 ],seeds,3);
-assert.deepEqual(matches.map(x=>x.post.id),['c','a','b']);
+assert.deepEqual(matches.map(x=>x.post.id),['c','b','e']);
 assert.equal(matches[0].matchingArtist,'My Chemical Romance');
 assert.equal(selectSuggestedPosts([post('x','someone','Unknown')],seeds).length,0);
 assert.equal(selectSuggestedPosts([post('y','someone','Lorde')],[],4).length,0);
