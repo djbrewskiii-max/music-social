@@ -9,7 +9,7 @@
  * Uses a fresh in-memory browser context each time; sign-in is user-driven.
  *
  * Run (Playwright needs to be installed as an optional dependency):
- *   node tools/spotify-signed-in-viewer-probe.mjs https://open.spotify.com/user/8712xitaly
+ *   node tools/spotify-signed-in-viewer-probe.mjs https://open.spotify.com/user/8712xitlaly
  *
  * Do not automate repeated collection, bypass access restrictions, or
  * deploy as a collection service without Spotify policy/legal approval.
