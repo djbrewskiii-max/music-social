@@ -236,6 +236,17 @@ export default function SpotifyPublicLibrary() {
    </>}
    {!chosen&&<>
     <Text style={s.section}>RECENTLY PLAYED ARTISTS</Text>
+    <Pressable accessibilityRole="button"
+      onPress={()=>{
+        if(!consent){Alert.alert('Review permission','Confirm you own this Spotify profile or have permission to review the music displayed publicly.');return;}
+        try{
+          const profile=normalizePublicProfile(url);
+          router.push({pathname:'/spotify-public-artists',params:{url:profile.url}});
+        }catch(e){Alert.alert('Spotify profile link needed',e instanceof Error?e.message:'Enter a valid profile URL first.');}
+      }} style={[s.primary,{marginBottom:12}]}>
+      <Text style={s.primaryText}>PREVIEW RENDERED PUBLIC ARTISTS →</Text>
+    </Pressable>
+    <Text style={s.sub}>Experimental on-device preview. Spotify renders this section after loading its page, so the regular HTML reader can miss it. Review artists before saving.</Text>
     <Text style={s.body}>Review artists visible on the public profile or add names manually. Only the artists you select are saved privately.</Text>
     {scan&&scan.recentlyPlayedArtists.length>0&&<>
       <Text style={s.freshSummary}>{scan.recentlyPlayedArtists.length} ARTISTS FOUND IN PUBLIC PAGE</Text>
