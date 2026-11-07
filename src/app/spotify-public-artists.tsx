@@ -77,7 +77,7 @@ export default function PublicSpotifyArtistsPreview(){
   const [securityChallenge,setSecurityChallenge] = useState(false);
   const [saving,setSaving] = useState(false);
   const [loaded,setLoaded] = useState(false);
-  const [message,setMessage] = useState('Open Spotify's public artist page, then bring those artists into OVRLEE.');
+  const [message,setMessage] = useState("Open Spotify's public artist page, then bring those artists into OVRLEE.");
   const [navigation,setNavigation] = useState('');
   const [popupNote,setPopupNote] = useState('');
   const [query,setQuery] = useState('');
