@@ -83,7 +83,7 @@ export default function SpotifyPublicLibrary() {
  },[chosen,changes]);
  const run=async()=>{
   if(loading)return;
-  if(!consent){Alert.alert('Confirm before reading','This is an experimental reading of music publicly displayed on a Spotify profile. Spotify has not approved this collection for commercial use; only save artists after reviewing them.');return;}
+  if(!consent){Alert.alert('Confirm before reading','This reads publicly displayed music for your personal suggestions. Review the results and only save what you want OVRLEE to remember.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
   setLoading(true);setScan(null);setChosen(null);setChanges({});setArtistChecked([]);setError('');setSyncWarning('');setProgress('');
   try{
@@ -326,11 +326,11 @@ export default function SpotifyPublicLibrary() {
         <Text style={s.song}>{name}</Text>
       </Pressable>;
     })}
+    </>}
     <Pressable accessibilityRole="button" disabled={artistSaving||!selectedArtists.length}
       onPress={()=>void saveArtists()} style={[s.primary,(artistSaving||!selectedArtists.length)&&{opacity:.5}]}>
       {artistSaving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {selectedArtists.length} ARTISTS TO OVRLEE →</Text>}
     </Pressable>
-    </>}
    </>}
    {chosen&&<>
      <Pressable onPress={()=>setChosen(null)} style={s.backTo}><Text style={s.backToText}>‹ ALL PLAYLISTS</Text></Pressable>
