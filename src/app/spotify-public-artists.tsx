@@ -193,7 +193,7 @@ export default function PublicSpotifyArtistsPreview(){
         .upsert(rows,{onConflict:'user_id,artist_key',ignoreDuplicates:true});
       if(error)throw error;
       Alert.alert('Saved privately',rows.length+' artists added to your private music suggestions. Your public profile has not changed.',[
-        {text:'Stay here'},{text:'Explore music',onPress:()=>router.push('/nearby')}
+        {text:'Stay here'},{text:'Explore music',onPress:()=>router.push('/music-discovery')}
       ]);
     }catch(e){Alert.alert('Unable to save',e instanceof Error?e.message:'Please try again.');}
     finally{setSaving(false);}
