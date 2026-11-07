@@ -14,9 +14,12 @@ import { normalizePublicProfile } from '../spotify-public-reader';
 import { supabase } from '../supabase';
 
 const GREEN = '#39E75F';
+// Request Spotify's desktop website instead of its mobile app handoff page.
+// This is a compatibility experiment, not a guarantee that WKWebView is supported.
+const DESKTOP_SAFARI_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
 const clean = (value: string) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 type VisibleArtist = { id: string; name: string; url: string };
-type BrowserResult = { type: string; url: string; artists?: VisibleArtist[]; pageTitle?: string; headingVisible?: boolean; pageNotFound?: boolean };
+type BrowserResult = { type: string; url: string; artists?: VisibleArtist[]; pageTitle?: string; headingVisible?: boolean; pageNotFound?: boolean; appHandoff?: boolean };
 
 // Only runs after the user explicitly taps "Read visible artists".
 // Observe a named Spotify UI grid. Never read browser storage, credentials,
@@ -25,6 +28,12 @@ const READ_VISIBLE_ARTISTS = `(function(){
   try {
     if (!/^\\/user\\/[a-zA-Z0-9_-]+\\/recently-played-artists\\/?$/.test(location.pathname)) {
       window.ReactNativeWebView.postMessage(JSON.stringify({type:'artists',url:location.href,artists:[]}));
+      return true;
+    }
+    var screenText = (document.body && document.body.innerText || '').slice(0,3000);
+    var handoff = /continue in the spotify app/i.test(screenText) && /download app/i.test(screenText);
+    if (handoff) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({type:'artists',url:location.href,artists:[],appHandoff:true}));
       return true;
     }
     var grid = document.querySelector('[data-testid="grid-container"]');
@@ -61,6 +70,7 @@ export default function PublicSpotifyArtistsPreview(){
   const [artists,setArtists] = useState<VisibleArtist[]>([]);
   const [selected,setSelected] = useState<string[]>([]);
   const [reading,setReading] = useState(false);
+  const [appHandoff,setAppHandoff] = useState(false);
   const [saving,setSaving] = useState(false);
   const [loaded,setLoaded] = useState(false);
   const [message,setMessage] = useState('Open the public artist page, then tap Read visible artists.');
@@ -73,6 +83,7 @@ export default function PublicSpotifyArtistsPreview(){
       return;
     }
     setReading(true);
+    setAppHandoff(false);
     setMessage('Checking the artist cards currently visible on this page…');
     webRef.current.injectJavaScript(READ_VISIBLE_ARTISTS);
   };
@@ -90,10 +101,12 @@ export default function PublicSpotifyArtistsPreview(){
         && typeof a.name === 'string' && a.name.trim().length>0 && a.name.length<=120
         && a.url==='https://open.spotify.com/artist/'+a.id);
     const deduped=[...new Map(valid.map(a=>[a.id,a])).values()].slice(0,50);
+    setAppHandoff(result.appHandoff===true);
     setArtists(deduped);
     setSelected(deduped.map(a=>a.id));
     setMessage(deduped.length
       ? deduped.length+' visible artist cards found. Choose which to save privately.'
+      : result.appHandoff ? 'Spotify is showing its Download App screen instead of the artist grid. That screen cannot provide artist data in this viewer.'
       : result.pageNotFound ? 'Spotify says this profile page was not found. Verify the exact shared profile link.'
       : result.headingVisible ? 'The section loaded but its artist cards were not exposed.'
       : 'Spotify has not rendered the public artist grid here. Try again once the page is visible.');
@@ -129,6 +142,8 @@ export default function PublicSpotifyArtistsPreview(){
     <Text style={s.explainer}>Experimental browser preview · no Spotify sign-in or API token required. Read artists only after the public page has loaded.</Text>
     <View style={s.browser}>
       <WebView ref={webRef} source={{uri:page}}
+        contentMode="desktop"
+        userAgent={DESKTOP_SAFARI_UA}
         javaScriptEnabled domStorageEnabled thirdPartyCookiesEnabled={false}
         sharedCookiesEnabled={false} incognito
         originWhitelist={['https://open.spotify.com']}
@@ -145,6 +160,7 @@ export default function PublicSpotifyArtistsPreview(){
         {reading?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>READ VISIBLE ARTISTS →</Text>}
       </Pressable>
       <Text style={s.message}>{message}</Text>
+      {appHandoff&&<Text style={s.error}>The embedded browser is not receiving the desktop artist page. Don't press Download App again; this path is unavailable on this device.</Text>}
       {artists.length>0&&<ScrollView style={{maxHeight:205}} contentContainerStyle={{paddingBottom:8}}>
         {artists.map(a=>{
           const yes=selected.includes(a.id);
