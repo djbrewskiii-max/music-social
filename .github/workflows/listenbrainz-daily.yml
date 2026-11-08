@@ -1,0 +1,36 @@
+name: OVRLEE Daily Listening Signals
+
+# All provider access uses the open ListenBrainz API, never Spotify scraping.
+# Default-branch Actions runs the current collector on claude-build.
+on:
+  schedule:
+    - cron: '47 9 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/listenbrainz-daily.yml']
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ovrlee-daily-listening-signals
+  cancel-in-progress: false
+
+jobs:
+  synchronize-opted-in-listeners:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude-build
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify scheduled listener integration script
+        run: node --check tools/listenbrainz-daily.mjs
+      - name: Update opted-in music taste from ListenBrainz
+        run: node tools/listenbrainz-daily.mjs
