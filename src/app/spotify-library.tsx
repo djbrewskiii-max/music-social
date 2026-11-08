@@ -107,6 +107,11 @@ export default function SpotifyPublicLibrary() {
  },[chosen,changes]);
  const run=async()=>{
   if(loading)return;
+  if(fromOnboarding && (!consent||!mySpotifyProfile||!weeklyRefresh)){
+    Alert.alert('Confirm your connection',
+      'Confirm this is your own public Spotify profile and that OVRLEE may read it for private suggestions and check for updates.');
+    return;
+  }
   if(!consent){Alert.alert('Confirm before reading','This reads publicly displayed music for your personal suggestions. Review the results and only save what you want OVRLEE to remember.');return;}
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
   setLoading(true);setScan(null);setChosen(null);setChanges({});setArtistChecked([]);setError('');setSyncWarning('');setProgress('');
@@ -363,7 +368,10 @@ export default function SpotifyPublicLibrary() {
        <Text style={s.consentCopy}>Keep my music suggestions up to date. Allow OVRLEE to recheck the public music visible on this profile about once a week. I can switch this off in Music Settings.</Text>
      </Pressable>}
     </>}
-    <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
+    <Pressable accessibilityRole="button"
+      disabled={loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile&&weeklyRefresh))}
+      style={[s.primary,(loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile&&weeklyRefresh)))&&{opacity:.5}]}
+      onPress={()=>void run()}>
       {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{fromOnboarding?'CONNECT MY SPOTIFY PROFILE →':scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
     {!!progress&&<Text style={s.progress}>{progress}</Text>}
