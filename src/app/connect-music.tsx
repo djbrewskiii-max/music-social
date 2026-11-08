@@ -16,7 +16,7 @@ export default function ConnectMusicScreen() {
   // The current Spotify entry uses the public-profile reader. Legacy native
   // OAuth callback support is retained separately until its dependencies are audited.
   const connectSpotify = () => {
-    // Public profile reader is user-initiated and does not use Spotify OAuth.
+    // One OVRLEE flow: own public Spotify profile, no additional account.
     router.push({pathname:'/spotify-library',params:{onboarding:'1'}});
   };
 
@@ -107,15 +107,10 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting to Spotify...' : 'Connect my public Spotify profile'}
+                  {connecting ? 'Connecting...' : 'Bring in my Spotify music'}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button"
-              onPress={()=>router.push('/listenbrainz-connect')}
-              style={styles.automaticUpdates}>
-              <Text style={styles.automaticText}>Want your Spotify listening to update automatically? Set up free syncing →</Text>
             </Pressable>
           </View>
         </View>
