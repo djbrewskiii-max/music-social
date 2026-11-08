@@ -112,6 +112,11 @@ export default function ConnectMusicScreen() {
               </View>
               <Text style={styles.soon}>→</Text>
             </Pressable>
+            <Pressable accessibilityRole="button"
+              onPress={()=>router.push('/listenbrainz-connect')}
+              style={styles.automaticUpdates}>
+              <Text style={styles.automaticText}>Want your Spotify listening to update automatically? Set up free syncing →</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -245,6 +250,17 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
+  automaticUpdates: {
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  automaticText: {
+    color: '#39E75F',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   skipButton: {
     alignItems: 'center',
     paddingVertical: 16,
