@@ -64,12 +64,22 @@ export default function ListenBrainzConnectScreen(){
       if(!response.ok)throw new Error('ListenBrainz is unavailable right now. Please try again.');
       const {data:{user}}=await supabase.auth.getUser();
       if(!user)throw new Error('Sign in to OVRLEE first.');
-      const {error}=await supabase.from('member_listenbrainz_connections')
-        .upsert({
-          user_id:user.id,listenbrainz_username:name,sync_enabled:true,
-          updated_at:new Date().toISOString(),
-        },{onConflict:'user_id'});
-      if(error)throw error;
+      // Row ownership is enforced by RLS. Use separate INSERT/UPDATE so
+      // the mobile app never needs permission to update a user_id column.
+      const {data:existing,error:readError}=await supabase
+        .from('member_listenbrainz_connections')
+        .select('user_id').eq('user_id',user.id).maybeSingle();
+      if(readError)throw readError;
+      if(existing){
+        const {error}=await supabase.from('member_listenbrainz_connections')
+          .update({listenbrainz_username:name,sync_enabled:true,
+            updated_at:new Date().toISOString()}).eq('user_id',user.id);
+        if(error)throw error;
+      }else{
+        const {error}=await supabase.from('member_listenbrainz_connections')
+          .insert({user_id:user.id,listenbrainz_username:name,sync_enabled:true});
+        if(error)throw error;
+      }
       setUsername(name);setEnabled(true);
       Alert.alert('Your music stays in sync',
         'OVRLEE will automatically check new listens through ListenBrainz each day. Songs and artists personalize your suggestions privately.',
