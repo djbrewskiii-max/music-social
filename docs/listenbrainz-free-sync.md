@@ -1,5 +1,14 @@
 # OVRLEE free automatic music listening — 2026-11-08
 
+> **Status: optional research integration, not consumer-facing onboarding.**
+> OVRLEE's current standard Spotify setup accepts one shared public Spotify
+> profile link and one explicit permission; it does not require anyone to
+> create a MetaBrainz/ListenBrainz account. The ListenBrainz backend and
+> route are retained for a possible future opt-in integration, but the
+> separate-account link is no longer shown in the normal setup or settings.
+> An official handoff does not eliminate the need for a MetaBrainz identity.
+
+
 ## Why this exists
 We need the Spotify audience without spending €500/month on a playlist
 transfer vendor or making members manually import songs every month.
@@ -17,7 +26,8 @@ for some playback features, not to scrobble listening activity.
 
 ## Experience now
 1. During signup, Spotify remains available using our existing public-profile
-   reader. An adjacent action offers **free automatic listening updates**.
+   reader. **No separate-account ListenBrainz prompt appears.** The steps below
+   describe a dormant optional flow, not normal onboarding.
 2. On `/listenbrainz-connect`, one button opens ListenBrainz's *own*
    Spotify connection page in an in-app browser. First-time users must make
    a free ListenBrainz/MusicBrainz login and authorize Spotify.
@@ -48,8 +58,8 @@ for some playback features, not to scrobble listening activity.
   09:47 UTC daily (04:47 EST / 05:47 EDT).
 - Collector `tools/listenbrainz-daily.mjs` and parsing helper
   `tools/listenbrainz-reader.mjs`.
-- Mobile `src/app/listenbrainz-connect.tsx`, accessible from music setup
-  and music settings.
+- Mobile `src/app/listenbrainz-connect.tsx` remains in the codebase but is
+  **not linked from ordinary music setup or Music Settings**.
 
 ## What we do not pretend to have
 - This does NOT retrieve or mirror Spotify playlists. We already have the
