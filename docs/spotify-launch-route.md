@@ -1,3 +1,9 @@
+> **Current decision (Nov 8, 2026): Use the free ListenBrainz route first.**
+> We deployed daily ListenBrainz listening synchronization without any paid
+> intermediary or Spotify API key. See [listenbrainz-free-sync.md](listenbrainz-free-sync.md).
+> MusicAPI below remains an unselected paid alternative for playlist retrieval,
+> not a launch requirement or a recommended €500 subscription.
+
 # OVRLEE — Spotify audience without a fragile public-page dependency
 Reviewed 2026-11-08. Engineering decision note; not an authorization opinion.
 
