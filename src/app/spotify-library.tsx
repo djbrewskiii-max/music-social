@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView,
+  ActivityIndicator, Alert, Linking, Pressable, SafeAreaView, ScrollView,
   StyleSheet, Text, TextInput, View
 } from 'react-native';
 import {
@@ -16,7 +16,7 @@ import { playlistArtistEvidence } from '../music-taste-evidence';
 const GREEN='#39E75F';
 
 export default function SpotifyPublicLibrary() {
- const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
+ const {onboarding,profile}=useLocalSearchParams<{onboarding?:string;profile?:string}>();
  const fromOnboarding=onboarding==='1';
  const [url,setUrl]=useState('');
  const [scan,setScan]=useState<PublicProfileResult|null>(null);
@@ -74,11 +74,32 @@ export default function SpotifyPublicLibrary() {
    if(!active||!saved)return;
    try{
     const parsed=JSON.parse(saved) as {url?:string;confirmed?:boolean;mine?:boolean;share?:boolean;weekly?:boolean};
-    if(parsed.url){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);setMySpotifyProfile(parsed.mine===true);setSharePlaylistTaste(parsed.share===true);setWeeklyRefresh(parsed.weekly===true);}
+    if(parsed.url&&!profile){normalizePublicProfile(parsed.url);setUrl(parsed.url);setConsent(parsed.confirmed===true);setMySpotifyProfile(parsed.mine===true);setSharePlaylistTaste(parsed.share===true);setWeeklyRefresh(parsed.weekly===true);}
    }catch{/* Ignore a stale or invalid saved profile. */}
   })().catch(()=>{});
   return ()=>{active=false;};
- },[]);
+ },[profile]);
+ useEffect(()=>{
+  if(!profile)return;
+  try{
+    const incoming=normalizePublicProfile(profile);
+    setUrl(incoming.url);
+    setConsent(false);
+    setMySpotifyProfile(false);
+    setSharePlaylistTaste(false);
+    setWeeklyRefresh(false);
+  }catch{
+    // Ignore malformed or unrelated incoming shares.
+  }
+ },[profile]);
+ const openSpotify=async()=>{
+  try{
+    const appAvailable=await Linking.canOpenURL('spotify://');
+    await Linking.openURL(appAvailable?'spotify://':'https://open.spotify.com/');
+  }catch{
+    Alert.alert('Open Spotify','Open your Spotify profile and select Share, then OVRLEE or Copy Link.');
+  }
+ };
  useEffect(()=>{
   if (!chosen) { setChecked([]); return; }
   const newlySeen = changes[chosen.id] || [];
@@ -90,15 +111,18 @@ export default function SpotifyPublicLibrary() {
   try{normalizePublicProfile(url);}catch(e){Alert.alert('Check the profile link',e instanceof Error?e.message:'Enter a valid Spotify profile URL.');return;}
   setLoading(true);setScan(null);setChosen(null);setChanges({});setArtistChecked([]);setError('');setSyncWarning('');setProgress('');
   try{
+    const {data:{user}}=await supabase.auth.getUser();
+    if(!user)throw new Error('Sign in to OVRLEE first.');
     const result=await readPublicSpotifyProfile(url,{onProgress:setProgress});
-    if(accountId){
-      await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+accountId,
+    const linkedId=accountId||user.id;
+    if(linkedId){
+      await AsyncStorage.setItem('ovrlee.spotifyPublicProfile.'+linkedId,
         JSON.stringify({url:result.url,confirmed:true,mine:mySpotifyProfile,share:mySpotifyProfile&&sharePlaylistTaste,weekly:mySpotifyProfile&&weeklyRefresh})).catch(()=>{});
       if(mySpotifyProfile){
         // Save the canonical link under the authenticated account. This
         // registry is not an instruction to scrape Spotify in the background.
         const linked=await supabase.from('member_music_connections').upsert({
-          user_id:accountId,provider:'spotify',provider_user_id:result.userId,
+          user_id:linkedId,provider:'spotify',provider_user_id:result.userId,
           public_profile_url:result.url,self_declared_owner:true,
           used_for_private_suggestions:true,
           share_playlist_artists:sharePlaylistTaste,
@@ -114,7 +138,6 @@ export default function SpotifyPublicLibrary() {
     }
     // Read account-level history first, then merge any legacy local observations.
     // Only user-initiated scans update the saved observation history.
-    const {data:{user}}=await supabase.auth.getUser();
     if(user){
       const historyKey='ovrlee.spotifyScanHistory.'+user.id+'.'+result.userId;
       let local:SpotifyScanHistory|null=null;
@@ -183,6 +206,39 @@ export default function SpotifyPublicLibrary() {
         await supabase.from('music_taste_artists').update({share_for_matching:false})
           .eq('user_id',user.id).eq('source','playlist')
           .eq('spotify_profile_id',result.userId);
+      }
+      // A first-time member should not have to visit 20 playlists and tap
+      // "save" on every song. Their one explicit consent lets OVRLEE store
+      // readable music *privately*, without posting or sharing track lists.
+      if(mySpotifyProfile){
+        const songs=new Map<string,{song:string;artist:string;playlist:string}>();
+        for(const playlist of result.playlists){
+          if(playlist.status!=='ready')continue;
+          for(const t of playlist.tracks){
+            const key=trackKey(t);
+            if(!key||songs.has(key))continue;
+            songs.set(key,{
+              song:t.song.slice(0,200),artist:t.artist.slice(0,120),
+              playlist:playlist.title.slice(0,65),
+            });
+            if(songs.size>=300)break;
+          }
+          if(songs.size>=300)break;
+        }
+        const observations=[...songs].map(([track_key,t])=>({
+          user_id:user.id,track_key,song:t.song,artist:t.artist,
+          album:'',source_label:('Public Spotify: '+t.playlist).slice(0,100),
+        }));
+        for(let i=0;i<observations.length;i+=50){
+          const {error:saveError}=await supabase.from('music_import_tracks')
+            .upsert(observations.slice(i,i+50),
+              {onConflict:'user_id,track_key',ignoreDuplicates:true});
+          if(saveError){
+            console.log('Automatic private music suggestions:',saveError.message);
+            setSyncWarning('Your profile was linked, but some song suggestions could not sync.');
+            break;
+          }
+        }
       }
       const comparison=compareSpotifyScans(result,previous);
       setChanges(comparison.newByPlaylist);
