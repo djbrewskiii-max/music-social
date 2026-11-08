@@ -3,10 +3,11 @@
  * NOT Spotify. No Spotify scraping, cookies, passwords or OAuth keys.
  * Only OVRLEE members who opted in are eligible.
  */
+import { listenBrainzRecentUrl, parseListenBrainzListens } from './listenbrainz-reader.mjs';
+
 const syncUrl=process.env.OVRLEE_LISTENBRAINZ_SYNC_URL||
   'https://ebflucbdptxpboqjxaox.supabase.co/functions/v1/ovrlee-listenbrainz-sync';
 const audience='ovrlee-listenbrainz-sync';
-const usernamePattern=/^[A-Za-z0-9_.-]{2,80}$/;
 const sleep=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
 async function sync(payload){
   const endpoint=process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
@@ -28,32 +29,18 @@ async function sync(payload){
   return result.json();
 }
 async function fetchListens(profile){
-  const user=profile.listenbrainz_username;
-  if(!usernamePattern.test(user))throw Error('Invalid ListenBrainz username');
-  const url=new URL('https://api.listenbrainz.org/1/user/'+encodeURIComponent(user)+'/listens');
-  url.searchParams.set('count','1000');
-  if(Number(profile.last_listen_at)>0)url.searchParams.set('min_ts',String(profile.last_listen_at));
+  const url=listenBrainzRecentUrl(
+    profile.listenbrainz_username,Number(profile.last_listen_at)||0
+  );
   const response=await fetch(url,{
     headers:{Accept:'application/json',
       'User-Agent':'OVRLEE-Music-Discovery/0.1 (https://github.com/djbrewskiii-max/music-social)'},
     signal:AbortSignal.timeout(18000),
   });
   if(!response.ok)throw Error('ListenBrainz public API HTTP '+response.status);
-  const payload=await response.json();
-  if(!Array.isArray(payload?.payload?.listens))throw Error('Unexpected ListenBrainz response');
-  const listens=[];
-  for(const item of payload.payload.listens){
-    const meta=item?.track_metadata;
-    if(!meta)continue;
-    const listened_at=item.listened_at;
-    const song_name=meta.track_name;
-    const artist_name=meta.artist_name;
-    if(!Number.isSafeInteger(listened_at)||typeof song_name!=='string'||
-       typeof artist_name!=='string')continue;
-    listens.push({listened_at,song_name,artist_name});
-  }
-  return {listens,truncated:payload.payload.listens.length===1000};
+  return parseListenBrainzListens(await response.json());
 }
+
 async function main(){
   const due=await sync({action:'list_due'});
   const profiles=Array.isArray(due.profiles)?due.profiles:[];
