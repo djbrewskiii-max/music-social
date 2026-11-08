@@ -1,8 +1,10 @@
-> **Current decision (Nov 8, 2026): Use the free ListenBrainz route first.**
-> We deployed daily ListenBrainz listening synchronization without any paid
-> intermediary or Spotify API key. See [listenbrainz-free-sync.md](listenbrainz-free-sync.md).
-> MusicAPI below remains an unselected paid alternative for playlist retrieval,
-> not a launch requirement or a recommended €500 subscription.
+> **Current decision (Nov 8, 2026): No extra accounts in Spotify onboarding.**
+> OVRLEE accepts the member's own Spotify public profile through its installed
+> share extension or one copied URL; one explicit approval privately imports
+> accessible song/artist signals without manual playlist selection.
+> The free ListenBrainz sync is preserved as optional experimental code, not
+> the default signup experience, because it requires a separate MetaBrainz identity.
+> MusicAPI remains an unselected paid alternative, not a launch requirement.
 
 # OVRLEE — Spotify audience without a fragile public-page dependency
 Reviewed 2026-11-08. Engineering decision note; not an authorization opinion.
