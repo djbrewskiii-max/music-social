@@ -26,6 +26,30 @@ This document replaces the old prototype-specific research notes. Git history re
 - On successful user-initiated artist rendering for that same registered profile, OVRLEE privately saves the observed artist IDs and which IDs were absent from the previous observation. Initial observation is a baseline. The artist panel remains optional and is not shown during normal app use.
 - The registry has a separate `weekly_public_refresh_opt_in` flag (false by default). An opt-in during onboarding is required for automatic public-page checks; members can disable it in Music Settings.
 
+## Free automatic Spotify listening via ListenBrainz — installed
+
+- **Primary zero-paid-provider path:** Users connect Spotify once to the
+  free ListenBrainz service and link the resulting ListenBrainz username to
+  OVRLEE once. OVRLEE checks the open ListenBrainz listening API daily.
+- The flow exists in `src/app/listenbrainz-connect.tsx`, linked from
+  onboarding and Music Settings. It does not replace the existing public
+  Spotify playlist/profile reader.
+- Supabase private tables `member_listenbrainz_connections`,
+  `music_listening_events`, and `music_listening_artists` are deployed.
+- GitHub's default-branch workflow `.github/workflows/listenbrainz-daily.yml`
+  authenticated successfully with Supabase's Edge Function
+  `ovrlee-listenbrainz-sync`. It found zero enrolled members during the
+  first backend test and performed no external lookups.
+- Completed listens influence only the member's **private** feed and Music
+  Discovery suggestions. They do not create public likes, posts or unverified
+  shared-artist badges.
+- Unlinking deletes imported private listening events and summarized tastes.
+- Limitation: Free one-time ListenBrainz/MusicBrainz signup and username entry
+  are still required. Fully branded handoff needs the MetaBrainz-approved
+  `listenbrainz:connect-services` OAuth scope. This provides listening
+  history, not full Spotify playlist synchronization.
+- Details: `docs/listenbrainz-free-sync.md`.
+
 ## Weekly Spotify public-profile delta worker — deployed with GitHub OIDC
 
 - GitHub Actions scheduled workflow is on the repository's **default branch** at `.github/workflows/spotify-weekly-research.yml`, Sundays at 09:23 UTC. It checks out `claude-build` to run `tools/spotify-weekly-refresh.mjs`.
