@@ -1,5 +1,32 @@
 # OVRLEE music integrations — current implementation (November 2026)
 
+## One-account Spotify onboarding — current decision (November 8, 2026)
+
+- **Normal signup uses only OVRLEE + Spotify.** No ListenBrainz account,
+  MusicBrainz account, usernames from a second service, or paid intermediary.
+- The existing native iOS share extension can accept a **Spotify profile URL**
+  shared directly from Spotify and route it to the existing OVRLEE profile
+  reader. Copy/paste of a public profile URL remains the fallback.
+- The onboarding reader asks for **one explicit approval**: this is the
+  member's own public Spotify profile; OVRLEE may read currently visible
+  music for private recommendations and attempt updates about weekly.
+- The first user-approved read privately records up to 300 unique songs and
+  source-aware artist evidence. The user does not need to open every playlist
+  or manually save each song. No public posts or public artist matches are
+  created automatically. An ordinary Finish button completes onboarding.
+- Existing advanced playlist/artist selection UI remains available on the
+  separate non-onboarding reader route. Member privacy controls remain in
+  Music Settings.
+- The ListenBrainz daily worker and optional screen remain **experimental,
+  not part of visible standard onboarding**. Its managed handoff still
+  requires a separate MetaBrainz user identity even with application scope
+  approval. Do not represent that as a zero-account connection.
+- **Boundary:** The profile reader and weekly browser collector are
+  nonofficial Spotify page-access experiments. Spotify's terms still restrict
+  automated scraping; this is not a guarantee of permission or dependable
+  commercial-scale syncing. The weekly member path needs live member testing.
+
+
 This document replaces the old prototype-specific research notes. Git history retains the experiments.
 
 ## Product boundary: invisible after initial setup
@@ -28,9 +55,10 @@ This document replaces the old prototype-specific research notes. Git history re
 
 ## Free automatic Spotify listening via ListenBrainz — installed
 
-- **Primary zero-paid-provider path:** Users connect Spotify once to the
-  free ListenBrainz service and link the resulting ListenBrainz username to
-  OVRLEE once. OVRLEE checks the open ListenBrainz listening API daily.
+- **Optional experimental integration, not the main Spotify signup:** Existing
+  ListenBrainz users can link their listening history. It requires a
+  separate MusicBrainz/ListenBrainz account and is not shown during the
+  standard OVRLEE onboarding experience.
 - The flow exists in `src/app/listenbrainz-connect.tsx`, linked from
   onboarding and Music Settings. It does not replace the existing public
   Spotify playlist/profile reader.
