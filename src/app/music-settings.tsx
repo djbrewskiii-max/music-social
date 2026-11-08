@@ -122,6 +122,14 @@ export default function MusicSettingsScreen() {
       </View>
       <Text style={s.check}>›</Text>
     </Pressable>}
+    <Pressable accessibilityRole="button"
+      onPress={()=>router.push('/listenbrainz-connect')} style={s.option}>
+      <View style={{flex:1,paddingRight:12}}>
+        <Text style={s.name}>Automatic listening updates</Text>
+        <Text style={s.note}>Free Spotify listening-history sync through ListenBrainz. Connect once, then OVRLEE checks for new music each day.</Text>
+      </View>
+      <Text style={s.check}>›</Text>
+    </Pressable>
     <Text style={s.section}>KEEP YOUR MUSIC CURRENT</Text>
     <Pressable accessibilityRole="switch"
       accessibilityState={{checked:weeklyRefresh,disabled:weeklyBusy||!linkedProfileId}}
