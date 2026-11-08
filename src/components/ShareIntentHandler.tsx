@@ -5,9 +5,15 @@ import { Alert } from 'react-native';
 
 import { addToRotation } from '../music-card';
 import { firstUrl, isMusicLink, resolveSharedMusic } from '../shared-music';
+import { normalizePublicProfile } from '../spotify-public-reader';
 
 // Screens where the app is still starting up or signing in.
 const NOT_READY = new Set(['/', '/login', '/signup', '/setup-profile', '/callback', '/connect-music']);
+const PROFILE_NOT_READY = new Set(['/', '/login', '/signup', '/setup-profile', '/callback']);
+function isSpotifyProfileLink(url: string): boolean {
+  try { normalizePublicProfile(url); return true; }
+  catch { return false; }
+}
 
 /*
   When someone shares a song or album to OVRLEE from Apple Music or Spotify,
@@ -23,12 +29,25 @@ export default function ShareIntentHandler() {
     if (!hasShareIntent) return;
     const url = shareIntent.webUrl || firstUrl(shareIntent.text);
     resetShareIntent();
-    if (url && isMusicLink(url)) setPending(url);
-    else Alert.alert('Share a song to OVRLEE', 'In Apple Music or Spotify, tap Share on a song or album, then pick OVRLEE.');
+    if (url && (isMusicLink(url) || isSpotifyProfileLink(url))) setPending(url);
+    else Alert.alert('Share music to OVRLEE',
+      'From Spotify, share your profile to connect it, or share a song or album to post.');
   }, [hasShareIntent, shareIntent, resetShareIntent]);
 
   useEffect(() => {
-    if (!pending || NOT_READY.has(pathname)) return;
+    if (!pending) return;
+    // A member can share their Spotify profile directly to OVRLEE from
+    // Spotify's Share menu. Route to existing owner-confirmation and import;
+    // do not mistake profile URLs for songs or skip the user's consent.
+    if(isSpotifyProfileLink(pending)){
+      if(PROFILE_NOT_READY.has(pathname))return;
+      const profile=normalizePublicProfile(pending);
+      setPending(null);
+      router.push({pathname:'/spotify-library',
+        params:{onboarding:'1',profile:profile.url}});
+      return;
+    }
+    if(NOT_READY.has(pathname))return;
     const url = pending;
     setPending(null);
 
