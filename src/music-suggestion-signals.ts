@@ -91,6 +91,27 @@ export function activityMusicSeeds(rows: MusicActivityArtist[]): SuggestionArtis
   return [...result.values()].sort((a,b)=>b.weight-a.weight||a.name.localeCompare(b.name));
 }
 
+/**
+ * Completed listening is useful but not the same as endorsing an artist.
+ * Keep these user-owned signals private; boost discovery only, never public
+ * mutual-artist badges or automatic posts to another member.
+ */
+export type ListeningArtist = {artist_name:string;listen_count:number};
+export function listeningMusicSeeds(rows:ListeningArtist[]):SuggestionArtist[]{
+  const ranked=new Map<string,SuggestionArtist>();
+  for(const row of rows.slice(0,300)){
+    const name=String(row.artist_name||'').trim().slice(0,120);
+    const key=normalizeMusicName(name);
+    if(!key)continue;
+    const n=Math.max(0,Number(row.listen_count)||0);
+    const weight=n>=12?3:n>=4?2:n>=1?1:0;
+    if(!weight)continue;
+    const old=ranked.get(key);
+    if(!old||old.weight<weight)ranked.set(key,{name,weight});
+  }
+  return [...ranked.values()].sort((a,b)=>b.weight-a.weight||a.name.localeCompare(b.name));
+}
+
 /** Combine ranked signals without allowing duplicates to inflate evidence. */
 export function mergeMusicSeeds(...groups: SuggestionArtist[][]): SuggestionArtist[] {
   const combined=new Map<string,SuggestionArtist>();
