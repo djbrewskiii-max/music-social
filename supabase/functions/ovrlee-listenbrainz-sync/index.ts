@@ -63,13 +63,19 @@ function readListens(raw:unknown):ValidListen[]{
 async function listDue(){
   const cutoff=new Date(Date.now()-twentyHours).toISOString();
   const {data,error}=await db.from('member_listenbrainz_connections')
-    .select('user_id,listenbrainz_username,last_listen_at')
+    .select('user_id,listenbrainz_username,last_listen_at,last_synced_username')
     .eq('sync_enabled',true)
     .or('last_attempt_at.is.null,last_attempt_at.lt.'+cutoff)
     .order('last_attempt_at',{ascending:true,nullsFirst:true})
     .limit(30);
   if(error)throw error;
-  return (data||[]).filter(row=>usernamePattern.test(row.listenbrainz_username));
+  return (data||[]).filter(row=>usernamePattern.test(row.listenbrainz_username))
+    .map(row=>({
+      user_id:row.user_id,listenbrainz_username:row.listenbrainz_username,
+      // An account change must not reuse the previous listener's timestamp.
+      last_listen_at:row.last_synced_username===row.listenbrainz_username
+        ?row.last_listen_at:0,
+    }));
 }
 async function submit(body:Record<string,unknown>){
   const userId=String(body.user_id||'');
