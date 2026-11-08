@@ -312,13 +312,35 @@ export default function SpotifyPublicLibrary() {
   </View>
   <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
    <Text style={s.eyebrow}>MAKE IT SOUND LIKE YOU</Text>
-   <Text style={s.title}>Bring your music closer.</Text>
-   <Text style={s.body}>Your public Spotify profile can help OVRLEE suggest artists, conversations and people you might connect with. No Spotify login is required for this preview.</Text>
+   <Text style={s.title}>{fromOnboarding?'Connect Spotify to OVRLEE.':'Bring your music closer.'}</Text>
+   <Text style={s.body}>{fromOnboarding
+      ?'Just share your Spotify profile. OVRLEE can save visible music privately to make your recommendations feel like you—no second account or manual song selection.'
+      :'Your public Spotify profile can help OVRLEE suggest artists, conversations and people you might connect with. No Spotify login is required for this preview.'}</Text>
    {!chosen&&<>
-    <Text style={s.section}>SPOTIFY PROFILE LINK</Text>
+    <Text style={s.section}>{fromOnboarding?'YOUR SPOTIFY PROFILE':'SPOTIFY PROFILE LINK'}</Text>
     <TextInput value={url} onChangeText={value=>{setUrl(value);setConsent(false);setMySpotifyProfile(false);setSharePlaylistTaste(false);setWeeklyRefresh(false);}} keyboardType="url" autoCapitalize="none" autoCorrect={false}
       placeholder="https://open.spotify.com/user/..." placeholderTextColor="#666" style={s.input}/>
-    <Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>
+    {fromOnboarding?<View style={{gap:7,marginBottom:10}}>
+      <Text style={s.sub}>In Spotify: Your profile → Share → OVRLEE. If OVRLEE isn't in the Share menu, choose Copy Link and paste above.</Text>
+      <Pressable accessibilityRole="button" onPress={()=>void openSpotify()}
+        style={[s.manualToggle,{marginTop:9}]}>
+        <Text style={s.manualText}>OPEN SPOTIFY TO SHARE MY PROFILE ↗</Text>
+      </Pressable>
+    </View>:<Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>}
+    {fromOnboarding?<Pressable accessibilityRole="checkbox"
+      accessibilityState={{checked:consent&&mySpotifyProfile&&weeklyRefresh}}
+      onPress={()=>{
+        const next=!(consent&&mySpotifyProfile&&weeklyRefresh);
+        setConsent(next);
+        setMySpotifyProfile(next);
+        setWeeklyRefresh(next);
+        setSharePlaylistTaste(false);
+      }} style={s.consentRow}>
+      <View style={[s.check,consent&&mySpotifyProfile&&weeklyRefresh&&s.checkActive]}>
+        <Text style={s.checkMark}>{consent&&mySpotifyProfile&&weeklyRefresh?'✓':''}</Text>
+      </View>
+      <Text style={s.consentCopy}>This is my profile. I authorize OVRLEE to read its public music for private recommendations and recheck it about weekly. I can turn off future checks in Music Settings.</Text>
+    </Pressable>:<>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
      <Text style={s.consentCopy}>Review music visible on this public Spotify profile.</Text>
@@ -340,13 +362,22 @@ export default function SpotifyPublicLibrary() {
        <View style={[s.check,weeklyRefresh&&s.checkActive]}><Text style={s.checkMark}>{weeklyRefresh?'✓':''}</Text></View>
        <Text style={s.consentCopy}>Keep my music suggestions up to date. Allow OVRLEE to recheck the public music visible on this profile about once a week. I can switch this off in Music Settings.</Text>
      </Pressable>}
+    </>}
     <Pressable accessibilityRole="button" disabled={loading||!url.trim()} style={[s.primary,(loading||!url.trim())&&{opacity:.5}]} onPress={()=>void run()}>
-      {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
+      {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{fromOnboarding?'CONNECT MY SPOTIFY PROFILE →':scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
     {!!progress&&<Text style={s.progress}>{progress}</Text>}
     {!!error&&<Text style={s.error}>{error}</Text>}
     {!!syncWarning&&<Text style={s.warning}>{syncWarning}</Text>}
-    {scan&&<>
+    {scan&&fromOnboarding&&<View style={s.quickSuccess}>
+      <Text style={s.quickTitle}>✓ SPOTIFY PROFILE LINKED</Text>
+      <Text style={s.quickCopy}>OVRLEE found {scan.playlists.filter(p=>p.status==='ready').length} readable playlist{scan.playlists.filter(p=>p.status==='ready').length===1?'':'s'} and {scan.playlists.filter(p=>p.status==='ready').reduce((total,p)=>total+p.tracks.length,0)} visible songs. The music we could read is saved as private recommendation signals.</Text>
+      {scan.playlists.every(p=>p.status!=='ready')&&<Text style={s.warning}>Spotify didn't expose readable songs this time. Your chosen favorites and OVRLEE activity will still drive your recommendations.</Text>}
+      <Pressable accessibilityRole="button" style={s.primary} onPress={()=>router.replace('/now')}>
+        <Text style={s.primaryText}>FINISH · ENTER OVRLEE →</Text>
+      </Pressable>
+    </View>}
+    {scan&&!fromOnboarding&&<>
      <View style={s.resultHeader}><Text style={s.section}>PLAYLISTS ({scan.playlists.length})</Text><Text style={s.small}>{scan.playlists.filter(p=>p.status==='ready').length} readable</Text></View>
      {!firstScan&&Object.values(changes).some(items=>items.length>0)&&
        <Text style={s.freshSummary}>{Object.values(changes).reduce((sum,items)=>sum+items.length,0)} NEWLY VISIBLE SONGS SINCE YOUR LAST SCAN</Text>}
@@ -362,7 +393,7 @@ export default function SpotifyPublicLibrary() {
      {scan.warnings.map((w,i)=><Text key={i} style={s.warning}>{w}</Text>)}
     </>}
    </>}
-   {!chosen&&<>
+   {!chosen&&!fromOnboarding&&<>
     <Text style={s.section}>EXPLORE THEIR ARTISTS</Text>
     <Pressable accessibilityRole="button"
       onPress={()=>{
@@ -439,9 +470,9 @@ export default function SpotifyPublicLibrary() {
       {saving?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>SAVE {checkedCount} SONGS AS SUGGESTIONS →</Text>}
      </Pressable>
     </>}
-   {fromOnboarding&&<Pressable accessibilityRole="button"
+   {fromOnboarding&&!scan&&<Pressable accessibilityRole="button"
       onPress={()=>router.replace('/now')} style={[s.primary,{backgroundColor:'#242424',marginTop:32}]}>
-      <Text style={[s.primaryText,{color:'#fff'}]}>FINISH SETUP · ENTER OVRLEE →</Text>
+      <Text style={[s.primaryText,{color:'#fff'}]}>I'LL DO THIS LATER →</Text>
     </Pressable>}
    <Text style={s.footer}>Only publicly available music appears here. Spotify may limit what's visible. This isn't live playback, an official Spotify API connection or automatic posting. OVRLEE must resolve permission requirements before automated commercial collection.</Text>
   </ScrollView>
@@ -449,7 +480,12 @@ export default function SpotifyPublicLibrary() {
 }
 const s=StyleSheet.create({
  screen:{flex:1,backgroundColor:'#090909'},header:{height:60,borderBottomWidth:1,borderColor:'#242424',flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:20},back:{color:'#fff',fontSize:30},headTitle:{fontSize:11,fontWeight:'900',letterSpacing:1.1,color:'#fff'},
- content:{padding:21,paddingBottom:105},freshSummary:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:18},newText:{color:GREEN,fontSize:10,fontWeight:'900',marginTop:5},eyebrow:{color:GREEN,fontWeight:'900',letterSpacing:1.5,fontSize:11},title:{color:'#fff',fontWeight:'900',fontSize:29,lineHeight:36,marginTop:12},body:{color:'#aaa',fontSize:13,lineHeight:21,marginTop:12},
+ content:{padding:21,paddingBottom:105},
+ quickSuccess:{backgroundColor:'#122019',borderColor:'#2C5435',borderWidth:1,
+   borderRadius:15,padding:20,marginTop:23,gap:12},
+ quickTitle:{fontWeight:'900',fontSize:13,letterSpacing:1,color:GREEN},
+ quickCopy:{color:'#e3e3e3',fontSize:14,lineHeight:22},
+ freshSummary:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:.8,marginTop:18},newText:{color:GREEN,fontSize:10,fontWeight:'900',marginTop:5},eyebrow:{color:GREEN,fontWeight:'900',letterSpacing:1.5,fontSize:11},title:{color:'#fff',fontWeight:'900',fontSize:29,lineHeight:36,marginTop:12},body:{color:'#aaa',fontSize:13,lineHeight:21,marginTop:12},
  section:{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:.8,marginTop:28,marginBottom:14},input:{borderColor:'#343434',borderWidth:1,backgroundColor:'#181818',borderRadius:12,color:'#fff',padding:15,fontSize:14},
  manualToggle:{borderRadius:12,backgroundColor:'#151E17',paddingVertical:15,paddingHorizontal:16,marginTop:19,borderWidth:1,borderColor:'#2C4632'},manualText:{color:GREEN,fontWeight:'900',fontSize:11,letterSpacing:.6},consentRow:{flexDirection:'row',gap:12,alignItems:'center',paddingVertical:14},consentCopy:{color:'#aaa',fontSize:12,lineHeight:19,flex:1},
  check:{height:25,width:25,borderWidth:1,borderColor:'#555',borderRadius:7,alignItems:'center',justifyContent:'center'},checkActive:{backgroundColor:GREEN,borderColor:GREEN},checkMark:{color:'#000',fontWeight:'900'},
