@@ -98,7 +98,7 @@ export default function ListenBrainzConnectScreen(){
         .delete().eq('user_id',user.id);
       if(error)throw error;
       setEnabled(false);setUsername('');
-      Alert.alert('Disconnected','OVRLEE will stop checking ListenBrainz. Your other music preferences remain.');
+      Alert.alert('Disconnected','OVRLEE stopped checking ListenBrainz and cleared its saved listening signals. Your manually selected favorites remain.');
     }catch(e){Alert.alert('Could not disconnect',e instanceof Error?e.message:'Try again.');}
     finally{setBusy(false);}
   };
@@ -134,7 +134,7 @@ export default function ListenBrainzConnectScreen(){
       </View>
 
       {enabled&&<Pressable style={s.disconnect} disabled={busy} onPress={()=>void disconnect()} accessibilityRole="button">
-        <Text style={s.disconnectText}>Disconnect automatic listening updates</Text>
+        <Text style={s.disconnectText}>Disconnect and clear saved listening activity</Text>
       </Pressable>}
       {!loaded&&<ActivityIndicator color="#39E75F"/>}
       <Text style={s.fine}>Your listening data stays private within OVRLEE. ListenBrainz publishes listening records; don't connect if you prefer your listening history not to be public there. OVRLEE never accesses your Spotify password and doesn't display your individual listens to other members. You can stop this sync anytime.</Text>
