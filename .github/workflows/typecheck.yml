@@ -20,6 +20,8 @@ jobs:
       - run: node tools/playlist-snapshot-diff.test.mjs
       - run: node --experimental-strip-types tools/spotify-public-reader.test.mjs
       - run: node --experimental-strip-types tools/music-suggestion-signals.test.mjs
+      - run: node --experimental-strip-types tools/listenbrainz-sync.test.mjs
+      - run: node --check tools/listenbrainz-daily.mjs
       - run: node --experimental-strip-types tools/music-taste-evidence.test.mjs
       - run: node --experimental-strip-types tools/musicapi-normalizer.test.mjs
       - run: node --experimental-strip-types tools/spotify-observation-diff.test.mjs
