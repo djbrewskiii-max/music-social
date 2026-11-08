@@ -35,7 +35,7 @@ import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../supabase';
 import { reconcileExistingMusicConnection } from '../music-connection-registry';
-import { activityMusicSeeds, mergeMusicSeeds, musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
+import { activityMusicSeeds, listeningMusicSeeds, mergeMusicSeeds, musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
 import { openMusicCard } from '../music-card';
 import { publishRecognizedSong } from '../presence';
@@ -732,6 +732,9 @@ export default function NowScreen() {
             supabase.from('music_activity_artists')
               .select('artist_name,posted_count,liked_count')
               .eq('user_id',user.id).order('last_activity_at',{ascending:false}).limit(300),
+            supabase.from('music_listening_artists')
+              .select('artist_name,listen_count')
+              .eq('user_id',user.id).order('listen_count',{ascending:false}).limit(300),
           ]);
           const postFields =
             'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
@@ -1000,7 +1003,10 @@ export default function NowScreen() {
           const initialMusicSeeds=musicSuggestionSeeds(medium,light,[...favorites,...strong,...known],60);
           const activityRows=tastes[2].status==='fulfilled'&&!tastes[2].value.error
             ? tastes[2].value.data||[] : [];
-          const feedMusicSeeds=mergeMusicSeeds(initialMusicSeeds,activityMusicSeeds(activityRows));
+          const listeningRows=tastes[3].status==='fulfilled'&&!tastes[3].value.error
+            ? tastes[3].value.data||[] : [];
+          const feedMusicSeeds=mergeMusicSeeds(
+            initialMusicSeeds,activityMusicSeeds(activityRows),listeningMusicSeeds(listeningRows));
           // For You: balance recent posts, followed voices, and active discussions.
           // Keep brand-new posts (including Studio collections) near the top.
           // Replies from other people count more than the author's own replies.
