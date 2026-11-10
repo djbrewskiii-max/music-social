@@ -1,3 +1,4 @@
+import { launchSafeImports } from '../music-launch-sources';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -28,14 +29,14 @@ export default function PickArtistsScreen(){
         supabase.from('music_taste_artists').select('artist_name,share_for_matching')
           .eq('user_id',user.id).eq('source','favorite').limit(MAX),
         supabase.from('music_dna').select('top_artists').eq('user_id',user.id).maybeSingle(),
-        supabase.from('music_import_artists').select('artist').eq('user_id',user.id).limit(25),
+        supabase.from('music_import_artists').select('artist,source_label').eq('user_id',user.id).limit(25),
       ]);
       if(!active)return;
       setFavorites((existing.data||[]).map(x=>x.artist_name));
       setShare((existing.data||[]).some(x=>x.share_for_matching===true));
       const names=[
         ...((dna.data?.top_artists||[]) as {name:string}[]).map(x=>x.name),
-        ...(selected.data||[]).map(x=>x.artist),
+        ...launchSafeImports(selected.data||[]).map(x=>x.artist),
       ];
       setSuggestions([...new Map(names.filter(Boolean).map(name=>[tasteKey(name),name])).values()].slice(0,20));
     })().catch(e=>console.log('Favorite artist setup:',e))
