@@ -75,7 +75,7 @@ export default function SpotifyConnectScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.kicker}>SPOTIFY + OVRLEE</Text>
+        <Text style={styles.kicker}>LISTEN WITH SPOTIFY</Text>
         <Text style={styles.title}>Keep listening on Spotify.</Text>
         <Text style={styles.copy}>
           OVRLEE opens songs in Spotify. Your favorite artists, posts and the
