@@ -86,6 +86,8 @@ export default function SettingsScreen() {
         <View style={styles.group}>
           <SettingRow first icon="music.note" label="Preferred music service" detail="Where songs and albums open"
             onPress={() => router.push('/music-settings')} />
+          <SettingRow icon="music.note.list" label="My Spotify playlists" detail="Showcase the playlists you choose to share"
+            onPress={() => router.push('/spotify-showcase')} />
 
         </View>
 
