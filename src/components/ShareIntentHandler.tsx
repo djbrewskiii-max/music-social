@@ -36,14 +36,13 @@ export default function ShareIntentHandler() {
 
   useEffect(() => {
     if (!pending) return;
-    // A member can share their Spotify profile directly to OVRLEE from
-    // Spotify's Share menu. Route to existing owner-confirmation and import;
-    // do not mistake profile URLs for songs or skip the user's consent.
+    // Share a profile to the safe link-only screen in release builds.
+    // The experimental reader is only accessible in development builds.
     if(isSpotifyProfileLink(pending)){
       if(PROFILE_NOT_READY.has(pathname))return;
       const profile=normalizePublicProfile(pending);
       setPending(null);
-      router.push({pathname:'/spotify-library',
+      router.push({pathname:__DEV__?'/spotify-library':'/spotify-connect',
         params:{onboarding:'1',profile:profile.url}});
       return;
     }
