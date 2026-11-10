@@ -1,3 +1,4 @@
+import SpotifyConnectScreen from './spotify-connect';
 /**
  * User-initiated preview of artists visibly rendered on
  * a public Spotify profile. No Spotify API token, login, hidden endpoints,
@@ -65,7 +66,7 @@ const READ_VISIBLE_ARTISTS = `(function(){
   return true;
 })();true;`;
 
-export default function PublicSpotifyArtistsPreview(){
+function PublicSpotifyArtistsPreviewExperiment(){
   const {url,onboarding} = useLocalSearchParams<{url?:string;onboarding?:string}>();
   const fromOnboarding=onboarding==='1';
   const profile = useMemo(()=>{
@@ -361,3 +362,8 @@ const s=StyleSheet.create({
   reviewFooter:{paddingHorizontal:19,paddingTop:10,paddingBottom:14,borderTopWidth:1,borderTopColor:'#242424'},
   again:{padding:12,alignItems:'center'},againText:{color:'#bcbcbc',fontSize:11,fontWeight:'900',letterSpacing:.6},
 });
+
+// Keep this browser DOM reader out of release navigation.
+export default function PublicSpotifyArtistsPreview() {
+  return __DEV__ ? <PublicSpotifyArtistsPreviewExperiment /> : <SpotifyConnectScreen />;
+}
