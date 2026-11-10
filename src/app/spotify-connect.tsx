@@ -118,6 +118,18 @@ export default function SpotifyConnectScreen() {
             <Text style={styles.linkText}>OPEN SPOTIFY ↗</Text>
           </Pressable>
         </View>
+        <Pressable accessibilityRole="button"
+          onPress={() => router.push('/spotify-showcase')}
+          style={styles.showcaseLink}>
+          <View style={{flex:1}}>
+            <Text style={styles.showcaseTitle}>Feature your Spotify playlists</Text>
+            <Text style={styles.showcaseCopy}>
+              Share playlists from Spotify to OVRLEE for people to explore.
+              OVRLEE displays the playlist on Spotify without reading its tracks.
+            </Text>
+          </View>
+          <Text style={styles.showcaseArrow}>›</Text>
+        </Pressable>
         <View style={styles.info}>
           <Text style={styles.infoTitle}>How music discovery works</Text>
           <Text style={styles.note}>
@@ -157,6 +169,11 @@ const styles = StyleSheet.create({
     borderRadius:12,color:'#fff',padding:15,fontSize:14,marginTop:18},
   linkButton:{paddingVertical:15,alignItems:'center'},
   linkText:{color:GREEN,fontWeight:'900',fontSize:12},
+  showcaseLink:{marginTop:18,borderWidth:1,borderColor:'#29452D',borderRadius:14,
+    padding:16,flexDirection:'row',alignItems:'center',backgroundColor:'#121D15'},
+  showcaseTitle:{color:'#fff',fontSize:14,fontWeight:'800'},
+  showcaseCopy:{color:'#9CB5A1',fontSize:12,lineHeight:19,marginTop:6},
+  showcaseArrow:{color:GREEN,fontWeight:'700',fontSize:24,marginLeft:10},
   info:{marginTop:20},
   infoTitle:{color:'#fff',fontWeight:'800',fontSize:16},
   button:{backgroundColor:GREEN,borderRadius:14,padding:19,alignItems:'center',marginTop:32},
