@@ -1,3 +1,4 @@
+import SpotifyConnectScreen from './spotify-connect';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useState } from 'react';
@@ -15,7 +16,7 @@ import { supabase } from '../supabase';
 import { playlistArtistEvidence } from '../music-taste-evidence';
 const GREEN='#39E75F';
 
-export default function SpotifyPublicLibrary() {
+function SpotifyPublicLibraryExperiment() {
  const {onboarding,profile}=useLocalSearchParams<{onboarding?:string;profile?:string}>();
  const fromOnboarding=onboarding==='1';
  const [url,setUrl]=useState('');
@@ -501,3 +502,8 @@ const s=StyleSheet.create({
  resultHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},small:{color:'#999',fontSize:11},playlist:{flexDirection:'row',alignItems:'center',gap:12,borderBottomColor:'#242424',borderBottomWidth:1,paddingVertical:13},listIcon:{width:49,height:49,borderRadius:8,backgroundColor:'#16241A',alignItems:'center',justifyContent:'center'},playlistName:{color:'#fff',fontSize:15,fontWeight:'800'},sub:{color:'#999',fontSize:12,marginTop:5},arrow:{color:GREEN,fontSize:24},warning:{color:'#d6b27d',fontSize:12,lineHeight:19,marginTop:12},
  backTo:{paddingVertical:13},backToText:{color:GREEN,fontWeight:'900',fontSize:12},selectAll:{paddingVertical:15},selectAllText:{color:GREEN,fontSize:12,fontWeight:'900'},track:{flexDirection:'row',gap:12,alignItems:'center',borderBottomColor:'#222',borderBottomWidth:1,paddingVertical:12},song:{color:'#fff',fontSize:14,fontWeight:'800'},footer:{color:'#666',fontSize:11,lineHeight:19,marginTop:32}
 });
+
+// Production must never navigate into the public-page scraper.
+export default function SpotifyPublicLibrary() {
+  return __DEV__ ? <SpotifyPublicLibraryExperiment /> : <SpotifyConnectScreen />;
+}
