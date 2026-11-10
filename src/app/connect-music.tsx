@@ -16,8 +16,8 @@ export default function ConnectMusicScreen() {
   // The current Spotify entry uses the public-profile reader. Legacy native
   // OAuth callback support is retained separately until its dependencies are audited.
   const connectSpotify = () => {
-    // One OVRLEE flow: own public Spotify profile, no additional account.
-    router.push({pathname:'/spotify-library',params:{onboarding:'1'}});
+    // The public-page reader is experimental; release builds never invoke it.
+    router.push(__DEV__ ? {pathname:'/spotify-library',params:{onboarding:'1'}} : '/spotify-connect');
   };
 
   const connectAppleMusic = async () => {
