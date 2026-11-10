@@ -1,3 +1,4 @@
+import { launchSafeImports } from '../music-launch-sources';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -38,13 +39,13 @@ export default function ImportedMusic() {
           .select('id,song,artist,album,source_label,created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }).limit(1000),
-        supabase.from('music_import_artists').select('artist')
+        supabase.from('music_import_artists').select('artist,source_label')
           .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
       ]);
       if (trackResult.error) throw trackResult.error;
       if (artistResult.error) throw artistResult.error;
-      const data = trackResult.data;
-      setSavedArtists((artistResult.data||[]).map(a=>a.artist));
+      const data = launchSafeImports(trackResult.data||[]);
+      setSavedArtists(launchSafeImports(artistResult.data||[]).map(a=>a.artist));
       const unique = new Map<string, ImportedTrack>();
       for (const row of (data || []) as ImportedTrack[]) {
         const key = trackKey(row);
