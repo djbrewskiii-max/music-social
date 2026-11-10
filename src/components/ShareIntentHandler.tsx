@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 import { addToRotation } from '../music-card';
 import { firstUrl, isMusicLink, resolveSharedMusic } from '../shared-music';
 import { normalizePublicProfile } from '../spotify-public-reader';
+import { parseSpotifyShowcaseLink } from '../spotify-showcase';
 
 // Screens where the app is still starting up or signing in.
 const NOT_READY = new Set(['/', '/login', '/signup', '/setup-profile', '/callback', '/connect-music']);
@@ -29,7 +30,7 @@ export default function ShareIntentHandler() {
     if (!hasShareIntent) return;
     const url = shareIntent.webUrl || firstUrl(shareIntent.text);
     resetShareIntent();
-    if (url && (isMusicLink(url) || isSpotifyProfileLink(url))) setPending(url);
+    if (url && (isMusicLink(url) || isSpotifyProfileLink(url) || parseSpotifyShowcaseLink(url)?.kind === 'playlist')) setPending(url);
     else Alert.alert('Share music to OVRLEE',
       __DEV__ ? 'Share your Spotify profile to experiment with music discovery, or share a song or album to post.' : 'Share a Spotify song or album to post, or share your profile to save its link.');
   }, [hasShareIntent, shareIntent, resetShareIntent]);
@@ -44,6 +45,15 @@ export default function ShareIntentHandler() {
       setPending(null);
       router.push({pathname:__DEV__?'/spotify-library':'/spotify-connect',
         params:{onboarding:'1',profile:profile.url}});
+      return;
+    }
+    const showcased = parseSpotifyShowcaseLink(pending);
+    if (showcased?.kind === 'playlist') {
+      if (PROFILE_NOT_READY.has(pathname)) return;
+      setPending(null);
+      // Spotify officially supports sharing and embedding playlist links.
+      // Members choose whether to feature the playlist; no track list is read.
+      router.push({ pathname: '/spotify-showcase', params: { url: showcased.url } });
       return;
     }
     if(NOT_READY.has(pathname))return;
