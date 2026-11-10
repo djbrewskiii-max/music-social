@@ -1,3 +1,4 @@
+import { launchSafeImports } from '../music-launch-sources';
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -217,7 +218,7 @@ export default function UnifiedRotation({
     let active = true;
     (async () => {
       const [imports, remote, local] = await Promise.all([
-        supabase.from('music_import_tracks').select('created_at')
+        supabase.from('music_import_tracks').select('created_at,source_label')
           .eq('user_id', accountId).order('created_at', {ascending: false }).limit(300),
         supabase.from('music_suggestion_review_state').select('last_reviewed_at')
           .eq('user_id', accountId).maybeSingle(),
@@ -227,7 +228,7 @@ export default function UnifiedRotation({
       const remoteTime = remote.data?.last_reviewed_at
         ? Date.parse(remote.data.last_reviewed_at) || 0 : 0;
       const time = Math.max(localTime, remoteTime);
-      if (active && !editing) setNewSuggestionCount((imports.data || [])
+      if (active && !editing) setNewSuggestionCount(launchSafeImports(imports.data || [])
         .filter(t => Date.parse(t.created_at) > time).length);
       // Carry forward existing device-only review status on first connection.
       if (!remote.error && localTime > remoteTime) {
@@ -263,7 +264,7 @@ export default function UnifiedRotation({
 
         supabase
           .from('music_import_tracks')
-          .select('song,artist,created_at')
+          .select('song,artist,created_at,source_label')
           .eq('user_id', accountId)
           .order('created_at', { ascending: false })
           .limit(300),
@@ -326,7 +327,7 @@ export default function UnifiedRotation({
       // Show imported songs first so a newly connected Spotify library
       // actually surfaces in the first visible suggestions. Imported
       // songs remain proposals, not listening history or public pins.
-      const imported: Track[] = (imports.data ?? [])
+      const imported: Track[] = launchSafeImports(imports.data ?? [])
         .filter(t => !!t.song && !!t.artist)
         .map(t => ({ song: t.song, artist: t.artist }));
       // Prefer new imports, then repeatedly represented artists; do not treat
@@ -346,7 +347,7 @@ export default function UnifiedRotation({
       if (active) {
         setActivityTracks(unique);
         const recentThreshold = Date.now() - 7 * 86400000;
-        setFreshImportKeys((imports.data ?? [])
+        setFreshImportKeys(launchSafeImports(imports.data ?? [])
           .filter(t => !!t.song && !!t.artist && Date.parse(t.created_at) > recentThreshold)
           .map(t => trackKey(t)));
       }
