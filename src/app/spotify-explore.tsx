@@ -106,23 +106,23 @@ export default function SpotifyPublicExplore() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}><Text style={styles.back}>‹</Text></Pressable>
-        <Text style={styles.headerText}>PUBLIC SPOTIFY EXPLORER</Text>
+        <Text style={styles.headerText}>SPOTIFY PLAYLIST</Text>
         <View style={{ width: 26 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.eyebrow}>PUBLIC MUSIC · INTERACTIVE TEST</Text>
-        <Text style={styles.title}>See the music. Find the connection.</Text>
+        <Text style={styles.eyebrow}>SHARED BY AN OVRLEE MEMBER</Text>
+        <Text style={styles.title}>A playlist worth sharing.</Text>
         <Text style={styles.description}>
-          This prototype opens Spotify's own public playlist player and tests an OVRLEE song match separately. It does not scrape Spotify or import listening history.
+          Open the playlist on Spotify. The music stays with Spotify, and you can discover more music through OVRLEE.
         </Text>
 
-        <Text style={styles.section}>1 · OPEN A PUBLIC PLAYLIST</Text>
+        <Text style={styles.section}>EXPLORE THIS PLAYLIST</Text>
         <TextInput value={urlText} onChangeText={setUrlText} autoCapitalize="none" autoCorrect={false}
           accessibilityLabel="Spotify public playlist URL" placeholder="Paste a public Spotify playlist URL"
           placeholderTextColor="#777" style={styles.input} />
-        <Pressable onPress={() => setUrlText(SAMPLE_URL)} style={styles.example}>
+        {__DEV__ && <Pressable onPress={() => setUrlText(SAMPLE_URL)} style={styles.example}>
           <Text style={styles.muted}>USE DEMO PLAYLIST · Today's Top Hits</Text>
-        </Pressable>
+        </Pressable>}
         <View style={styles.previewCard}>
           {preview?.thumbnail_url ? <Image source={{ uri: preview.thumbnail_url }} style={styles.cover}/> :
             <View style={[styles.cover,styles.coverEmpty]}><Text style={{ color: GREEN, fontSize: 26 }}>♫</Text></View>}
@@ -138,7 +138,7 @@ export default function SpotifyPublicExplore() {
         </Pressable>
         <Text style={styles.note}>Spotify controls the track list and available playback in the hosted viewer. It may ask you to sign in.</Text>
 
-        <Text style={styles.section}>2 · RECOGNIZE A SONG YOU SAW</Text>
+        {__DEV__ && <><Text style={styles.section}>2 · RECOGNIZE A SONG YOU SAW</Text>
         <Text style={styles.description}>This is the manual proof-of-concept step. Type a song you see in that playlist to test OVRLEE's matching UI. Automatic reading is not enabled.</Text>
         <TextInput value={songQuery} onChangeText={text => { setSongQuery(text); setPickedSong(null); }}
           placeholder="Try an artist or song title" placeholderTextColor="#777" style={styles.input} />
@@ -170,7 +170,7 @@ export default function SpotifyPublicExplore() {
         <View style={styles.boundary}>
           <Text style={styles.boundaryHeading}>Visible in Spotify ≠ automatically readable in OVRLEE</Text>
           <Text style={styles.boundaryCopy}>We verified that Spotify exposes an interactive public playlist player and basic playlist details. It does not give our app a permitted, general-purpose playlist-track export for building derived taste profiles. That automated step requires a separate authorized solution and policy clearance.</Text>
-        </View>
+        </View></>}
       </ScrollView>
     </SafeAreaView>
   );
