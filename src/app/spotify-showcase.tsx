@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { supabase } from '../supabase';
@@ -8,6 +8,7 @@ import { parseSpotifyShowcaseLink, type SpotifyShowcaseLink } from '../spotify-s
 const green = '#39E75F';
 
 export default function SpotifyShowcaseEditor() {
+  const { url: sharedUrl } = useLocalSearchParams<{ url?: string }>();
   const [links, setLinks] = useState<SpotifyShowcaseLink[]>([]);
   const [userId, setUserId] = useState('');
   const [kind, setKind] = useState<'profile' | 'playlist'>('playlist');
@@ -17,6 +18,40 @@ export default function SpotifyShowcaseEditor() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [titleFromSpotify, setTitleFromSpotify] = useState(false);
+
+  // The iOS Spotify Share sheet can hand a playlist URL directly to OVRLEE.
+  // The member still decides whether to add the link to their profile.
+  useEffect(() => {
+    if (typeof sharedUrl !== 'string') return;
+    const parsed = parseSpotifyShowcaseLink(sharedUrl);
+    if (!parsed) return;
+    setKind(parsed.kind);
+    setUrl(parsed.url);
+    setTitle('');
+    setNote('');
+    setTitleFromSpotify(false);
+  }, [sharedUrl]);
+
+  // Spotify documents oEmbed for previews of links supplied by members.
+  // We read only the shared playlist title, never its songs or members.
+  useEffect(() => {
+    const parsed = parseSpotifyShowcaseLink(url);
+    if (!parsed || parsed.kind !== 'playlist' || kind !== 'playlist') return;
+    const controller = new AbortController();
+    let active = true;
+    void fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent(parsed.url),
+      { signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then((data: { title?: string } | null) => {
+        if (!active || !data || typeof data.title !== 'string') return;
+        const name = data.title.trim().slice(0, 90);
+        if (!name) return;
+        setTitle(current => current.trim() ? current : name);
+        setTitleFromSpotify(true);
+      }).catch(() => {});
+    return () => { active = false; controller.abort(); };
+  }, [url, kind]);
 
   const load = useCallback(async () => {
     try {
@@ -65,7 +100,7 @@ export default function SpotifyShowcaseEditor() {
         note: note.trim().slice(0, 160), position: links.length,
       });
       if (insertError) throw insertError;
-      setUrl(''); setTitle(''); setNote('');
+      setUrl(''); setTitle(''); setNote(''); setTitleFromSpotify(false);
       await load();
     } catch (e: any) {
       console.log('Spotify Showcase save:', e);
@@ -130,7 +165,7 @@ export default function SpotifyShowcaseEditor() {
           <View style={s.selectRow}>
             {(['profile', 'playlist'] as const).map(option =>
               <Pressable key={option} accessibilityRole="button"
-                onPress={() => { setKind(option); setUrl(''); setTitle(''); setNote(''); }}
+                onPress={() => { setKind(option); setUrl(''); setTitle(''); setNote(''); setTitleFromSpotify(false); }}
                 style={[s.choice, kind === option && s.selected]}>
                 <Text style={[s.choiceText, kind === option && s.selectedText]}>
                   {option === 'profile' ? 'My profile' : 'Public playlist'}
@@ -144,9 +179,10 @@ export default function SpotifyShowcaseEditor() {
             placeholder={kind === 'profile' ? 'https://open.spotify.com/user/...' : 'https://open.spotify.com/playlist/...'}
             placeholderTextColor="#777" />
           <Text style={s.label}>{kind === 'profile' ? 'DISPLAY NAME (OPTIONAL)' : 'PLAYLIST NAME'}</Text>
-          <TextInput value={title} onChangeText={setTitle} maxLength={90} style={s.input}
+          <TextInput value={title} onChangeText={value => { setTitle(value); setTitleFromSpotify(false); }} maxLength={90} style={s.input}
             placeholder={kind === 'profile' ? 'My Spotify profile' : 'e.g. Songs on repeat'}
             placeholderTextColor="#777" />
+          {kind === 'playlist' && titleFromSpotify && <Text style={s.linkCaption}>Title suggested from Spotify's official link preview</Text>}
           <Text style={s.label}>A LITTLE CONTEXT (OPTIONAL)</Text>
           <TextInput value={note} onChangeText={setNote} maxLength={160}
             style={[s.input, { minHeight: 76, textAlignVertical: 'top' }]}
