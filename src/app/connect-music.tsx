@@ -107,7 +107,7 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting...' : 'Bring in my Spotify music'}
+                  {connecting ? 'Connecting...' : (__DEV__ ? 'Bring in my Spotify music' : 'Listen with Spotify')}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
