@@ -112,6 +112,13 @@ export default function ConnectMusicScreen() {
               </View>
               <Text style={styles.soon}>→</Text>
             </Pressable>
+            {__DEV__ && <Pressable accessibilityRole="button"
+              onPress={() => router.push('/spotify-connect')}
+              style={{paddingVertical:12,alignItems:'center'}}>
+              <Text style={{color:'#39E75F',fontSize:12,fontWeight:'800'}}>
+                PREVIEW RELEASE SPOTIFY FLOW →
+              </Text>
+            </Pressable>}
           </View>
         </View>
 
