@@ -1,3 +1,4 @@
+import { launchSafeImports } from '../music-launch-sources';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -29,7 +30,7 @@ export default function PlaylistImport() {
    const {data,error}=await supabase.from('music_import_tracks')
     .select('id,song,artist,album,source_label,track_key').eq('user_id',user.id).order('created_at',{ascending:false}).limit(300);
    if(error)throw error;
-   setSaved((data||[]) as Saved[]);
+   setSaved(launchSafeImports(data||[]) as Saved[]);
   }catch(e){console.log('Playlist imports load:',e);Alert.alert('Imports unavailable',e instanceof Error?e.message:'Could not load imported music.');}
   finally{setLoading(false);}
  };
