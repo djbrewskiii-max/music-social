@@ -87,10 +87,14 @@ export default function SpotifyPublicExplore() {
       return;
     }
     try {
-      // Safari View Controller keeps the Spotify-hosted experience, rather
-      // than parsing Spotify webpage data or inferring listening behavior.
-      await WebBrowser.openBrowserAsync('https://open.spotify.com/embed/playlist/' + parsed.spotifyId,
-        { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+      if (__DEV__) {
+        // Research preview only: commercial release opens Spotify directly.
+        await WebBrowser.openBrowserAsync('https://open.spotify.com/embed/playlist/' + parsed.spotifyId,
+          { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+      } else {
+        // No embedded audio player in the OVRLEE commercial release.
+        await Linking.openURL(parsed.url);
+      }
     } catch {
       try { await Linking.openURL(parsed.url); }
       catch { Alert.alert('Could not open playlist', 'Try opening the playlist directly in Spotify.'); }
@@ -134,7 +138,7 @@ export default function SpotifyPublicExplore() {
           </View>
         </View>
         <Pressable onPress={() => void openSpotify()} style={styles.primary}>
-          <Text style={styles.primaryText}>VIEW THE ACTUAL PLAYLIST ↗</Text>
+          <Text style={styles.primaryText}>OPEN PLAYLIST IN SPOTIFY ↗</Text>
         </Pressable>
         <Text style={styles.note}>Spotify controls the track list and available playback in the hosted viewer. It may ask you to sign in.</Text>
 
