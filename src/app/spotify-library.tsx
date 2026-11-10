@@ -108,9 +108,9 @@ function SpotifyPublicLibraryExperiment() {
  },[chosen,changes]);
  const run=async()=>{
   if(loading)return;
-  if(fromOnboarding && (!consent||!mySpotifyProfile||!weeklyRefresh)){
+  if(fromOnboarding && (!consent||!mySpotifyProfile)){
     Alert.alert('Confirm your connection',
-      'Confirm this is your own public Spotify profile and that OVRLEE may read it for private suggestions and check for updates.');
+      'Confirm this is your own public Spotify profile and that OVRLEE may read visible music in this development experiment.');
     return;
   }
   if(!consent){Alert.alert('Confirm before reading','This reads publicly displayed music for your personal suggestions. Review the results and only save what you want OVRLEE to remember.');return;}
@@ -333,20 +333,27 @@ function SpotifyPublicLibraryExperiment() {
         <Text style={s.manualText}>OPEN SPOTIFY TO SHARE MY PROFILE ↗</Text>
       </Pressable>
     </View>:<Text style={s.sub}>In Spotify, open a profile → Share → Copy link.</Text>}
-    {fromOnboarding?<Pressable accessibilityRole="checkbox"
-      accessibilityState={{checked:consent&&mySpotifyProfile&&weeklyRefresh}}
+    {fromOnboarding?<><Pressable accessibilityRole="checkbox"
+      accessibilityState={{checked:consent&&mySpotifyProfile}}
       onPress={()=>{
-        const next=!(consent&&mySpotifyProfile&&weeklyRefresh);
+        const next=!(consent&&mySpotifyProfile);
         setConsent(next);
         setMySpotifyProfile(next);
-        setWeeklyRefresh(next);
+        setWeeklyRefresh(false);
         setSharePlaylistTaste(false);
       }} style={s.consentRow}>
-      <View style={[s.check,consent&&mySpotifyProfile&&weeklyRefresh&&s.checkActive]}>
-        <Text style={s.checkMark}>{consent&&mySpotifyProfile&&weeklyRefresh?'✓':''}</Text>
+      <View style={[s.check,consent&&mySpotifyProfile&&s.checkActive]}>
+        <Text style={s.checkMark}>{consent&&mySpotifyProfile?'✓':''}</Text>
       </View>
-      <Text style={s.consentCopy}>This is my profile. I authorize OVRLEE to read its public music for private recommendations and recheck it about weekly. I can turn off future checks in Music Settings.</Text>
-    </Pressable>:<>
+      <Text style={s.consentCopy}>This is my profile. I agree to the development-only public music reader. Recurring checks are optional.</Text>
+    </Pressable>
+    <Pressable accessibilityRole="checkbox" accessibilityState={{checked:weeklyRefresh}}
+      onPress={()=>setWeeklyRefresh(v=>!v)} style={s.consentRow}>
+      <View style={[s.check,weeklyRefresh&&s.checkActive]}>
+        <Text style={s.checkMark}>{weeklyRefresh?'✓':''}</Text>
+      </View>
+      <Text style={s.consentCopy}>Experimental weekly rechecks (optional). Not approved for commercial use.</Text>
+    </Pressable></>:<>
     <Pressable accessibilityRole="checkbox" accessibilityState={{checked:consent}} onPress={()=>setConsent(v=>!v)} style={s.consentRow}>
      <View style={[s.check,consent&&s.checkActive]}><Text style={s.checkMark}>{consent?'✓':''}</Text></View>
      <Text style={s.consentCopy}>Review music visible on this public Spotify profile.</Text>
@@ -370,8 +377,8 @@ function SpotifyPublicLibraryExperiment() {
      </Pressable>}
     </>}
     <Pressable accessibilityRole="button"
-      disabled={loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile&&weeklyRefresh))}
-      style={[s.primary,(loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile&&weeklyRefresh)))&&{opacity:.5}]}
+      disabled={loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile))}
+      style={[s.primary,(loading||!url.trim()||(fromOnboarding&&!(consent&&mySpotifyProfile)))&&{opacity:.5}]}
       onPress={()=>void run()}>
       {loading?<ActivityIndicator color="#000"/>:<Text style={s.primaryText}>{fromOnboarding?'CONNECT MY SPOTIFY PROFILE →':scan?'REFRESH MY MUSIC →':'EXPLORE PUBLIC PLAYLISTS →'}</Text>}
     </Pressable>
@@ -379,7 +386,7 @@ function SpotifyPublicLibraryExperiment() {
     {!!error&&<Text style={s.error}>{error}</Text>}
     {!!syncWarning&&<Text style={s.warning}>{syncWarning}</Text>}
     {scan&&fromOnboarding&&<View style={s.quickSuccess}>
-      <Text style={s.quickTitle}>✓ SPOTIFY PROFILE LINKED</Text>
+      <Text style={s.quickTitle}>✓ MUSIC SUGGESTIONS READY · EXPERIMENTAL</Text>
       <Text style={s.quickCopy}>OVRLEE found {scan.playlists.filter(p=>p.status==='ready').length} readable playlist{scan.playlists.filter(p=>p.status==='ready').length===1?'':'s'} and {scan.playlists.filter(p=>p.status==='ready').reduce((total,p)=>total+p.tracks.length,0)} visible songs. The music we could read is saved as private recommendation signals.</Text>
       {scan.playlists.every(p=>p.status!=='ready')&&<Text style={s.warning}>Spotify didn't expose readable songs this time. Your chosen favorites and OVRLEE activity will still drive your recommendations.</Text>}
       <Pressable accessibilityRole="button" style={s.primary} onPress={()=>router.replace('/now')}>
