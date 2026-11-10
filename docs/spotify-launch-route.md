@@ -1,3 +1,10 @@
+> **Nov 10, 2026 launch boundary:** The automatic public Spotify reader and
+> its imported song/artist evidence are experimental and hidden/filtered in
+> release builds. A separate launch-safe Spotify playback + optional link
+> route is available. Weekly public-page collection is disabled on `main`.
+> See [Spotify launch hardening](spotify-launch-hardening.md) for the exact
+> implementation and remaining authorization/QA gates.
+
 > **Current decision (Nov 8, 2026): No extra accounts in Spotify onboarding.**
 > OVRLEE accepts the member's own Spotify public profile through its installed
 > share extension or one copied URL; one explicit approval privately imports
