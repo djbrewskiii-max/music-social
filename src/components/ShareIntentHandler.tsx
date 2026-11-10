@@ -31,7 +31,7 @@ export default function ShareIntentHandler() {
     resetShareIntent();
     if (url && (isMusicLink(url) || isSpotifyProfileLink(url))) setPending(url);
     else Alert.alert('Share music to OVRLEE',
-      'From Spotify, share your profile to connect it, or share a song or album to post.');
+      __DEV__ ? 'Share your Spotify profile to experiment with music discovery, or share a song or album to post.' : 'Share a Spotify song or album to post, or share your profile to save its link.');
   }, [hasShareIntent, shareIntent, resetShareIntent]);
 
   useEffect(() => {
