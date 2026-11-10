@@ -62,7 +62,22 @@ export default function SpotifyConnectScreen() {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
         if (error) throw error;
+      } else {
+        // A prior experimental profile must not retain background-collection
+        // permission merely because the member chooses Spotify for playback.
+        const { error } = await supabase.from('member_music_connections').update({
+          used_for_private_suggestions: false,
+          share_playlist_artists: false,
+          weekly_public_refresh_opt_in: false,
+          updated_at: new Date().toISOString(),
+        }).eq('user_id', user.id);
+        if (error) throw error;
       }
+      // Do not continue publishing any old, playlist-derived shared matches.
+      const { error: shareError } = await supabase.from('music_taste_artists')
+        .update({ share_for_matching: false, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id).eq('source', 'playlist');
+      if (shareError) throw shareError;
       router.replace('/now');
     } catch (error) {
       Alert.alert('Could not save your music preference',
