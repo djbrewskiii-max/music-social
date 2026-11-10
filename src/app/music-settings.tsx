@@ -114,7 +114,7 @@ export default function MusicSettingsScreen() {
       <Text style={s.name}>My favorite artists</Text><Text style={s.check}>›</Text>
     </Pressable>
     <Text style={s.note}>Choose five or more favorite artists and decide what you want to share.</Text>
-    {connectionLoaded&&!linkedProfileId&&<Pressable accessibilityRole="button"
+    {__DEV__&&connectionLoaded&&!linkedProfileId&&<Pressable accessibilityRole="button"
       onPress={()=>router.push({pathname:'/spotify-library',params:{onboarding:'1'}})} style={s.option}>
       <View style={{flex:1}}>
         <Text style={s.name}>Finish your music setup</Text>
@@ -122,6 +122,7 @@ export default function MusicSettingsScreen() {
       </View>
       <Text style={s.check}>›</Text>
     </Pressable>}
+    {__DEV__&&<>
     <Text style={s.section}>KEEP YOUR MUSIC CURRENT</Text>
     <Pressable accessibilityRole="switch"
       accessibilityState={{checked:weeklyRefresh,disabled:weeklyBusy||!linkedProfileId}}
@@ -141,6 +142,7 @@ export default function MusicSettingsScreen() {
       </View>
       <Text style={s.check}>{sharePlaylistArtists?'ON':'OFF'}</Text>
     </Pressable>
+    </>}
     {busy && <ActivityIndicator color="#39E75F" />}
     <Text style={s.note}>Music services are used for opening songs. Your artist preferences personalize OVRLEE privately.</Text>
   </View></SafeAreaView>;
