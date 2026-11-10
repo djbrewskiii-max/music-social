@@ -41,6 +41,31 @@ The new release screen:
   Spotify's library, playback history, or account data**;
 - never calls the public reader.
 
+## November 10 follow-up: Spotify Share → OVRLEE release experience
+
+- Enabled `SpotifyShowcaseSection` on both own and other member profiles, using
+  member-supplied public Spotify profile and playlist links; no playlist-song
+  reads or inferred Spotify taste signals.
+- Restored the existing editor through Settings > My Spotify playlists.
+- Sharing an ordinary Spotify playlist URL through the iPhone share extension
+  now opens the showcase editor with the URL prefilled. The member must choose
+  to add it to their OVRLEE profile.
+- The editor requests only the official Spotify oEmbed **playlist title** for
+  the shared link. It does not fetch playlist HTML, iterate tracks, or scrape
+  browser DOM.
+- Shared playlist cards open the existing preview route. Release builds open
+  the original link in the Spotify app/website; research builds can use the
+  Spotify-hosted embed in their existing test flow.
+- The released playlist preview hides manual research diagnostics, and the
+  public Spotify playback settings screen links to playlist showcasing.
+- Existing `spotify_showcase_links` RLS was verified: authenticated members
+  can read showcased links, but only the owning user can create, update or
+  delete their own links.
+
+This preserves a real no-extra-account, no-Premium Spotify social sharing
+journey. It **does not replace** the experimental automatic 257-song intake
+or claim access to a member's Spotify library.
+
 ## Backend safety
 
 The scheduled main-branch workflow
