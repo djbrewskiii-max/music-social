@@ -1,3 +1,4 @@
+import { launchSafeTasteEvidence } from '../music-launch-sources';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -258,9 +259,9 @@ export default function ListenersScreen() {
           .in('user_id',otherUserIds.slice(0,500))
           .eq('share_for_matching',true).limit(3000),
       ]);
-      const ownEvidence=(myTaste.data||[]) as TasteEvidence[];
+      const ownEvidence=launchSafeTasteEvidence(myTaste.data||[]) as TasteEvidence[];
       const sharedByUser=new Map<string,TasteEvidence[]>();
-      for(const row of othersTaste.data||[]){
+      for(const row of launchSafeTasteEvidence(othersTaste.data||[])){
         const list=sharedByUser.get(row.user_id)||[];
         list.push(row as TasteEvidence);
         sharedByUser.set(row.user_id,list);
