@@ -1,3 +1,4 @@
+import { launchSafeImports, launchSafeTasteEvidence } from '../music-launch-sources';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -45,8 +46,8 @@ export default function NearbyScreen() {
         supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
         supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
         supabase.from('music_dna').select('top_artists').eq('user_id', user.id).maybeSingle(),
-        supabase.from('music_import_artists').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
-        supabase.from('music_import_tracks').select('artist').eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
+        supabase.from('music_import_artists').select('artist,source_label').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
+        supabase.from('music_import_tracks').select('artist,source_label').eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
         supabase.from('music_taste_artists').select('artist_key,artist_name,source,song_count,playlist_count,share_for_matching').eq('user_id',user.id).limit(400),
       ]);
       if (mine.error) throw mine.error;
@@ -100,20 +101,20 @@ export default function NearbyScreen() {
       // Private reviewed picks can recommend public conversations without
       // claiming the user has listened to those artists. Never publish these
       // seeds or add them to public shared-artist compatibility.
-      const chosenArtists=(selectedArtistResult.data||[]).map(row=>row.artist);
-      const chosenTracks=(selectedTrackResult.data||[]).map(row=>({artist:row.artist}));
+      const chosenArtists=launchSafeImports(selectedArtistResult.data||[]).map(row=>row.artist);
+      const chosenTracks=launchSafeImports(selectedTrackResult.data||[]).map(row=>({artist:row.artist}));
       const ownDnaArtists=((myDnaResult.data?.top_artists||[]) as {name:string}[]).map(row=>row.name);
       const favoriteSeeds=(myTasteResult.data||[]).filter(row=>row.source==='favorite').map(row=>row.artist_name);
-      const strongPlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=4).map(row=>row.artist_name);
-      const moderatePlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=2&&row.song_count<4).map(row=>row.artist_name);
-      const weakPlaylistSeeds=(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count<2).map(row=>({artist:row.artist_name}));
+      const strongPlaylistSeeds=launchSafeTasteEvidence(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=4).map(row=>row.artist_name);
+      const moderatePlaylistSeeds=launchSafeTasteEvidence(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count>=2&&row.song_count<4).map(row=>row.artist_name);
+      const weakPlaylistSeeds=launchSafeTasteEvidence(myTasteResult.data||[]).filter(row=>row.source==='playlist'&&row.song_count<2).map(row=>({artist:row.artist_name}));
       const seeds=musicSuggestionSeeds([...moderatePlaylistSeeds,...chosenArtists],[...weakPlaylistSeeds,...chosenTracks],[...favoriteSeeds,...strongPlaylistSeeds,...ownDnaArtists]);
       setForYouPosts(selectSuggestedPosts(posts,seeds,6));
       const following = new Set((followResult.data || []).map(row => row.following_id));
       const myArtists = new Set(((myDnaResult.data?.top_artists || []) as { name: string }[]).map(a => norm(a.name)));
-      const ownTaste=(myTasteResult.data||[]) as TasteEvidence[];
+      const ownTaste=launchSafeTasteEvidence(myTasteResult.data||[]) as TasteEvidence[];
       const tasteByUser=new Map<string,TasteEvidence[]>();
-      for(const row of sharedTasteResult.data||[]){
+      for(const row of launchSafeTasteEvidence(sharedTasteResult.data||[])){
         const list=tasteByUser.get(row.user_id)||[];
         list.push(row as TasteEvidence);
         tasteByUser.set(row.user_id,list);
