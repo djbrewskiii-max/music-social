@@ -3,13 +3,10 @@ name: OVRLEE Weekly Public Music Profile Check
 # Scheduled by GitHub from main. The collector runs from claude-build.
 # GitHub OIDC authenticates directly with OVRLEE's Supabase Edge Function;
 # no permanent backend secret is stored in GitHub.
+# Research workflow deliberately disabled for commercial launch preparation.
+# Do not re-enable browser collection without written provider permission.
 on:
-  schedule:
-    - cron: '23 9 * * 0'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/spotify-weekly-research.yml']
 
 permissions:
   contents: read
@@ -21,6 +18,7 @@ concurrency:
 
 jobs:
   weekly-profile-refresh:
+    if: ${{ false }} # Disabled: no approved commercial Spotify data-collection route.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
