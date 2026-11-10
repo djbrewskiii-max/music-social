@@ -1,3 +1,4 @@
+import { launchSafeTasteEvidence } from '../music-launch-sources';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import {
   router,
@@ -995,7 +996,7 @@ export default function NowScreen() {
           const dnaRows=tastes[1].status==='fulfilled'&&!tastes[1].value.error
             ? tastes[1].value.data?.top_artists||[] : [];
           const favorites=tasteRows.filter(row=>row.source==='favorite').map(row=>row.artist_name);
-          const playlists=tasteRows.filter(row=>row.source==='playlist'&&row.song_count>=1);
+          const playlists=launchSafeTasteEvidence(tasteRows).filter(row=>row.source==='playlist'&&row.song_count>=1);
           const strong=playlists.filter(row=>row.song_count>=4).map(row=>row.artist_name);
           const medium=playlists.filter(row=>row.song_count>=2&&row.song_count<4).map(row=>row.artist_name);
           const light=playlists.filter(row=>row.song_count<2).map(row=>({artist:row.artist_name}));
