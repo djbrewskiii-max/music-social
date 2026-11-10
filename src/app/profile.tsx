@@ -1,3 +1,4 @@
+import { launchSafeTasteEvidence } from '../music-launch-sources';
 import {
   router,
   useLocalSearchParams,
@@ -513,8 +514,8 @@ export default function ProfileScreen() {
             .eq('user_id',userId).eq('share_for_matching',true).limit(400),
         ]);
         const weightedShared=sharedTasteNames(
-          (ownTasteResult.data||[]) as TasteEvidence[],
-          (otherTasteResult.data||[]) as TasteEvidence[],5,
+          launchSafeTasteEvidence(ownTasteResult.data||[]) as TasteEvidence[],
+          launchSafeTasteEvidence(otherTasteResult.data||[]) as TasteEvidence[],5,
         );
         if (
           !loadedMyDNA ||
