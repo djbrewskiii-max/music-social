@@ -114,6 +114,14 @@ export default function MusicSettingsScreen() {
       <Text style={s.name}>My favorite artists</Text><Text style={s.check}>›</Text>
     </Pressable>
     <Text style={s.note}>Choose five or more favorite artists and decide what you want to share.</Text>
+    {__DEV__&&<Pressable accessibilityRole="button"
+      onPress={()=>router.push('/spotify-connect')} style={s.option}>
+      <View style={{flex:1}}>
+        <Text style={s.name}>Preview launch Spotify experience</Text>
+        <Text style={s.note}>Test the no-scraping Spotify playback and optional profile-link flow.</Text>
+      </View>
+      <Text style={s.check}>›</Text>
+    </Pressable>}
     {__DEV__&&connectionLoaded&&!linkedProfileId&&<Pressable accessibilityRole="button"
       onPress={()=>router.push({pathname:'/spotify-library',params:{onboarding:'1'}})} style={s.option}>
       <View style={{flex:1}}>
