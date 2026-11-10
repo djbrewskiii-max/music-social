@@ -1,3 +1,4 @@
+import { launchSafeImports, launchSafeTasteEvidence } from '../music-launch-sources';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -39,9 +40,9 @@ export default function MusicDiscoveryScreen() {
         const {data:{user},error:authError}=await supabase.auth.getUser();
         if(authError||!user){router.replace('/login');return;}
         const [selected,tracks,dna,publicPosts,taste,appActivity,listening]=await Promise.all([
-          supabase.from('music_import_artists').select('artist')
+          supabase.from('music_import_artists').select('artist,source_label')
             .eq('user_id',user.id).order('created_at',{ascending:false}).limit(200),
-          supabase.from('music_import_tracks').select('artist')
+          supabase.from('music_import_tracks').select('artist,source_label')
             .eq('user_id',user.id).order('created_at',{ascending:false}).limit(300),
           supabase.from('music_dna').select('top_artists')
             .eq('user_id',user.id).maybeSingle(),
@@ -56,13 +57,13 @@ export default function MusicDiscoveryScreen() {
         if(publicPosts.error)throw publicPosts.error;
         const known=((dna.data?.top_artists||[]) as {name:string}[]).map(t=>t.name);
         const favorites=(taste.data||[]).filter(x=>x.source==='favorite').map(x=>x.artist_name);
-        const playlists=(taste.data||[]).filter(x=>x.source==='playlist'&&x.song_count>=1);
+        const playlists=launchSafeTasteEvidence(taste.data||[]).filter(x=>x.source==='playlist'&&x.song_count>=1);
         const high=playlists.filter(x=>x.song_count>=4).map(x=>x.artist_name);
         const medium=playlists.filter(x=>x.song_count>=2&&x.song_count<4).map(x=>x.artist_name);
         const low=playlists.filter(x=>x.song_count<2).map(x=>({artist:x.artist_name}));
         const seeds=musicSuggestionSeeds(
-          [...medium,...(selected.data||[]).map(t=>t.artist)],
-          [...low,...(tracks.data||[]).map(t=>({artist:t.artist}))],
+          [...medium,...launchSafeImports(selected.data||[]).map(t=>t.artist)],
+          [...low,...launchSafeImports(tracks.data||[]).map(t=>({artist:t.artist}))],
           [...favorites,...high,...known],20,
         );
         const combinedSeeds=mergeMusicSeeds(
