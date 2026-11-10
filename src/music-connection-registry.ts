@@ -10,6 +10,8 @@ import { supabase } from './supabase';
 import { normalizePublicProfile } from './spotify-public-reader';
 
 export async function reconcileExistingMusicConnection(userId:string):Promise<void>{
+  // Release builds do not silently revive experimental Spotify-derived signals.
+  if (!__DEV__) return;
   const {data:already,error:readError}=await supabase
     .from('member_music_connections')
     .select('user_id').eq('user_id',userId).maybeSingle();
