@@ -260,12 +260,12 @@ export default function PostDetailScreen() {
       <Text style={styles.title}>POST</Text>
       {post ? <Pressable accessibilityRole="button" accessibilityLabel="More post options"
         hitSlop={12} onPress={()=>Alert.alert('Post options',undefined,[
-          {text:'Share post',onPress:()=>void shareOVRLEEPost({
+          {text:'Share post',onPress:()=>setTimeout(()=>void shareOVRLEEPost({
             id:post.id,displayName:author.name,songTitle:post.song_title,
             artistName:post.artist_name
-          })},
+          }),250)},
           ...(myUserId===post.user_id?[]:[{
-            text:'Report post',onPress:()=>openPostReportDialog(post.id,post.user_id)
+            text:'Report post',onPress:()=>setTimeout(()=>openPostReportDialog(post.id,post.user_id),250)
           }]),
           {text:'Cancel',style:'cancel'}
         ])}>
