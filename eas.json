@@ -13,9 +13,17 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "beta": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "beta": {}
   }
 }
