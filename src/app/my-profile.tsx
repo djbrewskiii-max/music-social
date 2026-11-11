@@ -876,7 +876,7 @@ export default function MyProfileScreen() {
 
   const savedColor = profile?.profile_color || DEFAULT_COLOR;
   const profileColor = savedColor.toLowerCase()==='#39e75f' ? '#3B2218' : savedColor;
-  const brandAccent = scheme==='light'?'#3B2218':'#BA8B73';
+  const brandAccent = scheme==='light'?'#3B2218':'#39E75F';
 
   const initial =
     profile?.display_name
