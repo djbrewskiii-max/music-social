@@ -8,7 +8,9 @@
  * Retain experimental rows privately for development review; do not migrate
  * or erase users' records as a side effect of opening the app.
  */
-export const spotifyReaderIsExperimental = typeof __DEV__ !== 'undefined' && __DEV__;
+// The research reader is parked in all app builds, including development.
+// Re-enable only following a documented provider approval and launch review.
+export const spotifyReaderIsExperimental = false;
 
 export function isExperimentalSpotifyImport(source: string | null | undefined): boolean {
   const value = String(source || '').trim();
