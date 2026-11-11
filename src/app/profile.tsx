@@ -32,7 +32,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
-import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
+
 import { sharedTasteNames, type TasteEvidence, tasteKey } from '../music-taste-evidence';
 
 type Profile = {
@@ -1152,7 +1152,7 @@ export default function ProfileScreen() {
               styles.logo
             }
           >
-            NOW
+            OVRLEE
           </Text>
 
           <Pressable onPress={showMoreOptions} hitSlop={15} disabled={relationshipBusy || viewerId === userId}>
@@ -1226,7 +1226,7 @@ export default function ProfileScreen() {
               >
                 {listeningNow
                   ? 'LISTENING NOW'
-                  : 'ON NOW'}
+                  : 'HERE NOW'}
               </Text>
             </View>
           )}
@@ -1452,7 +1452,6 @@ export default function ProfileScreen() {
           )}
 
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
-          <SpotifyShowcaseSection userId={typeof userId === 'string' ? userId : null} />
                   </View>
         <View
           style={
@@ -1532,7 +1531,7 @@ export default function ProfileScreen() {
                   ]}
                 >
                   {listeningNow
-                    ? 'PLAYING NOW'
+                    ? 'LISTENING NOW'
                     : 'LAST PLAYED'}
                 </Text>
 
