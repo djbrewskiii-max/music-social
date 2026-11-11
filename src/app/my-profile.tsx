@@ -1148,7 +1148,7 @@ export default function MyProfileScreen() {
                       styles.onlineDot,
                       {
                         backgroundColor:
-                          profileColor,
+                          '#24C35A',
                       },
                     ]}
                   />
@@ -1158,7 +1158,7 @@ export default function MyProfileScreen() {
                       styles.onlineText,
                       {
                         color:
-                          profileColor,
+                          scheme==='light'?'#16883B':'#39E75F',
                       },
                     ]}
                   >
@@ -1329,60 +1329,7 @@ export default function MyProfileScreen() {
               </Text>
             )}
 
-            <Pressable
-              style={({
-                pressed,
-              }) => [
-                styles.musicRefreshButton,
-                {
-                  borderColor:
-                    `${profileColor}55`,
-                },
-                pressed &&
-                  styles.pressed,
-              ]}
-              onPress={() =>
-                connectAndRefreshMusic()
-              }
-              disabled={
-                musicLoading
-              }
-            >
-              {musicLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    profileColor
-                  }
-                />
-              ) : (
-                <>
-                  <Text
-                    style={[
-                      styles.musicRefreshText,
-                      {
-                        color:
-                          profileColor,
-                      },
-                    ]}
-                  >
-                    REFRESH APPLE MUSIC
-                  </Text>
 
-                  <Text
-                    style={[
-                      styles.musicRefreshArrow,
-                      {
-                        color:
-                          profileColor,
-                      },
-                    ]}
-                  >
-                    ↻
-                  </Text>
-                </>
-              )}
-            </Pressable>
           </View>
           <View
             style={
