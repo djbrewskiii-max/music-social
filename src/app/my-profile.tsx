@@ -122,7 +122,7 @@ type AttendanceRow = {
 };
 
 const DEFAULT_COLOR =
-  '#39E75F';
+  '#3B2218';
 
 const ACTIVE_NOW_MS =
   60 * 1000;
@@ -874,9 +874,9 @@ export default function MyProfileScreen() {
     !!presence?.song_title &&
     !!presence?.artist_name;
 
-  const profileColor =
-    profile?.profile_color ||
-    DEFAULT_COLOR;
+  const savedColor = profile?.profile_color || DEFAULT_COLOR;
+  const profileColor = savedColor.toLowerCase()==='#39e75f' ? '#3B2218' : savedColor;
+  const brandAccent = scheme==='light'?'#3B2218':'#BA8B73';
 
   const initial =
     profile?.display_name
@@ -971,11 +971,16 @@ export default function MyProfileScreen() {
               accessibilityLabel="Settings"
               onPress={() => router.push('/settings')}
               hitSlop={14}
-              style={{ padding: 10, marginRight: -10 }}
+              style={{flexDirection:'row',alignItems:'center',gap:8,
+                paddingHorizontal:14,paddingVertical:10,borderRadius:16,
+                borderWidth:1,borderColor:scheme==='light'?'#CBB6AA':'#594034',
+                backgroundColor:scheme==='light'?'#F0E5DF':'#261B17'}}
             >
               <SymbolView name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
-                tintColor="#ffffff" size={25} weight="medium"
-                fallback={<Text style={{ color: '#fff', fontSize: 25 }}>⚙</Text>} />
+                tintColor={scheme==='light'?'#3B2218':'#E5BEA8'} size={19} weight="medium"
+                fallback={<Text style={{color:scheme==='light'?'#3B2218':'#E5BEA8',fontSize:19}}>⚙</Text>} />
+              <Text style={{color:scheme==='light'?'#3B2218':'#E5BEA8',
+                fontSize:11,fontWeight:'900',letterSpacing:0.6}}>SETTINGS</Text>
             </Pressable>
 
 
@@ -1128,7 +1133,7 @@ export default function MyProfileScreen() {
               {!!profile?.overly_trait && (
                 <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
                   gap:7,marginTop:12,marginBottom:6}}>
-                  <Text style={{color:'#39E75F',fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
+                  <Text style={{color:brandAccent,fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
                   <Text style={{color:scheme==='light'?'#214729':'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
                 </View>
               )}
@@ -1722,7 +1727,7 @@ export default function MyProfileScreen() {
                       ) : !!post.photo_url && <Image source={{ uri: post.photo_url }}
                         style={{ width: '100%', height: 220, borderRadius: 12, marginVertical: 10 }} resizeMode="cover" />}
                       {!post.collection && Array.isArray(post.music_items) && post.music_items.length > 1 &&
-                        <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
+                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
                           COLLECTION · {post.music_items.length} TRACKS
                         </Text>}
                       {!post.collection && (<View
