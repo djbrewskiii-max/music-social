@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -53,6 +56,8 @@ type InboxConversation = {
 };
 
 export default function MessagesScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [currentUserId, setCurrentUserId] = useState('');
   const [conversations, setConversations] = useState<InboxConversation[]>([]);
   const [unreadById, setUnreadById] = useState<Record<string, number>>({});
@@ -397,7 +402,7 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   page: { flex: 1 },
   loadingScreen: { flex: 1, backgroundColor: '#050505', alignItems: 'center', justifyContent: 'center' },
