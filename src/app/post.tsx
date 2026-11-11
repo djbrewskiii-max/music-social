@@ -1,6 +1,7 @@
 import {useAppearance} from '../appearance';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
+import {openPostReportDialog} from '../post-reporting';
 import {themedStyleSheet} from '../theme-style';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -257,7 +258,19 @@ export default function PostDetailScreen() {
     <View style={styles.header}>
       <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.back}>‹</Text></Pressable>
       <Text style={styles.title}>POST</Text>
-      <View style={{ width: 30 }} />
+      {post ? <Pressable accessibilityRole="button" accessibilityLabel="More post options"
+        hitSlop={12} onPress={()=>Alert.alert('Post options',undefined,[
+          {text:'Share post',onPress:()=>void shareOVRLEEPost({
+            id:post.id,displayName:author.name,songTitle:post.song_title,
+            artistName:post.artist_name
+          })},
+          ...(myUserId===post.user_id?[]:[{
+            text:'Report post',onPress:()=>openPostReportDialog(post.id,post.user_id)
+          }]),
+          {text:'Cancel',style:'cancel'}
+        ])}>
+        <Text style={{fontSize:22,color:scheme==='light'?'#3B2218':'#FFFFFF'}}>•••</Text>
+      </Pressable> : <View style={{width:30}}/>
     </View>
     {loading && !post ? <ActivityIndicator color={green} style={{ marginTop: 45 }} /> : null}
     {!!error && <Text style={styles.error}>{error}</Text>}
