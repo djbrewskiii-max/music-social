@@ -7,7 +7,16 @@ import {StyleSheet} from 'react-native';
  * This intentionally does not recolor photos, artwork or inline image overlays.
  */
 function recolor(key:string, original:string):string{
-  if(original==='transparent'||original.startsWith('rgba('))return original;
+  if(original==='transparent')return original;
+  if(key==='color'&&original.toLowerCase()==='white')return '#17251B';
+  if(original.startsWith('rgba(')){
+    if(key==='color'){
+      const rgba=/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i.exec(original);
+      if(rgba&&Number(rgba[1])>175&&Number(rgba[2])>175&&Number(rgba[3])>175)
+        return `rgba(23,37,27,${rgba[4]})`;
+    }
+    return original;
+  }
   const m=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(original);
   if(!m)return original;
   let hex=m[1];
