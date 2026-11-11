@@ -3145,6 +3145,13 @@ export default function NowScreen() {
                         </Text>
                       </Pressable>
 
+                      <Pressable accessibilityRole="button"
+                        accessibilityLabel="Reply with a song"
+                        style={[styles.action,{marginRight:18}]}
+                        onPress={() => router.push({pathname:'/post',params:{postId:post.id,songReply:'1'}})}>
+                        <Text style={[styles.actionIcon,{color:'#39E75F'}]}>♫</Text>
+                        <Text style={[styles.actionText,{color:'#9ABDA1'}]}>SONG</Text>
+                      </Pressable>
                       <Pressable
                         style={
                           styles.action
