@@ -1,4 +1,5 @@
 import { Stack, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { AppearanceProvider, useAppearance } from '../appearance';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -19,7 +20,7 @@ export default function RootLayout() {
 
 function OVRLEERoot() {
   const pathname = usePathname();
-  const {colors}=useAppearance();
+  const {colors,scheme}=useAppearance();
 
   useEffect(() => {
     return startPresenceTracking();
