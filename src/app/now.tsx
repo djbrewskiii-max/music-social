@@ -1904,11 +1904,11 @@ export default function NowScreen() {
         <View style={{ borderBottomWidth: 1, borderBottomColor: '#222', paddingHorizontal: 20, paddingVertical: 12 }}>
           <Pressable accessibilityRole="button" accessibilityLabel="Share music to OVRLEE"
             onPress={() => router.push({ pathname: '/create-post', params: { musicPicker: '1' } })}
-            style={{ borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 13, borderWidth: 1, borderColor: '#2A442D', backgroundColor: '#101E14' }}>
+            style={{ borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 13, borderWidth: 1, borderColor: scheme==='light'?'#BD9B8B':'#775443', backgroundColor: scheme==='light'?'#F2E6E0':'#3B2218' }}>
             <Text style={{ color: brandAccent, fontSize: 22, marginRight: 14 }}>♫</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.7 }}>SHARE A SONG</Text>
-              <Text style={{ color: '#8EA794', fontSize: 11, marginTop: 3 }}>Search or paste Spotify & Apple Music links</Text>
+              <Text style={{ color: scheme==='light'?'#3B2218':'#F9F1EC', fontSize: 13, fontWeight: '900', letterSpacing: 0.7 }}>SHARE A SONG</Text>
+              <Text style={{ color: scheme==='light'?'#745A4C':'#CFB9AC', fontSize: 11, marginTop: 3 }}>Search or paste Spotify & Apple Music links</Text>
             </View>
             <Text style={{ color: brandAccent, fontSize: 22 }}>›</Text>
           </Pressable>
@@ -3061,7 +3061,7 @@ export default function NowScreen() {
                       <Pressable accessibilityRole="button"
                         accessibilityLabel={`Discover listeners and posts for ${post.artist_name}`}
                         onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
-                        style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: '#112315' }}>
+                        style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: scheme==='light'?'#F2E6E0':'#3B2218' }}>
                         <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>EXPLORE {post.artist_name.toUpperCase()} →</Text>
                       </Pressable>
                     )}
