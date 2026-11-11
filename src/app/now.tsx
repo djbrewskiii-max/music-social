@@ -135,6 +135,9 @@ type ListeningPerson = PresenceRow & {
   username: string;
   avatarUrl: string | null;
   listeningNow: boolean;
+  sharedSong: string | null;
+  sharedArtist: string | null;
+  sharedArtwork: string | null;
 };
 
 type TopArtist = {
@@ -604,6 +607,22 @@ export default function NowScreen() {
           (profileData as ProfileRow[]) ||
           [];
 
+        // "Here" is first-party app presence, not Apple Music listening.
+        // Show the latest member-shared song, if any, when they aren't
+        // verifiably playing a track at this moment.
+        const {data:recentPosts}=await supabase.from('posts')
+          .select('user_id,song_title,artist_name,artwork_url,created_at')
+          .in('user_id',userIds)
+          .gte('created_at',new Date(now-7*86400000).toISOString())
+          .order('created_at',{ascending:false}).limit(120);
+        const latestShare=new Map<string,{
+          song_title:string;artist_name:string;artwork_url:string|null;
+        }>();
+        for(const item of recentPosts||[]){
+          if(!latestShare.has(item.user_id) && item.song_title && item.artist_name)
+            latestShare.set(item.user_id,item);
+        }
+
         const people:
           ListeningPerson[] =
           presenceRows.map(
@@ -646,6 +665,9 @@ export default function NowScreen() {
                 avatarUrl: profile?.avatar_url || null,
 
                 listeningNow,
+                sharedSong:latestShare.get(presence.user_id)?.song_title||null,
+                sharedArtist:latestShare.get(presence.user_id)?.artist_name||null,
+                sharedArtwork:latestShare.get(presence.user_id)?.artwork_url||null,
               };
             }
           );
@@ -1981,7 +2003,7 @@ export default function NowScreen() {
                     styles.emptyRoomText
                   }
                 >
-                  People with NOW open will
+                  People active on OVRLEE will
                   appear here.
                 </Text>
               </View>
@@ -2026,18 +2048,18 @@ export default function NowScreen() {
                           <View style={styles.onlineIndicator} />
                         </View>
                         <View style={styles.compactListenerTrack}>
-                          {person.artwork_url ? (
-                            <Image source={{ uri: person.artwork_url }} style={styles.compactArtwork} />
+                          {(person.listeningNow ? person.artwork_url : person.sharedArtwork) ? (
+                            <Image source={{ uri: (person.listeningNow ? person.artwork_url : person.sharedArtwork)! }} style={styles.compactArtwork} />
                           ) : (
                             <View style={[styles.compactArtwork, styles.presenceArtworkPlaceholder]}>
                               <Text style={styles.presenceMusicNote}>♪</Text>
                             </View>
                           )}
                           <View style={styles.compactTrackInfo}>
-                            <Text style={styles.presenceSong} numberOfLines={1}>{person.song_title || 'No recent song'}</Text>
-                            <Text style={styles.presenceArtist} numberOfLines={1}>{person.artist_name || 'On NOW'}</Text>
+                            <Text style={styles.presenceSong} numberOfLines={1}>{person.listeningNow ? (person.song_title||'Listening') : (person.sharedSong||'Here for the music')}</Text>
+                            <Text style={styles.presenceArtist} numberOfLines={1}>{person.listeningNow ? (person.artist_name||'Live') : (person.sharedArtist||'Active on OVRLEE')}</Text>
                             <Text style={[styles.presenceStatusText, person.listeningNow ? styles.presenceStatusLive : styles.presenceStatusOnline]} numberOfLines={1}>
-                              {person.listeningNow ? '● LISTENING NOW' : person.recognition_source === 'shazam' ? '● RECENTLY RECOGNIZED' : '● LAST PLAYED'}
+                              {person.listeningNow ? '● LISTENING NOW' : person.sharedSong ? '♫ RECENTLY SHARED' : '● HERE NOW'}
                             </Text>
                           </View>
                         </View>
