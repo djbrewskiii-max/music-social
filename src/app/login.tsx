@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -15,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../supabase';
 
 export default function LoginScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -206,7 +211,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090909',
