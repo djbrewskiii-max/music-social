@@ -35,6 +35,7 @@ import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
+import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
@@ -2896,13 +2897,22 @@ export default function NowScreen() {
                         </Text>
                       </Pressable>
 
-                      <Text
-                        style={
-                          styles.more
-                        }
-                      >
-                        •••
-                      </Text>
+                      <Pressable accessibilityRole="button"
+                        accessibilityLabel={`More options for ${post.displayName}'s post`}
+                        hitSlop={10}
+                        onPress={() => Alert.alert('Post options',undefined,[
+                          {text:'Share post',onPress:()=>void shareOVRLEEPost({
+                            id:post.id,songTitle:post.song_title,
+                            artistName:post.artist_name,displayName:post.displayName
+                          })},
+                          {text:'Open conversation',onPress:()=>openPost(post.id)},
+                          ...(post.user_id===currentUserId ? [] : [
+                            {text:'Report post',onPress:()=>openPostReportDialog(post.id,post.user_id)}
+                          ]),
+                          {text:'Cancel',style:'cancel'}
+                        ])}>
+                        <Text style={styles.more}>•••</Text>
+                      </Pressable>
                     </View>
 
                     {!!post.body && !post.collection && (
