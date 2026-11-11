@@ -141,7 +141,7 @@ export default function ActivityScreen() {
         ? supabase.from('posts').select('id, artwork_url').in('id', postIds)
         : Promise.resolve({ data: [], error: null }),
       replyIds.length
-        ? supabase.from('post_replies').select('id, body').in('id', replyIds)
+        ? supabase.from('post_replies').select('id, body, song_title, song_artist').in('id', replyIds)
         : Promise.resolve({ data: [], error: null }),
       actorIds.length
         ? supabase.from('user_follows').select('following_id').eq('follower_id', user.id).in('following_id', actorIds)
@@ -157,7 +157,11 @@ export default function ActivityScreen() {
     }
 
     const replyMap: Record<string, string> = {};
-    for (const reply of (replyResult.data as { id: string; body: string }[]) || []) replyMap[reply.id] = reply.body;
+    for (const reply of (replyResult.data as { id: string; body: string; song_title?: string | null; song_artist?: string | null }[]) || []) {
+      replyMap[reply.id] = reply.song_title
+        ? `♫ ${reply.song_title} — ${reply.song_artist || 'Artist'}${reply.body !== '♫' ? ' · ' + reply.body : ''}`
+        : reply.body;
+    }
 
     setPeople(peopleMap);
     setArtwork(artMap);
@@ -218,7 +222,7 @@ export default function ActivityScreen() {
           ? `${first} and ${others} ${others === 1 ? 'other' : 'others'} liked your post.`
           : `${first} liked your post.`;
       case 'reply':
-        return `${first} replied: ${item.replyText ?? ''}`;
+        return item.replyText?.startsWith('♫') ? `${first} replied with a song: ${item.replyText.slice(2)}` : `${first} replied: ${item.replyText ?? ''}`;
       case 'follow':
         return `${first} started following you.`;
       case 'mutual':
