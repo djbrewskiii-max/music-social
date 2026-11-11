@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { launchSafeImports, launchSafeTasteEvidence } from '../music-launch-sources';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -20,6 +23,8 @@ const green = '#39E75F';
 const norm = (s: string) => s.trim().toLocaleLowerCase();
 
 export default function NearbyScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [city, setCity] = useState('');
   const [people, setPeople] = useState<Person[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
@@ -318,7 +323,7 @@ export default function NearbyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#080808' },
   content: { padding: 20, paddingBottom: 120 },
   header: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom: 30 },
