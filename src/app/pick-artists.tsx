@@ -9,7 +9,7 @@ import { supabase } from '../supabase';
 import { tasteKey } from '../music-taste-evidence';
 
 const GREEN='#39E75F';
-const MIN=5;
+const MIN=3;
 const MAX=20;
 export default function PickArtistsScreen(){
   const {edit}=useLocalSearchParams<{edit?:string}>();
@@ -94,7 +94,7 @@ export default function PickArtistsScreen(){
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <Text style={s.kicker}>OVRLEE · YOUR MUSIC</Text>
         <Text style={s.title}>{editing?'Your favorite artists.':'Make your music yours.'}</Text>
-        <Text style={s.description}>Pick at least five artists you genuinely love. OVRLEE will use them to find music and people worth discovering—even before you've posted.</Text>
+        <Text style={s.description}>Start with three artists you love. Add more anytime. OVRLEE can help you find music and conversations even before your first post.</Text>
         <View style={s.countRow}><Text style={s.count}>{favorites.length}/{MIN} MINIMUM</Text>
           <Text style={s.hint}>Up to {MAX} artists</Text></View>
         <View style={s.entry}>
