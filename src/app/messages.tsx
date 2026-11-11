@@ -1,3 +1,4 @@
+import ProfileAvatar from '../components/ProfileAvatar';
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
 import {useMemo} from 'react';
@@ -357,16 +358,8 @@ export default function MessagesScreen() {
                     pressed && styles.conversationPressed,
                   ]}
                 >
-                  {conversation.avatarUrl && !conversation.isGroup ? (
-                    <Image source={{uri:conversation.avatarUrl}} style={styles.avatar}
-                      accessibilityLabel={`${conversation.displayName}'s profile photo`} />
-                  ) : (
-                    <View style={[styles.avatar, conversation.isGroup && styles.groupAvatar]}>
-                      <Text style={[styles.avatarText, conversation.isGroup && { fontSize: 20 }]}>
-                        {initial}
-                      </Text>
-                    </View>
-                  )}
+                  <ProfileAvatar uri={conversation.avatarUrl} name={conversation.displayName}
+                    group={conversation.isGroup} size={49} />
 
                   <View style={styles.conversationInfo}>
                     <View style={styles.nameRow}>
