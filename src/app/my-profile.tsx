@@ -971,16 +971,18 @@ export default function MyProfileScreen() {
               accessibilityLabel="Settings"
               onPress={() => router.push('/settings')}
               hitSlop={14}
-              style={{flexDirection:'row',alignItems:'center',gap:8,
+              style={scheme==='light'?{
+                flexDirection:'row',alignItems:'center',gap:8,
                 paddingHorizontal:14,paddingVertical:10,borderRadius:16,
-                borderWidth:1,borderColor:scheme==='light'?'#CBB6AA':'#594034',
-                backgroundColor:scheme==='light'?'#F0E5DF':'#261B17'}}
+                borderWidth:1,borderColor:'#CBB6AA',backgroundColor:'#F0E5DF'
+              }:{padding:10,marginRight:-10}}
             >
               <SymbolView name={{ ios: 'gearshape', android: 'settings', web: 'settings' }}
-                tintColor={scheme==='light'?'#3B2218':'#E5BEA8'} size={19} weight="medium"
-                fallback={<Text style={{color:scheme==='light'?'#3B2218':'#E5BEA8',fontSize:19}}>⚙</Text>} />
-              <Text style={{color:scheme==='light'?'#3B2218':'#E5BEA8',
-                fontSize:11,fontWeight:'900',letterSpacing:0.6}}>SETTINGS</Text>
+                tintColor={scheme==='light'?'#3B2218':'#ffffff'}
+                size={scheme==='light'?19:25} weight="medium"
+                fallback={<Text style={{color:scheme==='light'?'#3B2218':'#fff',fontSize:25}}>⚙</Text>} />
+              {scheme==='light'&&<Text style={{color:'#3B2218',fontSize:11,
+                fontWeight:'900',letterSpacing:0.6}}>SETTINGS</Text>}
             </Pressable>
 
 
