@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
@@ -97,6 +100,8 @@ function groupActivity(rows: NotificationRow[], replies: Record<string, string>)
 }
 
 export default function ActivityScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [myId, setMyId] = useState('');
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [people, setPeople] = useState<Record<string, Person>>({});
@@ -353,7 +358,7 @@ export default function ActivityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   header: {
     paddingHorizontal: 24,
