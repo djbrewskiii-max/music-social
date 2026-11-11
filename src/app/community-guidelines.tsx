@@ -35,7 +35,7 @@ export default function CommunityGuidelines(){
         </View>
       </View>)}
       <Text style={[styles.footer,{color:colors.secondary}]}>
-        Reports are reviewed by OVRLEE’s moderation team. Depending on severity,
+        Submitted reports are stored for moderation review. Depending on severity,
         violating content and accounts may be restricted or removed.
         In an immediate emergency, contact local emergency services.
       </Text>
