@@ -23,13 +23,13 @@ export function AppearanceProvider({children}:{children:React.ReactNode}){
   },[]);
   const scheme=preference==='system'?(system==='light'?'light':'dark'):preference;
   const colors=useMemo(()=>scheme==='light'?{
-    background:'#F7F8F7',surface:'#FFFFFF',raised:'#EDF3EF',
-    text:'#121812',secondary:'#516257',border:'#D5DED6',
-    accent:'#177B38',accentText:'#FFFFFF'
+    background:'#FAF8F6',surface:'#FFFFFF',raised:'#F2EBE6',
+    text:'#2E201B',secondary:'#796C65',border:'#E1D4CC',
+    accent:'#3B2218',accentText:'#FFFFFF'
   }:{
-    background:'#080808',surface:'#141414',raised:'#1C241E',
-    text:'#FFFFFF',secondary:'#A1A9A2',border:'#2D3530',
-    accent:'#39E75F',accentText:'#071108'
+    background:'#0C0A09',surface:'#171210',raised:'#30221D',
+    text:'#F9F4F1',secondary:'#B8AAA3',border:'#4A3932',
+    accent:'#BA8B73',accentText:'#170C08'
   },[scheme]);
   const value=useMemo<AppearanceContextValue>(()=>({
     preference,scheme,colors,
