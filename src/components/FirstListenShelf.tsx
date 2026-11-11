@@ -1,11 +1,13 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { isFirst24 } from '../first-listen';
 import { supabase } from '../supabase';
 
-const GREEN = '#39E75F';
+const GREEN = '#BA8B73';
 
 type Row = {
   room_id: string;
@@ -21,7 +23,9 @@ type Row = {
   Part of their music identity; hidden entirely when there are none
   (except on your own profile, where it invites you in).
 */
-export default function FirstListenShelf({ userId, owner = false }: { userId?: string | null; owner?: boolean }) {
+export default function FirstListenShelf({
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]); userId, owner = false }: { userId?: string | null; owner?: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [wasThere, setWasThere] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
@@ -126,7 +130,7 @@ export default function FirstListenShelf({ userId, owner = false }: { userId?: s
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   section: { marginTop: 34, paddingHorizontal: 20 },
   heading: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 14 },
   eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.2 },
