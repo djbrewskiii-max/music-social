@@ -853,7 +853,10 @@ export const startPresenceTracking =
     }
 
     started = true;
-    startSpotifyListeners();
+    // App Remote research is preserved below but is not part of the
+    // production presence experience. Keep foreground heartbeats for
+    // all OVRLEE members regardless of streaming provider.
+    // startSpotifyListeners();
 
     currentAppState =
       AppState.currentState;
@@ -863,7 +866,7 @@ export const startPresenceTracking =
       'active'
     ) {
       startHeartbeat();
-      void reconnectSpotifyIfPossible();
+      // reconnectSpotifyIfPossible(); // Parked pending provider approval.
     }
 
     appStateSubscription =
@@ -890,7 +893,7 @@ export const startPresenceTracking =
             'active'
           ) {
             startHeartbeat();
-            void reconnectSpotifyIfPossible();
+            // reconnectSpotifyIfPossible(); // Parked pending provider approval.
             return;
           }
 
