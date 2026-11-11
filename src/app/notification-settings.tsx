@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import * as Notifications from 'expo-notifications';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -45,6 +48,8 @@ const ON_OFF: { key: Level; label: string }[] = [
 ];
 
 export default function NotificationSettingsScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [userId, setUserId] = useState('');
   const [permission, setPermission] = useState<string>('undetermined');
@@ -170,7 +175,7 @@ export default function NotificationSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   content: { padding: 24, paddingBottom: 60 },
   back: { color: '#aaaaaa', fontSize: 17, marginTop: 10 },
