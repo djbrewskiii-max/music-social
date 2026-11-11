@@ -17,7 +17,7 @@ export default function ConnectMusicScreen() {
   // OAuth callback support is retained separately until its dependencies are audited.
   const connectSpotify = () => {
     // The public-page reader is experimental; release builds never invoke it.
-    router.push(__DEV__ ? {pathname:'/spotify-library',params:{onboarding:'1'}} : '/spotify-connect');
+    router.push('/spotify-connect');
   };
 
   const connectAppleMusic = async () => {
@@ -107,18 +107,11 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting...' : (__DEV__ ? 'Bring in my Spotify music' : 'Listen with Spotify')}
+                  {connecting ? 'Connecting...' : 'Listen with Spotify'}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
             </Pressable>
-            {__DEV__ && <Pressable accessibilityRole="button"
-              onPress={() => router.push('/spotify-connect')}
-              style={{paddingVertical:12,alignItems:'center'}}>
-              <Text style={{color:'#39E75F',fontSize:12,fontWeight:'800'}}>
-                PREVIEW RELEASE SPOTIFY FLOW →
-              </Text>
-            </Pressable>}
           </View>
         </View>
 
