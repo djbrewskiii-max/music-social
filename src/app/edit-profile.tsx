@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -45,6 +48,8 @@ type MediaType = 'avatar' | 'header';
 const NOW_GREEN = '#39E75F';
 
 export default function EditProfileScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -1282,8 +1287,7 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
+const baseStyles=StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor:
