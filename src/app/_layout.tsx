@@ -1,4 +1,5 @@
 import { Stack, usePathname } from 'expo-router';
+import { AppearanceProvider } from '../appearance';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -13,6 +14,10 @@ import { PreviewPlayerProvider } from '../preview-player';
 import { startPresenceTracking } from '../presence';
 
 export default function RootLayout() {
+  return <AppearanceProvider><OVRLEERoot/></AppearanceProvider>;
+}
+
+function OVRLEERoot() {
   const pathname = usePathname();
 
   useEffect(() => {
