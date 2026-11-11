@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
@@ -208,6 +209,11 @@ export default function NowScreen() {
     useState<FeedPost[]>([]);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [firstConversation, setFirstConversation] = useState<{postId:string;accountId:string}|null>(null);
+  const dismissFirstConversation = useCallback((accountId:string) => {
+    setFirstConversation(null);
+    void AsyncStorage.setItem(`ovrlee.first-conversation.v1.${accountId}`,'done').catch(()=>{});
+  },[]);
   // Once per app entry, register any previously linked, self-declared
   // Spotify profile from local account setup. This only reads local
   // storage and our own database: it does not contact Spotify.
@@ -1017,6 +1023,23 @@ export default function NowScreen() {
             ordered.push(remaining.splice(candidateIndex < 0 ? 0 : candidateIndex, 1)[0]);
           }
           setPosts(ordered);
+          // A single, dismissible invitation for members who have never
+          // replied. It takes them straight into a real conversation.
+          // Never inject demo posts or force profile setup.
+          const starter=ordered.find(p=>p.user_id!==user.id && p.replyCount>0)
+            || ordered.find(p=>p.user_id!==user.id);
+          if(starter){
+            void (async()=>{
+              const key=`ovrlee.first-conversation.v1.${user.id}`;
+              const dismissed=await AsyncStorage.getItem(key);
+              if(dismissed==='done'){setFirstConversation(null);return;}
+              const {data:existing,error:historyError}=await supabase.from('post_replies')
+                .select('id').eq('user_id',user.id).limit(1);
+              if(!historyError && !existing?.length)
+                setFirstConversation({postId:starter.id,accountId:user.id});
+              else setFirstConversation(null);
+            })().catch(()=>{});
+          }else setFirstConversation(null);
         } catch (error) {
           setFeedError('Unable to refresh your feed. Pull down to retry.');
           console.log(
@@ -2043,6 +2066,30 @@ export default function NowScreen() {
             <View style={styles.feedComposerPlus}><Text style={styles.feedComposerPlusText}>+</Text></View>
           </Pressable>
 
+          {firstConversation&&posts.some(p=>p.id===firstConversation.postId)&&(
+            <View style={{marginHorizontal:20,marginBottom:14,flexDirection:'row',
+              alignItems:'center',borderRadius:13,borderWidth:1,
+              borderColor:scheme==='light'?'#D8C7BC':'#344537',
+              backgroundColor:scheme==='light'?'#F6EFEB':'#142018',padding:13,gap:9}}>
+              <Pressable accessibilityRole="button" style={{flex:1}}
+                onPress={()=>{
+                  const target=firstConversation;
+                  dismissFirstConversation(target.accountId);
+                  openPost(target.postId);
+                }}>
+                <Text style={{fontSize:11,fontWeight:'900',letterSpacing:0.7,
+                  color:brandAccent}}>YOUR FIRST MUSIC CONVERSATION ↗</Text>
+                <Text style={{fontSize:12,marginTop:5,
+                  color:scheme==='light'?'#67574E':'#BAC6BC'}}>
+                  Hear someone's song, then reply with your own. No post required.
+                </Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Dismiss first conversation tip"
+                hitSlop={12} onPress={()=>dismissFirstConversation(firstConversation.accountId)}>
+                <Text style={{fontSize:22,color:scheme==='light'?'#866C60':'#8CA48D'}}>×</Text>
+              </Pressable>
+            </View>
+          )}
           {posts.length === 0 &&
           !orbitPerson ? (
             <View
