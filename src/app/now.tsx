@@ -4306,7 +4306,7 @@ const styles =
     action: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginRight: 27,
+      marginRight: 12,
       paddingVertical: 5,
     },
 
