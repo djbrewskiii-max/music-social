@@ -43,6 +43,8 @@ type ActivityItem = {
   actors: string[]; // newest first
   postId: string | null;
   replyText: string | null;
+  replyId: string | null;
+  repliesToComment: boolean;
   createdAt: string;
   isNew: boolean;
 };
@@ -60,7 +62,7 @@ function timeAgo(iso: string) {
 }
 
 // Likes on the same post collapse into one line, like Instagram.
-function groupActivity(rows: NotificationRow[], replies: Record<string, string>): ActivityItem[] {
+function groupActivity(rows: NotificationRow[], replies: Record<string, {text:string;parentId:string|null}>): ActivityItem[] {
   const items: ActivityItem[] = [];
   const likeGroups = new Map<string, ActivityItem>();
 
@@ -78,6 +80,8 @@ function groupActivity(rows: NotificationRow[], replies: Record<string, string>)
         actors: [row.actor_id],
         postId: row.post_id,
         replyText: null,
+        replyId: null,
+        repliesToComment: false,
         createdAt: row.created_at,
         isNew: !row.read_at,
       };
@@ -91,7 +95,9 @@ function groupActivity(rows: NotificationRow[], replies: Record<string, string>)
       type: row.type,
       actors: [row.actor_id],
       postId: row.post_id,
-      replyText: row.reply_id ? replies[row.reply_id] ?? null : null,
+      replyText: row.reply_id ? replies[row.reply_id]?.text ?? null : null,
+      replyId: row.reply_id,
+      repliesToComment: !!(row.reply_id && replies[row.reply_id]?.parentId),
       createdAt: row.created_at,
       isNew: !row.read_at,
     });
@@ -146,7 +152,7 @@ export default function ActivityScreen() {
         ? supabase.from('posts').select('id, artwork_url').in('id', postIds)
         : Promise.resolve({ data: [], error: null }),
       replyIds.length
-        ? supabase.from('post_replies').select('id, body, song_title, song_artist').in('id', replyIds)
+        ? supabase.from('post_replies').select('id, body, song_title, song_artist, parent_reply_id').in('id', replyIds)
         : Promise.resolve({ data: [], error: null }),
       actorIds.length
         ? supabase.from('user_follows').select('following_id').eq('follower_id', user.id).in('following_id', actorIds)
@@ -161,11 +167,14 @@ export default function ActivityScreen() {
       artMap[post.id] = post.artwork_url;
     }
 
-    const replyMap: Record<string, string> = {};
-    for (const reply of (replyResult.data as { id: string; body: string; song_title?: string | null; song_artist?: string | null }[]) || []) {
-      replyMap[reply.id] = reply.song_title
-        ? `♫ ${reply.song_title} — ${reply.song_artist || 'Artist'}${reply.body !== '♫' ? ' · ' + reply.body : ''}`
-        : reply.body;
+    const replyMap: Record<string, {text:string;parentId:string|null}> = {};
+    for (const reply of (replyResult.data as { id: string; body: string; song_title?: string | null; song_artist?: string | null; parent_reply_id?: string | null }[]) || []) {
+      replyMap[reply.id] = {
+        text: reply.song_title
+          ? `♫ ${reply.song_title} — ${reply.song_artist || 'Artist'}${reply.body !== '♫' ? ' · ' + reply.body : ''}`
+          : reply.body,
+        parentId:reply.parent_reply_id||null,
+      };
     }
 
     setPeople(peopleMap);
@@ -227,7 +236,12 @@ export default function ActivityScreen() {
           ? `${first} and ${others} ${others === 1 ? 'other' : 'others'} liked your post.`
           : `${first} liked your post.`;
       case 'reply':
-        return item.replyText?.startsWith('♫') ? `${first} replied with a song: ${item.replyText.slice(2)}` : `${first} replied: ${item.replyText ?? ''}`;
+        return item.repliesToComment
+          ? (item.replyText?.startsWith('♫')
+            ? `${first} replied to a comment with a song: ${item.replyText.slice(2)}`
+            : `${first} replied to a comment: ${item.replyText ?? ''}`)
+          : item.replyText?.startsWith('♫') ? `${first} replied with a song: ${item.replyText.slice(2)}`
+          : `${first} replied: ${item.replyText ?? ''}`;
       case 'follow':
         return `${first} started following you.`;
       case 'mutual':
@@ -237,7 +251,7 @@ export default function ActivityScreen() {
 
   const openItem = (item: ActivityItem) => {
     if (item.postId) {
-      router.push({ pathname: '/post', params: { postId: item.postId } });
+      router.push({ pathname: '/post', params: { postId: item.postId, ...(item.replyId ? {focusReplyId:item.replyId}: {}) } });
     } else {
       router.push({ pathname: '/profile', params: { userId: item.actors[0] } });
     }
