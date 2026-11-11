@@ -163,6 +163,7 @@ const trackKey = (
 export default function ProfileScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
+  const brandAccent=scheme==='light'?'#3B2218':'#BA8B73';
   const { userId } =
     useLocalSearchParams<{
       userId?: string;
@@ -1235,7 +1236,7 @@ export default function ProfileScreen() {
           {!!profile.overly_trait && (
             <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
               gap:7,marginTop:12,marginBottom:6}}>
-              <Text style={{color:'#39E75F',fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
+              <Text style={{color:brandAccent,fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
               <Text style={{color:scheme==='light'?'#214729':'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
             </View>
           )}
