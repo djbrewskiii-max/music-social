@@ -19,6 +19,10 @@ function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):str
     if(textProp||borderProp)return scheme==='light'?CHOCOLATE:LIGHT_CHOCOLATE;
     if(bgProp)return scheme==='light'?'#EFE0D7':'#3B2218';
   }
+  if(scheme==='light' && value.toLowerCase()==='#ba8b73'){
+    if(textProp||borderProp)return CHOCOLATE;
+    if(bgProp)return '#F1E5DE';
+  }
   if(scheme==='dark')return value;
   if(value.toLowerCase()==='white'&&textProp)return CHOCOLATE;
   if(value.startsWith('rgba(')){
