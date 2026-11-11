@@ -1880,7 +1880,7 @@ export default function NowScreen() {
             <Text
               style={styles.logo}
             >
-              NOW
+              OVRLEE
             </Text>
 
             <View
