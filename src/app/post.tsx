@@ -1,6 +1,8 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CollectionMeta, itemsFromPost, searchSongs, type CollectionItem } from '../collection';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey } from '../components/CollectionSlides';
@@ -20,6 +22,8 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
   : post.photo_url ? [post.photo_url] : [];
 
 export default function PostDetailScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{ postId?: string; songReply?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
@@ -463,7 +467,7 @@ export default function PostDetailScreen() {
     </Modal>
   </SafeAreaView>;
 }
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   collectionTitle: { color: '#ffffff', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 34, lineHeight: 38, marginBottom: 6 },
   collectionActions: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14 },
   saveButton: { borderWidth: 1, borderColor: '#3a3a3a', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
