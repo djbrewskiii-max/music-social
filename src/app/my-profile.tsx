@@ -875,7 +875,7 @@ export default function MyProfileScreen() {
     !!presence?.artist_name;
 
   const savedColor = profile?.profile_color || DEFAULT_COLOR;
-  const profileColor = savedColor.toLowerCase()==='#39e75f' ? '#3B2218' : savedColor;
+  const profileColor = scheme==='light' && savedColor.toLowerCase()==='#39e75f' ? '#3B2218' : savedColor;
   const brandAccent = scheme==='light'?'#3B2218':'#39E75F';
 
   const initial =
