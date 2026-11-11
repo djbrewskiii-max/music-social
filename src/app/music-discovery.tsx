@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { launchSafeImports, launchSafeTasteEvidence } from '../music-launch-sources';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -21,6 +24,8 @@ type Person = { user_id: string; display_name: string | null; username: string |
 const green = '#39E75F';
 
 export default function MusicDiscoveryScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{ artist?: string; song?: string }>();
   const artist = typeof params.artist === 'string' ? params.artist.trim().slice(0, 120) : '';
   const song = typeof params.song === 'string' ? params.song.trim().slice(0, 120) : '';
@@ -198,7 +203,7 @@ export default function MusicDiscoveryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#080808' },
   header: { height: 62, borderBottomWidth: 1, borderBottomColor: '#222', paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 34 },
