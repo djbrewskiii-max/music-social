@@ -1,4 +1,5 @@
 import {useAppearance} from '../appearance';
+import SongPreviewButton from '../components/SongPreviewButton';
 import {themedStyleSheet} from '../theme-style';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -305,13 +306,9 @@ export default function PostDetailScreen() {
                     </View>
                   </Pressable>
                   <View style={{ alignItems: 'center', gap: 7 }}>
-                    <Pressable accessibilityRole="button" hitSlop={8}
-                      accessibilityLabel={loadingPreview ? `Loading ${track.song} preview` : playing ? `Stop ${track.song} preview` : `Preview ${track.song}`}
-                      disabled={loadingPreview}
-                      onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist, kind: track.kind === 'album' ? 'album' : 'song' })}
-                      style={{ paddingHorizontal: 9, minHeight: 35, minWidth: 40, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={[styles.play, { color: green }]}>{loadingPreview ? '…' : playing ? '❚❚' : '▶'}</Text>
-                    </Pressable>
+                    <SongPreviewButton size="compact" id={track.id}
+                      song={track.song} artist={track.artist}
+                      kind={track.kind==='album'?'album':'song'}/>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Add ${track.song} to rotation`}
                       onPress={() => pin(track)} hitSlop={5}>
                       <Text style={[styles.rotationLink, { fontSize: 9 }]}>+ ROTATION</Text>
@@ -360,12 +357,10 @@ export default function PostDetailScreen() {
                     </View>
                     <Text style={styles.songReplyArrow}>↗</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" style={styles.songReplyPreview}
-                    onPress={() => toggleSongPreview({id:r.song_catalog_id || undefined,song:r.song_title!,artist:r.song_artist!})}>
-                    <Text style={{color:green,fontWeight:'900'}}>
-                      {previewActiveKey===previewKey({id:r.song_catalog_id||undefined,song:r.song_title!,artist:r.song_artist!})?'❚❚':'▶'} PREVIEW
-                    </Text>
-                  </Pressable>
+                  <View style={{alignSelf:'flex-end',marginTop:8}}>
+                    <SongPreviewButton size="compact" id={r.song_catalog_id}
+                      song={r.song_title!} artist={r.song_artist!}/>
+                  </View>
                 </View>}
               </View>
             </View>
