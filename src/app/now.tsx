@@ -210,6 +210,7 @@ const songKey = (track: MusicTrack) =>
 export default function NowScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
+  const brandAccent=scheme==='light'?'#3B2218':'#BA8B73';
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
   const [shazamListening, setShazamListening] = useState(false);
@@ -1904,12 +1905,12 @@ export default function NowScreen() {
           <Pressable accessibilityRole="button" accessibilityLabel="Share music to OVRLEE"
             onPress={() => router.push({ pathname: '/create-post', params: { musicPicker: '1' } })}
             style={{ borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 13, borderWidth: 1, borderColor: '#2A442D', backgroundColor: '#101E14' }}>
-            <Text style={{ color: '#39E75F', fontSize: 22, marginRight: 14 }}>♫</Text>
+            <Text style={{ color: brandAccent, fontSize: 22, marginRight: 14 }}>♫</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.7 }}>SHARE A SONG</Text>
               <Text style={{ color: '#8EA794', fontSize: 11, marginTop: 3 }}>Search or paste Spotify & Apple Music links</Text>
             </View>
-            <Text style={{ color: '#39E75F', fontSize: 22 }}>›</Text>
+            <Text style={{ color: brandAccent, fontSize: 22 }}>›</Text>
           </Pressable>
         </View>
 
@@ -2079,11 +2080,11 @@ export default function NowScreen() {
             onPress={() => router.push('/nearby')}
             style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 16, borderRadius: 13, backgroundColor: '#151B16', borderWidth: 1, borderColor: '#29442E', padding: 14, flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#39E75F', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }}>YOUR CITY</Text>
+              <Text style={{ color: brandAccent, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }}>YOUR CITY</Text>
               <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>What's playing around you?</Text>
               <Text style={{ color: '#888', fontSize: 11, marginTop: 4 }}>Nearby posts, music trends and listeners</Text>
             </View>
-            <Text style={{ color: '#39E75F', fontSize: 24 }}>›</Text>
+            <Text style={{ color: brandAccent, fontSize: 24 }}>›</Text>
           </Pressable>
 
           <View
@@ -3061,7 +3062,7 @@ export default function NowScreen() {
                         accessibilityLabel={`Discover listeners and posts for ${post.artist_name}`}
                         onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
                         style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: '#112315' }}>
-                        <Text style={{ color: '#39E75F', fontSize: 11, fontWeight: '900' }}>EXPLORE {post.artist_name.toUpperCase()} →</Text>
+                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>EXPLORE {post.artist_name.toUpperCase()} →</Text>
                       </Pressable>
                     )}
                     <View
@@ -3151,7 +3152,7 @@ export default function NowScreen() {
                         accessibilityLabel="Reply with a song"
                         style={[styles.action,{marginRight:18}]}
                         onPress={() => router.push({pathname:'/post',params:{postId:post.id,songReply:'1'}})}>
-                        <Text style={[styles.actionIcon,{color:'#39E75F'}]}>♫</Text>
+                        <Text style={[styles.actionIcon,{color:brandAccent}]}>♫</Text>
                         <Text style={[styles.actionText,{color:'#9ABDA1'}]}>SONG</Text>
                       </Pressable>
                       <Pressable
@@ -3319,7 +3320,7 @@ export default function NowScreen() {
                           accessibilityLabel="Reply with a song"
                           onPress={() => router.push({ pathname: '/post', params: { postId: post.id, songReply: '1' } })}
                           style={{padding:10,backgroundColor:'#172b1b',borderRadius:10,marginRight:6}}>
-                          <Text style={{color:'#39E75F',fontSize:20,fontWeight:'800'}}>♫</Text>
+                          <Text style={{color:brandAccent,fontSize:20,fontWeight:'800'}}>♫</Text>
                         </Pressable>
                         <TextInput
                           style={
