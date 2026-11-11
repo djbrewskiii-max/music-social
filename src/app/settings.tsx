@@ -1,6 +1,8 @@
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {useEffect,useState} from 'react';
+import {isOverlyIntroEnabled,setOverlyIntroEnabled} from '../overly-preferences';
 import { useAppearance, type AppearancePreference } from '../appearance';
 import { unregisterPushNotifications } from '../notifications';
 import { supabase } from '../supabase';
@@ -10,6 +12,9 @@ type RowProps={
 };
 export default function SettingsScreen(){
   const {colors,preference,setPreference}=useAppearance();
+  const [introEnabled,setIntroEnabled]=useState(true);
+  useEffect(()=>{let active=true;isOverlyIntroEnabled().then(next=>{if(active)setIntroEnabled(next);}).catch(()=>{});return()=>{active=false;};},[]);
+  const toggleIntro=async()=>{const next=!introEnabled;try{await setOverlyIntroEnabled(next);setIntroEnabled(next);}catch{Alert.alert('Could not update preference','Please try again.');}};
   const row=({icon,label,detail,onPress,first}:RowProps)=>(
     <Pressable key={label} accessibilityRole="button" onPress={onPress}
       style={({pressed})=>[styles.row,!first&&{borderTopWidth:1,borderTopColor:colors.border},pressed&&{opacity:.65}]}>
@@ -73,6 +78,17 @@ export default function SettingsScreen(){
           ))}
         </View>
       </View>
+      <Pressable accessibilityRole="switch" accessibilityState={{checked:introEnabled}}
+        onPress={()=>void toggleIntro()}
+        style={[styles.group,{backgroundColor:colors.surface,borderColor:colors.border,
+          paddingHorizontal:16,paddingVertical:14,marginTop:10,
+          flexDirection:'row',alignItems:'center',gap:10}]}>
+        <View style={{flex:1}}>
+          <Text style={[styles.rowTitle,{color:colors.text}]}>Opening animation</Text>
+          <Text style={[styles.detail,{color:colors.secondary}]}>Show OVRLEE's intro when entering the app.</Text>
+        </View>
+        <Text style={{color:colors.accent,fontWeight:'900'}}>{introEnabled?'ON':'OFF'}</Text>
+      </Pressable>
       <Text style={[styles.section,{color:colors.secondary}]}>MUSIC</Text>
       {group([
         {icon:'music.note',label:'Music service',detail:'Spotify or Apple Music playback',onPress:()=>router.push('/music-settings'),first:true},
