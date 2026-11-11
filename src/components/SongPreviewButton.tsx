@@ -21,7 +21,7 @@ export default function SongPreviewButton({song,artist,id,kind='song',size='regu
     onPress={()=>void toggle({id,song,artist,kind})}
     hitSlop={8}
     style={[styles.button,{width:diameter,height:diameter,borderRadius:diameter/2,
-      borderColor:colors.accent,backgroundColor:scheme==='light'?'#EAF5ED':'#14251A'}]}>
+      borderColor:colors.accent,backgroundColor:scheme==='light'?'#F1E5DE':'#14251A'}]}>
     <Text style={{color:colors.accent,fontWeight:'900',fontSize:size==='compact'?14:17,marginLeft:playing?0:2}}>
       {loading?'…':playing?'❚❚':'▶'}
     </Text>
