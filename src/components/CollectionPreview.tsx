@@ -1,4 +1,7 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { useFonts } from 'expo-font';
+import {useMemo} from 'react';
 import { router } from 'expo-router';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -24,7 +27,9 @@ type Props = {
   slideWidth?: number;
 };
 
-export default function CollectionPreview({ post, username, slideWidth = 190 }: Props) {
+export default function CollectionPreview({
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]); post, username, slideWidth = 190 }: Props) {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const { activeKey, loadingKey, toggle } = useSongPreview();
   // A font-loading delay must never hide the whole collection from the feed.
@@ -94,7 +99,7 @@ export default function CollectionPreview({ post, username, slideWidth = 190 }: 
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrap: { marginVertical: 10 },
   title: { color: '#ffffff', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 28, lineHeight: 31, marginBottom: 10 },
   row: { gap: 10, paddingRight: 10 },
