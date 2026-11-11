@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -33,6 +34,7 @@ type ProfileRow = {
   user_id: string;
   display_name: string | null;
   username: string | null;
+  avatar_url: string | null;
 };
 
 type MessageRow = {
@@ -49,6 +51,7 @@ type InboxConversation = {
   otherUserId?: string;
   displayName: string;
   username: string;
+  avatarUrl: string | null;
   lastMessage: string;
   lastMessageAt: string;
   lastSenderId: string;
@@ -131,7 +134,7 @@ export default function MessagesScreen() {
       const [{ data: profileData }, { data: messageData }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('user_id, display_name, username')
+          .select('user_id, display_name, username, avatar_url')
           .in('user_id', otherUserIds),
         supabase
           .from('messages')
@@ -153,6 +156,7 @@ export default function MessagesScreen() {
             isGroup: true,
             displayName: conversation.title || 'Group Chat',
             username: 'group',
+            avatarUrl: null,
             lastMessage: latestMessage?.body || 'New group created',
             lastMessageAt: latestMessage?.created_at || conversation.created_at,
             lastSenderId: latestMessage?.sender_id || '',
@@ -170,6 +174,7 @@ export default function MessagesScreen() {
           otherUserId: otherUserId || '',
           displayName: otherProfile?.display_name || 'Listener',
           username: otherProfile?.username || 'user',
+          avatarUrl: otherProfile?.avatar_url || null,
           lastMessage: latestMessage?.body || 'Start the conversation',
           lastMessageAt: latestMessage?.created_at || conversation.created_at,
           lastSenderId: latestMessage?.sender_id || '',
@@ -352,11 +357,16 @@ export default function MessagesScreen() {
                     pressed && styles.conversationPressed,
                   ]}
                 >
-                  <View style={[styles.avatar, conversation.isGroup && styles.groupAvatar]}>
-                    <Text style={[styles.avatarText, conversation.isGroup && { fontSize: 20 }]}>
-                      {initial}
-                    </Text>
-                  </View>
+                  {conversation.avatarUrl && !conversation.isGroup ? (
+                    <Image source={{uri:conversation.avatarUrl}} style={styles.avatar}
+                      accessibilityLabel={`${conversation.displayName}'s profile photo`} />
+                  ) : (
+                    <View style={[styles.avatar, conversation.isGroup && styles.groupAvatar]}>
+                      <Text style={[styles.avatarText, conversation.isGroup && { fontSize: 20 }]}>
+                        {initial}
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.conversationInfo}>
                     <View style={styles.nameRow}>
