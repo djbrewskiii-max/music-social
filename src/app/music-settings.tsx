@@ -1,11 +1,15 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getMusicProvider, setMusicProvider, type MusicProvider } from '../music-provider';
 
 const GREEN = '#39E75F';
 
 export default function MusicSettingsScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [provider, setProvider] = useState<MusicProvider>('apple_music');
   const [busy, setBusy] = useState(false);
 
@@ -68,7 +72,7 @@ export default function MusicSettingsScreen() {
     </SafeAreaView>
   );
 }
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root:{flex:1,backgroundColor:'#050505'},
   content:{padding:24,paddingBottom:80,gap:16},
   back:{color:'#aaa',fontSize:17},
