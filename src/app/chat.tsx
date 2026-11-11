@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -39,6 +42,8 @@ type GroupMember = {
 };
 
 export default function ChatScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{
     id?: string;
     userId?: string;
@@ -573,7 +578,7 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   card: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 14, padding: 8, minWidth: 220 },
   cardArt: { width: 56, height: 56, borderRadius: 8 },
   cardArtEmpty: { backgroundColor: '#1d1d1d', alignItems: 'center', justifyContent: 'center' },
