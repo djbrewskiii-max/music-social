@@ -110,9 +110,11 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
   }, [player, clearStopTimer]);
 
   useEffect(() => {
-    // No background playback, including when opening the streaming app.
+    // Only true backgrounding should end a preview. iOS may briefly report
+    // "inactive" during system transitions while OVRLEE is still on screen.
+    // Screen-to-screen navigation must not reset the shared audio player.
     const subscription = AppState.addEventListener('change', (next) => {
-      if (next !== 'active') stop();
+      if (next === 'background') stop();
     });
     return () => subscription.remove();
   }, [stop]);
