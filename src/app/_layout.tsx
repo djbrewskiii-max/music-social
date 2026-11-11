@@ -1,5 +1,5 @@
 import { Stack, usePathname } from 'expo-router';
-import { AppearanceProvider } from '../appearance';
+import { AppearanceProvider, useAppearance } from '../appearance';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -19,6 +19,7 @@ export default function RootLayout() {
 
 function OVRLEERoot() {
   const pathname = usePathname();
+  const {colors}=useAppearance();
 
   useEffect(() => {
     return startPresenceTracking();
@@ -36,7 +37,7 @@ function OVRLEERoot() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#090909' },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="index" />
