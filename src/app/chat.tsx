@@ -1,3 +1,4 @@
+import ProfileAvatar from '../components/ProfileAvatar';
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
 import {useMemo} from 'react';
@@ -65,6 +66,8 @@ export default function ChatScreen() {
   const [isGroup, setIsGroup] = useState(params.isGroup === 'true');
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [memberMap, setMemberMap] = useState<Record<string, string>>({});
+  const [partnerUserId,setPartnerUserId]=useState(otherUserId);
+  const [partnerAvatar,setPartnerAvatar]=useState<string|null>(null);
 
   const [staged, setStaged] = useState<MusicCard | null>(() => parseCard(params.attach));
   const [message, setMessage] = useState(
@@ -157,10 +160,14 @@ export default function ChatScreen() {
     if (activeConversationId) {
       const { data: convData } = await supabase
         .from('conversations')
-        .select('id, is_group, title, created_by')
+        .select('id, is_group, title, created_by, user_one, user_two')
         .eq('id', activeConversationId)
         .maybeSingle();
 
+      if (convData && !convData.is_group) {
+        const peer=convData.user_one===user.id?convData.user_two:convData.user_one;
+        if(peer && peer!==user.id)setPartnerUserId(peer);
+      }
       if (convData?.is_group) {
         setIsGroup(true);
         if (convData.title) {
@@ -214,6 +221,7 @@ export default function ChatScreen() {
         return;
       }
 
+      setPartnerUserId(otherUserId);
       const sortedUsers = [user.id, otherUserId].sort();
       const userOne = sortedUsers[0];
       const userTwo = sortedUsers[1];
@@ -259,6 +267,24 @@ export default function ChatScreen() {
     if (!activeConversationId) {
       setLoading(false);
       return;
+    }
+
+    if (!isGroup && !params.isGroup) {
+      // Always resolve the real partner using the conversation row, even
+      // for deep links which contain only a conversation ID.
+      const {data: direct}=await supabase.from('conversations')
+        .select('user_one,user_two,is_group').eq('id',activeConversationId).maybeSingle();
+      if(direct && !direct.is_group){
+        const peer=direct.user_one===user.id?direct.user_two:direct.user_one;
+        if(peer&&peer!==user.id){
+          setPartnerUserId(peer);
+          const {data: profile}=await supabase.from('profiles')
+            .select('display_name,username,avatar_url').eq('user_id',peer).maybeSingle();
+          setPartnerAvatar(profile?.avatar_url||null);
+          if(profile?.display_name||profile?.username)
+            setChatName(profile.display_name||profile.username);
+        }
+      }
     }
 
     setConversationId(activeConversationId);
@@ -382,12 +408,12 @@ export default function ChatScreen() {
 
           <TouchableOpacity
             style={styles.headerProfile}
-            onPress={isGroup ? showGroupInfo : undefined}
-            activeOpacity={isGroup ? 0.7 : 1}
+            onPress={isGroup ? showGroupInfo : ()=>{
+              if(partnerUserId)router.push({pathname:'/profile',params:{userId:partnerUserId}});
+            }}
+            activeOpacity={0.7}
           >
-            <View style={[styles.avatar, isGroup && styles.groupAvatar]}>
-              <Text style={[styles.avatarText, isGroup && { fontSize: 18 }]}>{initial}</Text>
-            </View>
+            <ProfileAvatar group={isGroup} size={42} uri={partnerAvatar} name={chatName}/>
 
             <View style={styles.headerText}>
               <Text style={styles.name} numberOfLines={1}>
@@ -422,7 +448,7 @@ export default function ChatScreen() {
                 <View style={styles.musicInfo}>
                   <Text style={styles.song}>{song}</Text>
                   {!!artist && <Text style={styles.artist}>{artist}</Text>}
-                  <Text style={styles.sharedMusic}>YOU BOTH PLAYED THIS</Text>
+                  <Text style={styles.sharedMusic}>MUSIC WORTH TALKING ABOUT</Text>
                 </View>
               </View>
               <Text style={styles.intro}>You already have something to talk about.</Text>
@@ -454,11 +480,8 @@ export default function ChatScreen() {
                     ]}
                   >
                     {!isMine && (
-                      <View style={styles.smallAvatar}>
-                        <Text style={styles.smallAvatarText}>
-                          {senderDisplay.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
+                      <ProfileAvatar size={28} name={isGroup?senderDisplay:chatName}
+                        uri={isGroup ? (groupMembers.find(m=>m.user_id===item.sender_id)?.avatar_url||null) : partnerAvatar}/>
                     )}
 
                     <View style={{ maxWidth: '78%' }}>
