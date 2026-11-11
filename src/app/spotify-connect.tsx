@@ -118,18 +118,6 @@ export default function SpotifyConnectScreen() {
             <Text style={styles.linkText}>OPEN SPOTIFY ↗</Text>
           </Pressable>
         </View>
-        <Pressable accessibilityRole="button"
-          onPress={() => router.push('/spotify-showcase')}
-          style={styles.showcaseLink}>
-          <View style={{flex:1}}>
-            <Text style={styles.showcaseTitle}>Feature your Spotify playlists</Text>
-            <Text style={styles.showcaseCopy}>
-              Share playlists from Spotify to OVRLEE for people to explore.
-              OVRLEE displays the playlist on Spotify without reading its tracks.
-            </Text>
-          </View>
-          <Text style={styles.showcaseArrow}>›</Text>
-        </Pressable>
         <View style={styles.info}>
           <Text style={styles.infoTitle}>How music discovery works</Text>
           <Text style={styles.note}>
