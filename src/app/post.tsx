@@ -1,5 +1,6 @@
 import {useAppearance} from '../appearance';
 import SongPreviewButton from '../components/SongPreviewButton';
+import {shareOVRLEEPost} from '../post-sharing';
 import {themedStyleSheet} from '../theme-style';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -352,10 +353,26 @@ export default function PostDetailScreen() {
             })}
 
           </View>
-          <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}>
-            <Text style={{ color: liked ? green : '#aaa', fontSize: 22 }}>{liked ? '♥' : '♡'}</Text>
-            <Text style={styles.secondary}>{likes} {likes === 1 ? 'like' : 'likes'}</Text>
-          </Pressable>
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:14}}>
+            <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}
+              accessibilityRole="button" accessibilityLabel={liked?'Unlike post':'Like post'}>
+              <Text style={{ color: liked ? green : '#aaa', fontSize: 22 }}>{liked ? '♥' : '♡'}</Text>
+              <Text style={styles.secondary}>{likes} {likes === 1 ? 'like' : 'likes'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Share this post"
+              hitSlop={10}
+              onPress={()=>void shareOVRLEEPost({
+                id:post.id,
+                displayName:author.name,
+                songTitle:post.song_title,
+                artistName:post.artist_name,
+                caption:post.body
+              })}
+              style={{paddingHorizontal:12,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:7}}>
+              <Text style={{fontSize:20,color:scheme==='light'?'#3B2218':'#FFFFFF'}}>↗</Text>
+              <Text style={[styles.secondary,{fontWeight:'800',letterSpacing:0.6}]}>SHARE</Text>
+            </Pressable>
+          </View>
           <Text style={styles.section}>CONVERSATION · {replies.length}</Text>
           {replies.length === 0 && <Text style={styles.secondary}>No replies yet. Start the conversation.</Text>}
           {threadedReplies.map(({item:r,depth}) => <View key={r.id}
