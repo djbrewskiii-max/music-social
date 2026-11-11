@@ -1098,11 +1098,7 @@ export default function MyProfileScreen() {
                   'nowuser'}
               </Text>
 
-              {!!profile?.overly_trait && (
-                <View style={{ alignSelf: 'flex-end', marginTop: 9, marginRight: 8, borderRadius: 20, borderWidth: 1, borderColor: '#37723E', backgroundColor: '#14281A', paddingHorizontal: 12, paddingVertical: 7 }}>
-                  <Text style={{ color: '#BAF5BE', fontWeight: '800', fontSize: 12 }}>{profile.overly_trait}</Text>
-                </View>
-              )}
+
 
               {!!profile?.city && (
                 <Text
@@ -1124,6 +1120,13 @@ export default function MyProfileScreen() {
                 </Text>
               )}
 
+              {!!profile?.overly_trait && (
+                <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
+                  gap:7,marginTop:12,marginBottom:6}}>
+                  <Text style={{color:'#39E75F',fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
+                  <Text style={{color:'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
+                </View>
+              )}
               {onNow && (
                 <View
                   style={
