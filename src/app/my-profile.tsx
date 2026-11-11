@@ -1,3 +1,5 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { SymbolView } from 'expo-symbols';
 import {
   Auth,
@@ -10,6 +12,7 @@ import {
 } from 'expo-router';
 import {
   useCallback,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -155,6 +158,8 @@ const formatArtworkUrl = (
 };
 
 export default function MyProfileScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
   const [
     profile,
@@ -2112,8 +2117,7 @@ export default function MyProfileScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
+const baseStyles = StyleSheet.create({
     tabBar: { flexDirection: 'row', marginHorizontal: 20, marginTop: 28, borderBottomWidth: 1, borderBottomColor: '#222222' },
     tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2, borderBottomColor: 'transparent' },
     tabActive: { borderBottomColor: '#39E75F' },
