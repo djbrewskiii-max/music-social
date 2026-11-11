@@ -33,6 +33,7 @@ export default function PostDetailScreen() {
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyTo,setReplyTo]=useState<Reply|null>(null);
   const threadRef=useRef<ScrollView|null>(null);
+  const composeRef=useRef<TextInput|null>(null);
   const [body, setBody] = useState('');
   const [songReplyOpen, setSongReplyOpen] = useState(params.songReply === '1');
   const [songQuery, setSongQuery] = useState('');
@@ -243,6 +244,8 @@ export default function PostDetailScreen() {
   const respondTo=(target:Reply)=>{
     setReplyTo(target);
     threadRef.current?.scrollToEnd({animated:true});
+    // A comment reply should feel like starting a conversation, not opening a menu.
+    setTimeout(()=>composeRef.current?.focus(),100);
   };
   const photos = post ? photoList(post) : [];
   const music = post ? (Array.isArray(post.music_items) && post.music_items.length
@@ -458,7 +461,7 @@ export default function PostDetailScreen() {
             onPress={() => setSongReplyOpen(value => !value)} style={styles.replyWithSong}>
             <Text style={{color:songReplyOpen?green:'#ddd',fontSize:20}}>♫</Text>
           </Pressable>
-          <TextInput value={body} onChangeText={setBody} placeholder={selectedReplySong?'Add a note (optional)...':replyTo?`Reply to ${replyTo.displayName}...`:'Reply to this post...'}
+          <TextInput ref={composeRef} value={body} onChangeText={setBody} placeholder={selectedReplySong?'Add a note (optional)...':replyTo?`Reply to ${replyTo.displayName}...`:'Reply to this post...'}
             placeholderTextColor="#777" style={styles.input} multiline maxLength={280} />
           <Pressable onPress={reply} disabled={busy || (!body.trim() && !selectedReplySong)}
             style={[styles.send, (!body.trim() && !selectedReplySong || busy) && { opacity: 0.4 }]}>
