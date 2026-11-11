@@ -1901,19 +1901,6 @@ export default function NowScreen() {
           </View>
         </View>
 
-        <View style={{ borderBottomWidth: 1, borderBottomColor: '#222', paddingHorizontal: 20, paddingVertical: 12 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Share music to OVRLEE"
-            onPress={() => router.push({ pathname: '/create-post', params: { musicPicker: '1' } })}
-            style={{ borderRadius: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 13, borderWidth: 1, borderColor: scheme==='light'?'#BD9B8B':'#2A442D', backgroundColor: scheme==='light'?'#F2E6E0':'#101E14' }}>
-            <Text style={{ color: brandAccent, fontSize: 22, marginRight: 14 }}>♫</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: scheme==='light'?'#3B2218':'#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.7 }}>SHARE A SONG</Text>
-              <Text style={{ color: scheme==='light'?'#745A4C':'#8EA794', fontSize: 11, marginTop: 3 }}>Search or paste Spotify & Apple Music links</Text>
-            </View>
-            <Text style={{ color: brandAccent, fontSize: 22 }}>›</Text>
-          </Pressable>
-        </View>
-
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={
@@ -2076,29 +2063,23 @@ export default function NowScreen() {
             )}
           </View>
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Discover music and people nearby"
-            onPress={() => router.push('/nearby')}
-            style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 16, borderRadius: 13, backgroundColor: '#151B16', borderWidth: 1, borderColor: '#29442E', padding: 14, flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: brandAccent, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 }}>YOUR CITY</Text>
-              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', marginTop: 4 }}>What's playing around you?</Text>
-              <Text style={{ color: '#888', fontSize: 11, marginTop: 4 }}>Nearby posts, music trends and listeners</Text>
-            </View>
-            <Text style={{ color: brandAccent, fontSize: 24 }}>›</Text>
-          </Pressable>
-
           <View
             style={
               styles.feedHeading
             }
           >
-            <Text
-              style={
-                styles.feedEyebrow
-              }
-            >
-              DISCOVER
-            </Text>
+            <View style={{flexDirection:'row',justifyContent:'space-between',
+              alignItems:'center',gap:12}}>
+              <Text style={styles.feedEyebrow}>DISCOVER</Text>
+              <Pressable accessibilityRole="button"
+                accessibilityLabel="Explore music and people nearby"
+                onPress={()=>router.push('/nearby')}
+                hitSlop={10}
+                style={{paddingVertical:7,paddingHorizontal:9}}>
+                <Text style={{color:brandAccent,fontWeight:'900',fontSize:11,
+                  letterSpacing:1}}>NEARBY ↗</Text>
+              </Pressable>
+            </View>
 
             <Text
               style={
@@ -3121,11 +3102,7 @@ export default function NowScreen() {
                           pressed &&
                             styles.actionPressed,
                         ]}
-                        onPress={() =>
-                          startQuickReply(
-                            post.id
-                          )
-                        }
+                        onPress={() => openPost(post.id)}
                       >
                         <Text
                           style={
@@ -3148,13 +3125,6 @@ export default function NowScreen() {
                         </Text>
                       </Pressable>
 
-                      <Pressable accessibilityRole="button"
-                        accessibilityLabel="Reply with a song"
-                        style={[styles.action,{marginRight:18}]}
-                        onPress={() => router.push({pathname:'/post',params:{postId:post.id,songReply:'1'}})}>
-                        <Text style={[styles.actionIcon,{color:brandAccent}]}>♫</Text>
-                        <Text style={[styles.actionText,{color:'#9ABDA1'}]}>SONG</Text>
-                      </Pressable>
                       <Pressable
                         style={
                           styles.action
@@ -3310,70 +3280,6 @@ export default function NowScreen() {
                       </Pressable>
                     )}
 
-                    {quickReplyOpen && (
-                      <View
-                        style={
-                          styles.quickReply
-                        }
-                      >
-                        <Pressable accessibilityRole="button"
-                          accessibilityLabel="Reply with a song"
-                          onPress={() => router.push({ pathname: '/post', params: { postId: post.id, songReply: '1' } })}
-                          style={{padding:10,backgroundColor:'#172b1b',borderRadius:10,marginRight:6}}>
-                          <Text style={{color:brandAccent,fontSize:20,fontWeight:'800'}}>♫</Text>
-                        </Pressable>
-                        <TextInput
-                          style={
-                            styles.quickReplyInput
-                          }
-                          value={
-                            replyBody
-                          }
-                          onChangeText={
-                            setReplyBody
-                          }
-                          placeholder={`Reply to @${post.username}...`}
-                          placeholderTextColor="#666666"
-                          maxLength={280}
-                          multiline
-                          autoFocus
-                        />
-
-                        <Pressable
-                          style={[
-                            styles.quickReplyButton,
-
-                            (!replyBody.trim() ||
-                              sendingReply) &&
-                              styles.quickReplyButtonDisabled,
-                          ]}
-                          disabled={
-                            !replyBody.trim() ||
-                            sendingReply
-                          }
-                          onPress={() =>
-                            sendQuickReply(
-                              post.id
-                            )
-                          }
-                        >
-                          {sendingReply ? (
-                            <ActivityIndicator
-                              size="small"
-                              color="#000000"
-                            />
-                          ) : (
-                            <Text
-                              style={
-                                styles.quickReplyButtonText
-                              }
-                            >
-                              REPLY
-                            </Text>
-                          )}
-                        </Pressable>
-                      </View>
-                    )}
                   </Pressable>
                 );
               }
