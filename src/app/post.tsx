@@ -270,7 +270,7 @@ export default function PostDetailScreen() {
           {text:'Cancel',style:'cancel'}
         ])}>
         <Text style={{fontSize:22,color:scheme==='light'?'#3B2218':'#FFFFFF'}}>•••</Text>
-      </Pressable> : <View style={{width:30}}/>
+      </Pressable> : <View style={{width:30}}/>}
     </View>
     {loading && !post ? <ActivityIndicator color={green} style={{ marginTop: 45 }} /> : null}
     {!!error && <Text style={styles.error}>{error}</Text>}
