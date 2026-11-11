@@ -87,6 +87,9 @@ type ReplyRow = {
   post_id: string;
   user_id: string;
   body: string;
+  song_title: string | null;
+  song_artist: string | null;
+  song_artwork_url: string | null;
 };
 
 type FeedReply = {
@@ -96,6 +99,9 @@ type FeedReply = {
   username: string;
   avatarUrl: string | null;
   body: string;
+  songTitle?: string | null;
+  songArtist?: string | null;
+  songArtworkUrl?: string | null;
   createdAt: string;
 };
 
@@ -806,7 +812,7 @@ export default function NowScreen() {
             supabase
               .from('post_replies')
               .select(
-                'id, created_at, post_id, user_id, body'
+                'id, created_at, post_id, user_id, body, song_title, song_artist, song_artwork_url'
               )
               .in(
                 'post_id',
@@ -941,6 +947,9 @@ export default function NowScreen() {
                         body:
                           reply.body,
 
+                        songTitle: reply.song_title,
+                        songArtist: reply.song_artist,
+                        songArtworkUrl: reply.song_artwork_url,
                         createdAt:
                           reply.created_at,
                       };
@@ -3258,11 +3267,7 @@ export default function NowScreen() {
                               2
                             }
                           >
-                            {
-                              post
-                                .latestReply
-                                .body
-                            }
+                            {post.latestReply.songTitle ? `♫ ${post.latestReply.songTitle} — ${post.latestReply.songArtist}${post.latestReply.body && post.latestReply.body !== '♫' ? ' · ' + post.latestReply.body : ''}` : post.latestReply.body}
                           </Text>
                         </View>
                       </Pressable>
@@ -3301,6 +3306,12 @@ export default function NowScreen() {
                           styles.quickReply
                         }
                       >
+                        <Pressable accessibilityRole="button"
+                          accessibilityLabel="Reply with a song"
+                          onPress={() => router.push({ pathname: '/post', params: { postId: post.id, songReply: '1' } })}
+                          style={{padding:10,backgroundColor:'#172b1b',borderRadius:10,marginRight:6}}>
+                          <Text style={{color:'#39E75F',fontSize:20,fontWeight:'800'}}>♫</Text>
+                        </Pressable>
                         <TextInput
                           style={
                             styles.quickReplyInput
