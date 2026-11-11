@@ -104,8 +104,8 @@ export default function ImportedMusic() {
         <Text style={styles.description}>
           Songs and artists you've chosen to save privately. They aren't published to your profile unless you choose to pin or post music.
         </Text>
-        <Pressable style={styles.cta} onPress={() => router.push('/spotify-library')}>
-          <Text style={styles.ctaText}>FIND MORE MUSIC FROM SPOTIFY →</Text>
+        <Pressable style={styles.cta} onPress={() => router.push('/playlist-import')}>
+          <Text style={styles.ctaText}>ADD MUSIC YOU CHOOSE →</Text>
         </Pressable>
         {busy && <ActivityIndicator color={GREEN} style={{marginTop:30}} />}
         {!!error && <Pressable onPress={() => void load()} style={styles.error}>
