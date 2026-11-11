@@ -80,6 +80,7 @@ type ReplyRow = {
   song_title: string | null;
   song_artist: string | null;
   song_artwork_url: string | null;
+  parent_reply_id: string | null;
 };
 
 type FeedReply = {
@@ -92,6 +93,7 @@ type FeedReply = {
   songTitle?: string | null;
   songArtist?: string | null;
   songArtworkUrl?: string | null;
+  parentReplyId?: string | null;
   createdAt: string;
 };
 
@@ -754,7 +756,7 @@ export default function NowScreen() {
             supabase
               .from('post_replies')
               .select(
-                'id, created_at, post_id, user_id, body, song_title, song_artist, song_artwork_url'
+                'id, created_at, post_id, user_id, body, song_title, song_artist, song_artwork_url, parent_reply_id'
               )
               .in(
                 'post_id',
@@ -892,6 +894,7 @@ export default function NowScreen() {
                         songTitle: reply.song_title,
                         songArtist: reply.song_artist,
                         songArtworkUrl: reply.song_artwork_url,
+                        parentReplyId: reply.parent_reply_id,
                         createdAt:
                           reply.created_at,
                       };
@@ -969,6 +972,9 @@ export default function NowScreen() {
             const uniqueParticipants = new Set(
               post.replies.filter(reply => reply.userId !== post.user_id).map(reply => reply.userId)
             ).size;
+            const songReplies = post.replies.filter(reply => !!reply.songTitle);
+            const directExchanges = post.replies.filter(reply => !!reply.parentReplyId);
+            const distinctVoices = new Set(post.replies.map(reply => reply.userId)).size;
             const latestActivityMs = post.latestReply
               ? new Date(post.latestReply.createdAt).getTime()
               : new Date(post.created_at).getTime();
@@ -977,6 +983,10 @@ export default function NowScreen() {
               (followed.has(post.user_id) ? 2.4 : 0) +
               (post.user_id === user.id ? 0.35 : musicPostAffinity(post,feedMusicSeeds)) +
               Math.min(uniqueParticipants, 4) * 0.65 +
+              // Reward genuine back-and-forth, not just accumulated likes.
+              Math.min(songReplies.length, 4) * 0.40 +
+              Math.min(directExchanges.length, 4) * 0.48 +
+              (distinctVoices > 1 ? 0.95 : 0) +
               Math.min(post.likeCount, 12) * 0.10 +
               (post.likedByMe ? 0.3 : 0) +
               (post.body?.trim() ? 0.35 : 0) +
@@ -1045,7 +1055,7 @@ export default function NowScreen() {
         posts
           .filter(
             (post) =>
-              post.replyCount > 0
+              post.replyCount > 0 && post.replies.some(reply => reply.userId !== post.user_id)
           )
           .sort(
             (a, b) => {
@@ -1063,10 +1073,9 @@ export default function NowScreen() {
                     ).getTime()
                   : 0;
 
-              return (
-                bLatest -
-                aLatest
-              );
+              const aExchange = a.replies.filter(r => r.parentReplyId || r.songTitle).length;
+              const bExchange = b.replies.filter(r => r.parentReplyId || r.songTitle).length;
+              return (bLatest-aLatest)/3600000 + (bExchange-aExchange)*0.8;
             }
           );
 
