@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -17,6 +20,8 @@ import { supabase } from '../supabase';
 import WorldCityPicker from '../components/WorldCityPicker';
 
 export default function SetupProfileScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
@@ -287,7 +292,7 @@ export default function SetupProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090909',
