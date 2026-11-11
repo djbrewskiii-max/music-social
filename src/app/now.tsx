@@ -1,7 +1,6 @@
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
-import { requireOptionalNativeModule } from 'expo-modules-core';
 import {
   router,
   useFocusEffect,
@@ -42,18 +41,6 @@ import { reconcileExistingMusicConnection } from '../music-connection-registry';
 import { activityMusicSeeds, listeningMusicSeeds, mergeMusicSeeds, musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
 import { openMusicCard } from '../music-card';
-import { publishRecognizedSong } from '../presence';
-
-type ShazamMatch = { title: string; artist: string; appleMusicId?: string; isrc?: string };
-type ShazamSubscription = { remove: () => void };
-type ShazamModule = {
-  start: () => Promise<void>;
-  stop: () => Promise<void>;
-  addListener(event: 'onMatch', listener: (item: ShazamMatch) => void): ShazamSubscription;
-  addListener(event: 'onError', listener: (error: { message: string }) => void): ShazamSubscription;
-};
-
-const nativeShazam = requireOptionalNativeModule<ShazamModule>('NowShazam');
 
 type PostRow = {
   id: string;
@@ -213,79 +200,6 @@ export default function NowScreen() {
   const brandAccent=scheme==='light'?'#3B2218':'#39E75F';
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
-  const [shazamListening, setShazamListening] = useState(false);
-  const [shazamStarting, setShazamStarting] = useState(false);
-  const [shazamMatch, setShazamMatch] = useState<ShazamMatch | null>(null);
-  const [shazamMessage, setShazamMessage] = useState('');
-
-  useEffect(() => {
-    if (!nativeShazam) return;
-    const found = nativeShazam.addListener('onMatch', (item) => {
-      setShazamMatch(item);
-      setShazamMessage('Song identified');
-      publishRecognizedSong(item).then(() => {
-        getMusicProvider().then(provider => {
-          if (provider === 'spotify') {
-            setShazamMessage('Recently recognized · Shared on OVRLEE');
-          }
-        });
-      }).catch(error => {
-        setShazamMessage('Recognized, but sharing failed');
-        Alert.alert('OVRLEE presence', error instanceof Error ? error.message : String(error));
-      });
-      setShazamListening(false);
-      setShazamStarting(false);
-      nativeShazam.stop().catch(() => {});
-    });
-    const failed = nativeShazam.addListener('onError', (event) => {
-      setShazamMessage(event.message || 'Recognition failed');
-      setShazamListening(false);
-      setShazamStarting(false);
-      nativeShazam.stop().catch(() => {});
-    });
-    return () => {
-      found.remove();
-      failed.remove();
-      nativeShazam.stop().catch(() => {});
-    };
-  }, []);
-
-  useFocusEffect(useCallback(() => {
-    return () => {
-      nativeShazam?.stop().catch(() => {});
-      setShazamListening(false);
-      setShazamStarting(false);
-    };
-  }, []));
-
-  const toggleShazam = async () => {
-    if (!nativeShazam) {
-      Alert.alert('Recognition unavailable', 'This iPhone build does not include ShazamKit.');
-      return;
-    }
-    if (shazamStarting) return;
-    if (shazamListening) {
-      try { await nativeShazam.stop(); } catch (error) { console.log('Shazam stop error:', error); }
-      setShazamListening(false);
-      setShazamMessage('Recognition stopped');
-      return;
-    }
-    setShazamStarting(true);
-    setShazamMatch(null);
-    setShazamMessage('Starting recognition…');
-    try {
-      await nativeShazam.start();
-      setShazamListening(true);
-      setShazamMessage('Listening for music…');
-    } catch (error) {
-      setShazamListening(false);
-      setShazamMessage('Could not start recognition');
-      Alert.alert('Music recognition', error instanceof Error ? error.message : String(error));
-    } finally {
-      setShazamStarting(false);
-    }
-  };
-
   const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number } | null>(null);
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
