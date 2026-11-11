@@ -209,6 +209,7 @@ export default function NowScreen() {
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
+  const [viewerId,setViewerId]=useState<string|null>(null);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [feedError, setFeedError] = useState<string | null>(null);
   const [firstConversation, setFirstConversation] = useState<{postId:string;accountId:string}|null>(null);
@@ -666,6 +667,7 @@ export default function NowScreen() {
             return;
           }
 
+          setViewerId(user.id);
           const relationships = await loadRelationships(user.id);
           // Music presence and Orbit are supplemental. A failure in either
           // must never prevent regular posts or collections from loading.
@@ -2906,7 +2908,7 @@ export default function NowScreen() {
                             artistName:post.artist_name,displayName:post.displayName
                           })},
                           {text:'Open conversation',onPress:()=>openPost(post.id)},
-                          ...(post.user_id===currentUserId ? [] : [
+                          ...(post.user_id===viewerId ? [] : [
                             {text:'Report post',onPress:()=>openPostReportDialog(post.id,post.user_id)}
                           ]),
                           {text:'Cancel',style:'cancel'}
