@@ -225,12 +225,12 @@ export default function NowScreen() {
       publishRecognizedSong(item).then(() => {
         getMusicProvider().then(provider => {
           if (provider === 'spotify') {
-            setShazamMessage('Recently recognized · Shared on NOW');
+            setShazamMessage('Recently recognized · Shared on OVRLEE');
           }
         });
       }).catch(error => {
         setShazamMessage('Recognized, but sharing failed');
-        Alert.alert('NOW presence', error instanceof Error ? error.message : String(error));
+        Alert.alert('OVRLEE presence', error instanceof Error ? error.message : String(error));
       });
       setShazamListening(false);
       setShazamStarting(false);
@@ -1821,7 +1821,7 @@ export default function NowScreen() {
             styles.loadingText
           }
         >
-          Loading NOW...
+          Loading OVRLEE...
         </Text>
       </SafeAreaView>
     );
@@ -2693,9 +2693,7 @@ export default function NowScreen() {
                           >
                             <Pressable
                               onPress={() =>
-                                openProfile(
-                                  post.user_id
-                                )
+                                openPost(post.id)
                               }
                             >
                               <Text
@@ -2732,9 +2730,7 @@ export default function NowScreen() {
                           >
                             <Pressable
                               onPress={() =>
-                                openProfile(
-                                  firstReply.userId
-                                )
+                                openPost(post.id)
                               }
                             >
                               <Text
@@ -2773,9 +2769,7 @@ export default function NowScreen() {
                             >
                               <Pressable
                                 onPress={() =>
-                                  openProfile(
-                                    latestReply.userId
-                                  )
+                                  openPost(post.id)
                                 }
                               >
                                 <Text
