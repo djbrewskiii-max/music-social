@@ -31,6 +31,7 @@ import {
 
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
+import SongPreviewButton from '../components/SongPreviewButton';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
@@ -2650,16 +2651,7 @@ export default function NowScreen() {
                             }
                           </Text>
                         </View>
-                        <Pressable accessibilityRole="button" hitSlop={10}
-                          accessibilityLabel={previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Pause conversation song preview' : 'Play conversation song preview'}
-                          disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
-                          onPress={() => void toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
-                          style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#39E75F', alignItems: 'center', justifyContent: 'center', marginLeft: 10 }}>
-                          <Text style={{ color: '#39E75F', fontSize: 20, fontWeight: '900' }}>
-                            {previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…'
-                              : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '❚❚' : '▶'}
-                          </Text>
-                        </Pressable>
+                        <SongPreviewButton id={post.apple_music_id} song={post.song_title} artist={post.artist_name}/>
                       </View>
 
                       <View
@@ -2884,9 +2876,7 @@ export default function NowScreen() {
                           styles.authorInfo
                         }
                         onPress={() =>
-                          openProfile(
-                            post.user_id
-                          )
+                          openPost(post.id)
                         }
                       >
                         <View
@@ -2941,7 +2931,9 @@ export default function NowScreen() {
                     </View>
 
                     {!!post.body && !post.collection && (
-                      <Text style={styles.body}>{post.body}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Open post conversation" onPress={() => openPost(post.id)}>
+                        <Text style={styles.body}>{post.body}</Text>
+                      </Pressable>
                     )}
 
                     {post.collection ? (
@@ -3015,13 +3007,7 @@ export default function NowScreen() {
                                   <Text style={styles.collectionArtist} numberOfLines={1}>{track.artist}</Text>
                                 </View>
                               </Pressable>
-                              <Pressable accessibilityRole="button" hitSlop={6}
-                                accessibilityLabel={loading ? `Loading preview for ${track.song}` : playing ? `Stop preview for ${track.song}` : `Preview ${track.song}`}
-                                disabled={loading}
-                                onPress={() => toggleSongPreview({ id: track.id, song: track.song, artist: track.artist })}
-                                style={styles.collectionPlayCircle}>
-                                <Text style={styles.collectionPlayIcon}>{loading ? '…' : playing ? '❚❚' : '▶'}</Text>
-                              </Pressable>
+                              <SongPreviewButton size="compact" id={track.id} song={track.song} artist={track.artist} kind={track.kind}/>
                             </View>
                           );
                         })}
@@ -3044,13 +3030,7 @@ export default function NowScreen() {
                             {!!post.album_name && <Text style={styles.album} numberOfLines={1}>{post.album_name}</Text>}
                           </View>
                         </Pressable>
-                        <Pressable accessibilityRole="button" hitSlop={8}
-                          accessibilityLabel={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Loading song preview' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? 'Stop song preview' : 'Preview song'}
-                          disabled={previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name })}
-                          onPress={() => toggleSongPreview({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name, kind: post.music_items?.[0]?.kind === 'album' ? 'album' : 'song' })}
-                          style={styles.playCircle}>
-                          <Text style={styles.play}>{previewLoadingKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '…' : previewActiveKey === previewKey({ id: post.apple_music_id, song: post.song_title, artist: post.artist_name }) ? '❚❚' : '▶'}</Text>
-                        </Pressable>
+                        <SongPreviewButton id={post.apple_music_id} song={post.song_title} artist={post.artist_name} kind={post.music_items?.[0]?.kind === 'album'?'album':'song'}/>
                       </View>
                     )}
 
