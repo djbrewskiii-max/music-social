@@ -24,8 +24,9 @@ type Row = {
   (except on your own profile, where it invites you in).
 */
 export default function FirstListenShelf({
+ userId, owner = false }: { userId?: string | null; owner?: boolean }) {
   const {scheme}=useAppearance();
-  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]); userId, owner = false }: { userId?: string | null; owner?: boolean }) {
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [rows, setRows] = useState<Row[]>([]);
   const [wasThere, setWasThere] = useState<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
