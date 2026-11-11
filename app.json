@@ -16,13 +16,10 @@
       "bundleIdentifier": "com.brewskiii.musicsocial",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSAppleMusicUsageDescription": "OVRLEE uses your Apple Music library and listening to build your music identity, find people who listen like you, and play listening parties in sync.",
+        "NSAppleMusicUsageDescription": "OVRLEE uses your Apple Music library and music selections so you can share songs, express your music taste, and discover conversations.",
         "NSMicrophoneUsageDescription": "OVRLEE uses the microphone only when you tap Recognize Music to identify a song playing near you.",
         "LSApplicationQueriesSchemes": [
           "spotify"
-        ],
-        "UIBackgroundModes": [
-          "audio"
         ]
       }
     },
