@@ -25,7 +25,7 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
 export default function PostDetailScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
-  const params = useLocalSearchParams<{ postId?: string; songReply?: string }>();
+  const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
@@ -33,6 +33,8 @@ export default function PostDetailScreen() {
   const [replies, setReplies] = useState<Reply[]>([]);
   const [replyTo,setReplyTo]=useState<Reply|null>(null);
   const threadRef=useRef<ScrollView|null>(null);
+  const focusedRef=useRef(false);
+  useEffect(()=>{focusedRef.current=false;},[params.focusReplyId,postId]);
   const composeRef=useRef<TextInput|null>(null);
   const [body, setBody] = useState('');
   const [songReplyOpen, setSongReplyOpen] = useState(params.songReply === '1');
@@ -357,7 +359,17 @@ export default function PostDetailScreen() {
           <Text style={styles.section}>CONVERSATION · {replies.length}</Text>
           {replies.length === 0 && <Text style={styles.secondary}>No replies yet. Start the conversation.</Text>}
           {threadedReplies.map(({item:r,depth}) => <View key={r.id}
-            style={[styles.reply,depth>0&&styles.nestedReply,depth>0&&{marginLeft:Math.min(depth,2)*13}]}>
+            onLayout={event=>{
+              if(params.focusReplyId!==r.id||focusedRef.current)return;
+              focusedRef.current=true;
+              const y=event.nativeEvent.layout.y;
+              requestAnimationFrame(()=>threadRef.current?.scrollTo({
+                y:Math.max(0,y-125),animated:true
+              }));
+            }}
+            style={[styles.reply,depth>0&&styles.nestedReply,
+              depth>0&&{marginLeft:Math.min(depth,2)*13},
+              params.focusReplyId===r.id&&styles.focusReply]}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
               <Pressable onPress={() => openProfile(r.user_id)}>
                 {r.avatarUrl ? <Image source={{ uri: r.avatarUrl }} style={styles.avatar} /> :
@@ -534,6 +546,7 @@ const baseStyles = StyleSheet.create({
   section: { color: '#999', fontSize: 12, fontWeight: '900', letterSpacing: 1.4, marginBottom: 12 },
   reply: { borderTopWidth: 1, borderTopColor: '#242424', paddingVertical: 16 },
   nestedReply:{borderLeftWidth:2,borderLeftColor:'#4C6F53',paddingLeft:12},
+  focusReply:{borderRadius:12,backgroundColor:'#193322',paddingHorizontal:10},
   threadAction:{alignSelf:'flex-start',paddingVertical:10,paddingHorizontal:1,marginTop:5},
   threadActionText:{color:green,fontWeight:'800',fontSize:10,letterSpacing:0.6},
   replyToBar:{flexDirection:'row',alignItems:'center',paddingHorizontal:16,paddingVertical:10,borderBottomWidth:1,borderBottomColor:'#343434'},
