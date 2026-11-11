@@ -1190,11 +1190,7 @@ export default function ProfileScreen() {
               'nowuser'}
           </Text>
 
-          {!!profile.overly_trait && (
-            <View style={{ alignSelf: 'flex-end', marginTop: 9, marginRight: 8, borderRadius: 20, borderWidth: 1, borderColor: '#37723E', backgroundColor: '#14281A', paddingHorizontal: 12, paddingVertical: 7 }}>
-              <Text style={{ color: '#BAF5BE', fontWeight: '800', fontSize: 12 }}>{profile.overly_trait}</Text>
-            </View>
-          )}
+
 
           {!!profile.city && (
             <Text
@@ -1231,6 +1227,13 @@ export default function ProfileScreen() {
           )}
 
           {!!profile.bio && <Text style={styles.profileBio}>{profile.bio}</Text>}
+          {!!profile.overly_trait && (
+            <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
+              gap:7,marginTop:12,marginBottom:6}}>
+              <Text style={{color:'#39E75F',fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
+              <Text style={{color:'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
+            </View>
+          )}
           <View style={styles.socialCounts}>
             <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'followers', name: profile.display_name || 'Listener' } })} hitSlop={10}>
               <Text style={styles.socialCountText}><Text style={styles.socialCountNumber}>{followerCount}</Text> {followerCount === 1 ? 'follower' : 'followers'}</Text>
