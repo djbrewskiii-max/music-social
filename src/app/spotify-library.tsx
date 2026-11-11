@@ -512,5 +512,5 @@ const s=StyleSheet.create({
 
 // Production must never navigate into the public-page scraper.
 export default function SpotifyPublicLibrary() {
-  return __DEV__ ? <SpotifyPublicLibraryExperiment /> : <SpotifyConnectScreen />;
+  return <SpotifyConnectScreen />; // Research reader parked; keep its implementation for future approval.
 }
