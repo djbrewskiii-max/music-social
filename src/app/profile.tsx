@@ -1,3 +1,5 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
 import {
   router,
@@ -5,6 +7,7 @@ import {
 } from 'expo-router';
 import {
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -158,6 +161,8 @@ const trackKey = (
   )}`;
 
 export default function ProfileScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const { userId } =
     useLocalSearchParams<{
       userId?: string;
@@ -2084,8 +2089,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
+const baseStyles = StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor:
