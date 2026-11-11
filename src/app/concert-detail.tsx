@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import {
   router,
   useLocalSearchParams,
@@ -35,6 +38,8 @@ const getParam = (
 };
 
 export default function ConcertDetailScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params =
     useLocalSearchParams();
 
@@ -1092,8 +1097,7 @@ export default function ConcertDetailScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
+const baseStyles=StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor:
