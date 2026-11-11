@@ -1,5 +1,7 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -21,6 +23,8 @@ type BottomNavProps = {
 export default function BottomNav({
   active,
 }: BottomNavProps) {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(
@@ -160,7 +164,7 @@ export default function BottomNav({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     height: 78,
     borderTopWidth: 1,
