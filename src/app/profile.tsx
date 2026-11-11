@@ -1236,7 +1236,7 @@ export default function ProfileScreen() {
             <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
               gap:7,marginTop:12,marginBottom:6}}>
               <Text style={{color:'#39E75F',fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
-              <Text style={{color:'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
+              <Text style={{color:scheme==='light'?'#214729':'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
             </View>
           )}
           <View style={styles.socialCounts}>
