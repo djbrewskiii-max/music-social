@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { Auth, AuthStatus, History } from '@wwdrew/expo-apple-music';
 import { requireNativeModule } from 'expo-modules-core';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,6 +33,8 @@ const toTrack = (song: any): Track => ({
   artworkUrl: artwork(song?.artworkUrl || song?.artwork?.url),
 });
 export default function CreatePostScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const { sharedUrl, musicPicker } = useLocalSearchParams<{ sharedUrl?: string; musicPicker?: string }>();
   const [step, setStep] = useState<'compose' | 'music'>(musicPicker === '1' ? 'music' : 'compose');
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
@@ -379,7 +384,7 @@ export default function CreatePostScreen() {
     </SafeAreaView>
   );
 }
-const styles = StyleSheet.create({
+const baseStyles=StyleSheet.create({
   studioCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f1a11', borderWidth: 1, borderColor: '#24412a', borderRadius: 18, padding: 16, marginTop: 18 },
   studioEyebrow: { color: '#39E75F', fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
   studioTitle: { color: '#ffffff', fontSize: 18, fontWeight: '900', marginTop: 6 },
