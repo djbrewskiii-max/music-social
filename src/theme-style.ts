@@ -7,6 +7,7 @@ const ONLINE=new Set(['online','live','presence','unread','new','verified','succ
 const isStatus=(key:string)=>ONLINE.has(key.toLowerCase())||/(?:online|live|presence|unread|verified|success|listening|status|newdot|roomcountdot|onlinedot)/i.test(key);
 
 function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):string{
+  if(scheme==='dark')return value; // Preserve the original dark design exactly.
   const textProp=prop==='color';
   const borderProp=prop.toLowerCase().includes('border')&&prop.toLowerCase().includes('color');
   const bgProp=prop==='backgroundColor';
@@ -63,6 +64,7 @@ function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):str
  * For all new UI use useAppearance().colors directly.
  */
 export function themedStyleSheet<T extends Record<string,any>>(source:T,scheme:'light'|'dark'):T{
+  if(scheme==='dark')return source;
   const out:Record<string,any>={};
   for(const [name,style] of Object.entries(source)){
     const flat=StyleSheet.flatten(style) as Record<string,unknown>|undefined;
