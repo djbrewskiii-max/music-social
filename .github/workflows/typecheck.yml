@@ -17,16 +17,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: node tools/beta-release-config.test.mjs
       - run: node --experimental-strip-types tools/music-launch-sources.test.mjs
-      - run: node tools/playlist-snapshot-diff.test.mjs
-      - run: node --experimental-strip-types tools/spotify-public-reader.test.mjs
       - run: node --experimental-strip-types tools/music-suggestion-signals.test.mjs
-      - run: node --experimental-strip-types tools/listenbrainz-sync.test.mjs
-      - run: node --check tools/listenbrainz-daily.mjs
       - run: node --experimental-strip-types tools/music-taste-evidence.test.mjs
-      - run: node --experimental-strip-types tools/musicapi-normalizer.test.mjs
-      - run: node --experimental-strip-types tools/spotify-observation-diff.test.mjs
-      - run: node --check tools/spotify-weekly-refresh.mjs
+      # Archived Spotify/ListenBrainz research tests remain under tools/
+      # but are intentionally excluded from the active launch pipeline.
 
   spotify-native-swift-parse:
     runs-on: macos-latest
