@@ -32,7 +32,7 @@ export default function ShareIntentHandler() {
     resetShareIntent();
     if (url && (isMusicLink(url) || isSpotifyProfileLink(url) || parseSpotifyShowcaseLink(url)?.kind === 'playlist')) setPending(url);
     else Alert.alert('Share music to OVRLEE',
-      __DEV__ ? 'Share your Spotify profile to experiment with music discovery, or share a song or album to post.' : 'Share a Spotify song or album to post, or share your profile to save its link.');
+      'Share a song or playlist to OVRLEE, or share your Spotify profile to save its link.');
   }, [hasShareIntent, shareIntent, resetShareIntent]);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function ShareIntentHandler() {
       if(PROFILE_NOT_READY.has(pathname))return;
       const profile=normalizePublicProfile(pending);
       setPending(null);
-      router.push({pathname:__DEV__?'/spotify-library':'/spotify-connect',
+      router.push({pathname:'/spotify-connect',
         params:{onboarding:'1',profile:profile.url}});
       return;
     }
