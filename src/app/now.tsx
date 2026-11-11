@@ -1,3 +1,5 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import {
@@ -206,6 +208,8 @@ const songKey = (track: MusicTrack) =>
   `${normalize(track.artist)}::${normalize(track.song)}`;
 
 export default function NowScreen() {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   useFocusEffect(useCallback(() => { getMusicProvider().then(setMusicProviderState); }, []));
   const [shazamListening, setShazamListening] = useState(false);
@@ -3386,8 +3390,7 @@ export default function NowScreen() {
   );
 }
 
-const styles =
-  StyleSheet.create({
+const baseStyles = StyleSheet.create({
     screen: {
       flex: 1,
       backgroundColor:
