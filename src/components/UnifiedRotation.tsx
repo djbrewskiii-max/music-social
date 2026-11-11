@@ -122,13 +122,14 @@ const rank = (t: Track, q: string) => {
 };
 
 export default function UnifiedRotation({
-  const {scheme}=useAppearance();
-  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
+
   owner = false,
   userId,
   fallbackTracks = [],
   hideHeading = false,
 }: Props) {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{ openRotation?: string }>();
   const [newSuggestionCount, setNewSuggestionCount] = useState(0);
   const [accountId, setAccountId] =
