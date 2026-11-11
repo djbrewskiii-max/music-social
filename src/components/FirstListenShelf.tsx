@@ -7,7 +7,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { isFirst24 } from '../first-listen';
 import { supabase } from '../supabase';
 
-const GREEN = '#BA8B73';
+const GREEN = '#39E75F';
 
 type Row = {
   room_id: string;
