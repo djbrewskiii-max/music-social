@@ -50,7 +50,7 @@ type Suggestion = Track & {
   source: 'activity' | 'catalog';
 };
 
-const GREEN = '#BA8B73';
+const GREEN = '#39E75F';
 const catalogArtCache = new Map<string, string>();
 // Apple Music metadata is used to decorate user-reviewed imports, not to infer listening.
 async function matchCatalogArtwork(track: Track): Promise<string> {
