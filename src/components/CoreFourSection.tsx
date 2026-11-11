@@ -158,7 +158,7 @@ export default function CoreFourSection({ userId, owner = false }: { userId?: st
   const existingStory = selected ? stories[albumKey(selected)] : undefined;
   return <View style={s.section}>
     <View style={s.heading}><View style={{ flex: 1 }}><Text style={s.eyebrow}>THE ALBUMS THAT DEFINE {owner ? 'YOU' : 'THEM'}</Text><Text style={s.title}>Core Four.</Text></View>
-      {owner && <Pressable style={[s.edit,{borderColor:colors.border,backgroundColor:colors.surface}]} onPress={() => router.push('/core-four' as any)}><Text style={[s.editText,{color:colors.accent}]}>{albums.length ? 'EDIT' : 'ADD FOUR'} →</Text></Pressable>}
+      {owner && <Pressable style={[s.edit,scheme==='light'&&{borderColor:colors.border,backgroundColor:colors.surface}]} onPress={() => router.push('/core-four' as any)}><Text style={[s.editText,{color:colors.accent}]}>{albums.length ? 'EDIT' : 'ADD FOUR'} →</Text></Pressable>}
     </View>
     {loading ? <ActivityIndicator color={GREEN} style={{ marginVertical: 30 }} /> : error ? <Text style={s.empty}>Couldn't load Core Four: {error}</Text> : albums.length === 0 ? <Pressable onPress={() => router.push('/core-four' as any)} style={s.emptyBox}><Text style={s.emptyTitle}>Your taste, your story.</Text><Text style={s.empty}>Choose four albums that mean something to you.</Text><Text style={s.cta}>CHOOSE YOUR FOUR →</Text></Pressable> : <>
       <View style={s.grid}>{albums.map(album => <View key={`${album.position}-${albumKey(album)}`} style={s.item}>
