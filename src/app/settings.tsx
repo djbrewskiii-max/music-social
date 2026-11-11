@@ -100,15 +100,7 @@ export default function SettingsScreen() {
             onPress={toggleIntro} />
         </View>
 
-        {__DEV__ && <>
-          <Text style={styles.section}>DEVELOPER TOOLS</Text>
-          <View style={styles.group}>
-            <SettingRow first icon="waveform" label="Shazam Lab" detail="Experimental audio recognition"
-              onPress={() => router.push('/shazam-lab')} />
-            <SettingRow icon="music.note.list" label="System Music Test" detail="Playback diagnostics"
-              onPress={() => router.push('/system-music-test')} />
-          </View>
-        </>}
+
 
         <Pressable accessibilityRole="button" onPress={signOut} style={styles.signOut}>
           <Text style={styles.signOutText}>Sign out</Text>
