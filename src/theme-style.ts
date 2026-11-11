@@ -1,61 +1,72 @@
 import {StyleSheet} from 'react-native';
 
-/**
- * Transitional light palette for legacy dark-first screens.
- * Treat their shared StyleSheet colors consistently without touching layout.
- * New components should consume useAppearance().colors directly.
- * This intentionally does not recolor photos, artwork or inline image overlays.
- */
-function recolor(key:string, original:string):string{
-  if(original==='transparent')return original;
-  if(key==='color'&&original.toLowerCase()==='white')return '#17251B';
-  if(original.startsWith('rgba(')){
-    if(key==='color'){
-      const rgba=/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i.exec(original);
-      if(rgba&&Number(rgba[1])>175&&Number(rgba[2])>175&&Number(rgba[3])>175)
-        return `rgba(23,37,27,${rgba[4]})`;
+const CHOCOLATE='#3B2218';
+const LIGHT_CHOCOLATE='#BA8B73';
+const GREEN='#39E75F';
+const ONLINE=new Set(['online','live','presence','unread','new','verified','success','status','listening','dot','activeindicator','available']);
+const isStatus=(key:string)=>ONLINE.has(key.toLowerCase())||/(?:online|live|presence|unread|verified|success|listening|status|newdot|roomcountdot|onlinedot)/i.test(key);
+
+function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):string{
+  const textProp=prop==='color';
+  const borderProp=prop.toLowerCase().includes('border')&&prop.toLowerCase().includes('color');
+  const bgProp=prop==='backgroundColor';
+  if(!textProp&&!borderProp&&!bgProp)return value;
+  if(value==='transparent')return value;
+  const brightGreen=/(?:#39e75f|#35d95[0-9a-f]|#2fe[0-9a-f]{3}|#ba[f0-9]{4})/i.test(value);
+  const status=isStatus(name);
+  if(brightGreen){
+    if(status)return GREEN;
+    if(textProp||borderProp)return scheme==='light'?CHOCOLATE:LIGHT_CHOCOLATE;
+    if(bgProp)return scheme==='light'?'#EFE0D7':'#3B2218';
+  }
+  if(scheme==='dark')return value;
+  if(value.toLowerCase()==='white'&&textProp)return CHOCOLATE;
+  if(value.startsWith('rgba(')){
+    if(textProp){
+      const match=/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/i.exec(value);
+      if(match&&+match[1]>160&&+match[2]>160&&+match[3]>160)
+        return `rgba(59,34,24,${match[4]})`;
     }
-    return original;
+    return value;
   }
-  const m=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(original);
-  if(!m)return original;
-  let hex=m[1];
-  if(hex.length===3)hex=hex.split('').map(x=>x+x).join('');
-  const nums=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));
-  const [r,g,b]=nums;
+  const m=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+  if(!m)return value;
+  const hex=m[1].length===3?m[1].split('').map(x=>x+x).join(''):m[1];
+  const [r,g,b]=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));
   const bright=(r+g+b)/3;
-  const greenish=g>r*1.18 && g>b*1.06;
-  const isBorder=key.toLowerCase().includes('border');
-  if(key==='color'){
-    if(greenish)return '#18783A';
-    if(bright>175)return '#17251B';
-    if(bright>70)return '#516459';
-    return original; // Keep button text on colored call-to-actions.
+  const greenish=g>r*1.18&&g>b*1.06;
+  if(textProp){
+    if(greenish)return status?'#16843E':CHOCOLATE;
+    if(bright>170)return CHOCOLATE;
+    if(bright>65)return '#796C65';
+    return value;
   }
-  if(isBorder){
-    if(greenish)return '#9BCBAB';
-    if(bright<140)return '#D3DED5';
-    return original;
+  if(borderProp){
+    if(greenish)return status?'#78BF84':'#C8A99A';
+    return bright<140?'#E1D4CC':value;
   }
-  if(key==='backgroundColor'){
-    if(greenish)return '#E7F3E9';
+  if(bgProp){
+    if(greenish)return status?'#D7F5DE':'#F1E5DE';
     if(bright<35)return '#FFFFFF';
-    if(bright<95)return '#EEF3EF';
-    return original;
+    if(bright<100)return '#F2EBE6';
   }
-  return original;
+  return value;
 }
+
+/** Transitional palette for dark-first components.
+ * Light screens get readable surfaces; brand-green styles turn chocolate,
+ * except for explicit live/online/notification states.
+ * For all new UI use useAppearance().colors directly.
+ */
 export function themedStyleSheet<T extends Record<string,any>>(source:T,scheme:'light'|'dark'):T{
-  if(scheme==='dark')return source;
   const out:Record<string,any>={};
-  for(const [key,style] of Object.entries(source)){
+  for(const [name,style] of Object.entries(source)){
     const flat=StyleSheet.flatten(style) as Record<string,unknown>|undefined;
-    if(!flat){out[key]=style;continue;}
+    if(!flat){out[name]=style;continue;}
     const changed:Record<string,unknown>={...flat};
     for(const [prop,value] of Object.entries(flat))
-      if(typeof value==='string' && (prop==='color'||prop==='backgroundColor'||prop.toLowerCase().includes('border')))
-        changed[prop]=recolor(prop,value);
-    out[key]=changed;
+      if(typeof value==='string')changed[prop]=recolor(name,prop,value,scheme);
+    out[name]=changed;
   }
   return out as T;
 }
