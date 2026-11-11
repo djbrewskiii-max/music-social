@@ -198,9 +198,9 @@ export default function NearbyScreen() {
             <Text style={styles.cityEdit}>EDIT CITY</Text>
           </Pressable>
         </View>
-        <Text style={styles.eyebrow}>MUSIC IS LOCAL</Text>
-        <Text style={styles.title}>Around you.</Text>
-        <Text style={styles.subtitle}>{city || 'Your city'} · Discover what your community is sharing.</Text>
+        <Text style={styles.eyebrow}>DISCOVER NEARBY</Text>
+        <Text style={styles.title}>What's being shared around you?</Text>
+        <Text style={styles.subtitle}>{city || 'Your city'} · Songs, artists and conversations from people in your area.</Text>
         <Text style={styles.notice}>Approximate 35-mile (56 km) vicinity around your selected city, including other nearby towns. Based on opt-in profile cities and posted music—not GPS or live listening.</Text>
         <View style={styles.tabs}>
           <Pressable onPress={() => router.push('/now')} style={styles.tab}><Text style={styles.tabOff}>FOR YOU</Text></Pressable>
@@ -330,7 +330,7 @@ const baseStyles=StyleSheet.create({
   top: { color:'#aaa', letterSpacing:1.5, fontSize:11, fontWeight:'900' },
   back: { color:'#fff', fontSize:34 }, cityEdit: { color:green, fontWeight:'900', fontSize:10 },
   eyebrow: { color:green, fontSize:10, fontWeight:'900', letterSpacing:2 },
-  title: { color:'#fff', fontSize:34, fontWeight:'900', marginTop:9 },
+  title: { color:'#fff', fontSize:30, lineHeight:36, fontWeight:'900', marginTop:9 },
   subtitle: { color:'#ddd', fontSize:14, marginTop:8 },
   notice: { color:'#777', fontSize:11, lineHeight:17, marginTop:10 },
   tabs: { flexDirection:'row', marginTop:25, borderBottomWidth:1, borderBottomColor:'#333' },
