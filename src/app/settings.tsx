@@ -1,141 +1,109 @@
 import { SymbolView } from 'expo-symbols';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-import { isOverlyIntroEnabled, setOverlyIntroEnabled } from '../overly-preferences';
+import { useAppearance, type AppearancePreference } from '../appearance';
 import { unregisterPushNotifications } from '../notifications';
 import { supabase } from '../supabase';
 
-const GREEN = '#39E75F';
-
-type SettingRowProps = {
-  icon: string;
-  label: string;
-  detail?: string;
-  onPress: () => void;
-  trailing?: string;
-  first?: boolean;
+type RowProps={
+  icon:string;label:string;detail?:string;onPress:()=>void;first?:boolean;
 };
-
-function SettingRow({ icon, label, detail, onPress, trailing, first }: SettingRowProps) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-      style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && styles.rowPressed]}>
-      <View style={styles.rowIcon}>
-        <SymbolView name={icon as any} tintColor="#EDEDED" size={20}
-          fallback={<Text style={styles.fallbackIcon}>•</Text>} />
+export default function SettingsScreen(){
+  const {colors,preference,setPreference}=useAppearance();
+  const row=({icon,label,detail,onPress,first}:RowProps)=>(
+    <Pressable key={label} accessibilityRole="button" onPress={onPress}
+      style={({pressed})=>[styles.row,!first&&{borderTopWidth:1,borderTopColor:colors.border},pressed&&{opacity:.65}]}>
+      <View style={[styles.icon,{backgroundColor:colors.raised}]}>
+        <SymbolView name={icon as any} size={19} tintColor={colors.text}
+          fallback={<Text style={{color:colors.text}}>•</Text>}/>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{label}</Text>
-        {!!detail && <Text style={styles.rowDetail}>{detail}</Text>}
+      <View style={{flex:1}}>
+        <Text style={[styles.rowTitle,{color:colors.text}]}>{label}</Text>
+        {!!detail&&<Text style={[styles.detail,{color:colors.secondary}]}>{detail}</Text>}
       </View>
-      {!!trailing && <Text style={styles.trailing}>{trailing}</Text>}
-      <SymbolView name="chevron.right" size={14} tintColor="#686868"
-        fallback={<Text style={{ color: '#686868', fontSize: 20 }}>›</Text>} />
+      <Text style={{color:colors.secondary,fontSize:22}}>›</Text>
     </Pressable>
   );
-}
-
-export default function SettingsScreen() {
-  const [introEnabled, setIntroEnabled] = useState(true);
-
-  useFocusEffect(useCallback(() => {
-    let active = true;
-    isOverlyIntroEnabled().then(enabled => { if (active) setIntroEnabled(enabled); }).catch(() => {});
-    return () => { active = false; };
-  }, []));
-
-  const toggleIntro = async () => {
-    const next = !introEnabled;
-    try { await setOverlyIntroEnabled(next); setIntroEnabled(next); }
-    catch (error) { console.log('Could not save intro preference:', error); }
-  };
-  const signOut = () => Alert.alert('Sign out of OVRLEE?', undefined, [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Sign out', style: 'destructive', onPress: async () => {
+  const group=(items:RowProps[])=>(
+    <View style={[styles.group,{backgroundColor:colors.surface,borderColor:colors.border}]}>
+      {items.map(row)}
+    </View>
+  );
+  const signOut=()=>Alert.alert('Sign out of OVRLEE?',undefined,[
+    {text:'Cancel',style:'cancel'},
+    {text:'Sign out',style:'destructive',onPress:async()=>{
       await unregisterPushNotifications();
       await supabase.auth.signOut();
       router.replace('/login');
-    } },
+    }}
   ]);
-
-  return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back to profile"
-          onPress={() => router.back()} hitSlop={12} style={styles.back}>
-          <SymbolView name="arrow.left" tintColor="#FFF" size={24}
-            fallback={<Text style={styles.fallbackIcon}>‹</Text>} />
-        </Pressable>
-        <Text style={styles.title}>Settings and activity</Text>
-        <View style={{ width: 32 }} />
+  const choices:AppearancePreference[]=['system','light','dark'];
+  return <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
+    <View style={[styles.header,{borderColor:colors.border}]}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Back to profile" onPress={()=>router.back()} hitSlop={12}>
+        <Text style={{fontSize:28,color:colors.text}}>‹</Text>
+      </Pressable>
+      <Text style={[styles.headerTitle,{color:colors.text}]}>Settings and activity</Text>
+      <View style={{width:20}}/>
+    </View>
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={{color:colors.secondary,fontSize:14}}>Make OVRLEE yours.</Text>
+      <Text style={[styles.section,{color:colors.secondary}]}>YOUR ACCOUNT</Text>
+      {group([
+        {icon:'person.crop.circle',label:'Edit profile',detail:'Photo, bio, your Overly and city',onPress:()=>router.push('/edit-profile'),first:true},
+        {icon:'location.circle',label:'Nearby privacy',detail:'Control where people can discover you',onPress:()=>router.push('/edit-profile')},
+      ])}
+      <Text style={[styles.section,{color:colors.secondary}]}>APPEARANCE</Text>
+      <View style={[styles.group,{backgroundColor:colors.surface,borderColor:colors.border,padding:14}]}>
+        <Text style={[styles.rowTitle,{color:colors.text}]}>App theme</Text>
+        <Text style={[styles.detail,{color:colors.secondary,marginBottom:12}]}>
+          Use your phone's appearance or choose a theme.
+        </Text>
+        <View style={{flexDirection:'row',gap:8}}>
+          {choices.map(choice=>(
+            <Pressable key={choice} accessibilityRole="radio"
+              accessibilityState={{selected:preference===choice}}
+              onPress={()=>void setPreference(choice)}
+              style={[styles.choice,{borderColor:preference===choice?colors.accent:colors.border,
+                backgroundColor:preference===choice?colors.raised:colors.surface}]}>
+              <Text style={{color:preference===choice?colors.accent:colors.text,fontWeight:'800',fontSize:13}}>
+                {choice==='system'?'System':choice==='light'?'Light':'Dark'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.subTitle}>Make OVRLEE yours.</Text>
-
-        <Text style={styles.section}>YOUR ACCOUNT</Text>
-        <View style={styles.group}>
-          <SettingRow first icon="person.crop.circle" label="Edit profile" detail="Photo, bio, your Overly and city"
-            onPress={() => router.push('/edit-profile')} />
-          <SettingRow icon="location.circle" label="Nearby privacy" detail="Control whether people around you can discover you"
-            onPress={() => router.push('/edit-profile')} />
-        </View>
-
-        <Text style={styles.section}>MUSIC</Text>
-        <View style={styles.group}>
-          <SettingRow first icon="music.note" label="Preferred music service" detail="Where songs and albums open"
-            onPress={() => router.push('/music-settings')} />
-          <SettingRow icon="music.note.list" label="My Spotify playlists" detail="Showcase the playlists you choose to share"
-            onPress={() => router.push('/spotify-showcase')} />
-
-        </View>
-
-        <Text style={styles.section}>HOW OVRLEE WORKS</Text>
-        <View style={styles.group}>
-          <SettingRow first icon="bell" label="Notifications" detail="Posts, replies, friends and messages"
-            onPress={() => router.push('/notification-settings')} />
-          <SettingRow icon="sparkles" label="Overly opening animation"
-            detail="Replay the opening sequence during design review" trailing={introEnabled ? 'ON' : 'OFF'}
-            onPress={toggleIntro} />
-        </View>
-
-
-
-        <Pressable accessibilityRole="button" onPress={signOut} style={styles.signOut}>
-          <Text style={styles.signOutText}>Sign out</Text>
-        </Pressable>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerBrand}>OVRLEE <Text style={{ color: GREEN }}>✦</Text></Text>
-          <Text style={styles.footerText}>Music is better when it's shared.</Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      <Text style={[styles.section,{color:colors.secondary}]}>MUSIC</Text>
+      {group([
+        {icon:'music.note',label:'Music service',detail:'Spotify or Apple Music playback',onPress:()=>router.push('/music-settings'),first:true},
+        {icon:'music.note.list',label:'My Spotify playlists',detail:'Showcase playlists you choose to share',onPress:()=>router.push('/spotify-showcase')},
+      ])}
+      <Text style={[styles.section,{color:colors.secondary}]}>ACTIVITY</Text>
+      {group([
+        {icon:'bell',label:'Notifications',detail:'Replies, likes, follows and messages',onPress:()=>router.push('/notification-settings'),first:true}
+      ])}
+      <Pressable onPress={signOut} accessibilityRole="button"
+        style={[styles.signOut,{borderColor:colors.border}]}>
+        <Text style={{color:'#C75D66',fontWeight:'800'}}>Sign out</Text>
+      </Pressable>
+      <View style={{alignItems:'center',marginTop:38}}>
+        <Text style={{color:colors.text,fontWeight:'900',letterSpacing:2}}>OVRLEE <Text style={{color:colors.accent}}>✦</Text></Text>
+        <Text style={[styles.detail,{color:colors.secondary}]}>Music is better when it's shared.</Text>
+      </View>
+    </ScrollView>
+  </SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#080808' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, minHeight: 60, borderBottomWidth: 1, borderColor: '#212121' },
-  back: { width: 32, height: 38, justifyContent: 'center' },
-  fallbackIcon: { color: '#FFF', fontSize: 23, fontWeight: '800' },
-  title: { color: '#FFF', fontSize: 17, fontWeight: '900' },
-  content: { padding: 20, paddingBottom: 75 },
-  subTitle: { color: '#B0B0B0', fontSize: 14, marginBottom: 18 },
-  section: { color: '#999', fontSize: 11, fontWeight: '900', letterSpacing: 1.6, marginTop: 26, marginBottom: 12, paddingLeft: 4 },
-  group: { backgroundColor: '#121212', borderWidth: 1, borderColor: '#252525', borderRadius: 16, paddingHorizontal: 14 },
-  row: { minHeight: 66, flexDirection: 'row', alignItems: 'center', paddingVertical: 13, gap: 13 },
-  rowDivider: { borderTopWidth: 1, borderTopColor: '#242424' },
-  rowPressed: { opacity: 0.7 },
-  rowIcon: { height: 36, width: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: '#222' },
-  rowTitle: { color: '#F8F8F8', fontSize: 14, fontWeight: '800' },
-  rowDetail: { color: '#999', fontSize: 11, lineHeight: 16, marginTop: 4 },
-  trailing: { color: GREEN, fontWeight: '900', fontSize: 11 },
-  signOut: { marginTop: 30, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: '#342020', borderRadius: 13 },
-  signOutText: { color: '#FF9A9A', fontWeight: '800', fontSize: 13 },
-  footer: { alignItems: 'center', marginTop: 42 },
-  footerBrand: { color: '#FFF', letterSpacing: 2.4, fontWeight: '900', fontSize: 12 },
-  footerText: { color: '#696969', fontSize: 11, marginTop: 7 },
+const styles=StyleSheet.create({
+  screen:{flex:1},
+  header:{height:60,paddingHorizontal:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1},
+  headerTitle:{fontSize:17,fontWeight:'900'},
+  content:{padding:20,paddingBottom:90},
+  section:{fontSize:11,fontWeight:'900',letterSpacing:1.4,marginTop:26,marginBottom:12,marginLeft:4},
+  group:{borderWidth:1,borderRadius:16,paddingHorizontal:14},
+  row:{minHeight:68,flexDirection:'row',alignItems:'center',gap:12,paddingVertical:14},
+  icon:{width:36,height:36,borderRadius:10,alignItems:'center',justifyContent:'center'},
+  rowTitle:{fontSize:14,fontWeight:'800'},
+  detail:{fontSize:11,lineHeight:17,marginTop:5},
+  choice:{flex:1,paddingVertical:13,alignItems:'center',borderRadius:12,borderWidth:1},
+  signOut:{marginTop:30,borderRadius:13,borderWidth:1,padding:17,alignItems:'center'}
 });
