@@ -9,6 +9,7 @@ import { CollectionMeta, itemsFromPost } from '../collection';
 import { openMusicCard } from '../music-card';
 import { previewKey, useSongPreview } from '../preview-player';
 import Slide, { buildSlides, ThemeKey } from './CollectionSlides';
+import SongPreviewButton from './SongPreviewButton';
 
 /*
   How a collection appears in the feed and on profiles: its title in the
@@ -76,12 +77,8 @@ export default function CollectionPreview({
                   </Text>
                 </View>
               </Pressable>
-              <Pressable accessibilityRole="button"
-                accessibilityLabel={loading ? `Loading ${it.song} preview` : playing ? `Stop ${it.song} preview` : `Preview ${it.song}`}
-                disabled={loading} onPress={() => toggle(track)} hitSlop={8}
-                style={{ minHeight: 44, minWidth: 42, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={styles.play}>{loading ? '…' : playing ? '❚❚' : '▶'}</Text>
-              </Pressable>
+              <SongPreviewButton size="compact" id={it.id} song={it.song}
+                artist={it.artist} kind={it.kind==='album'?'album':'song'} />
             </View>
           );
         })}
