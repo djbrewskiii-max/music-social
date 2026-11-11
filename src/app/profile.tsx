@@ -749,7 +749,7 @@ export default function ProfileScreen() {
         { text: 'Unblock', onPress: () => changeRelationship('block') },
       ]);
     } else {
-      Alert.alert('Block this user?', 'This removes follows between you. Their content and messages will need to be filtered throughout NOW as we finish the safety system.', [
+      Alert.alert('Block this user?', 'Blocking prevents new direct messages between you and this account. You can unblock later. Past conversation history may still remain.', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Block', style: 'destructive', onPress: () => changeRelationship('block') },
       ]);
