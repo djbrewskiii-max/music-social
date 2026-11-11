@@ -52,8 +52,8 @@ export default function ShareIntentHandler() {
       if (PROFILE_NOT_READY.has(pathname)) return;
       setPending(null);
       // Spotify officially supports sharing and embedding playlist links.
-      // Members choose whether to feature the playlist; no track list is read.
-      router.push({ pathname: '/spotify-showcase', params: { url: showcased.url } });
+      // Open the member-shared playlist using Spotify's public link. No track list is read.
+      router.push({ pathname: '/spotify-explore', params: { url: showcased.url } });
       return;
     }
     if(NOT_READY.has(pathname))return;
