@@ -24,7 +24,6 @@ function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):str
     if(textProp||borderProp)return CHOCOLATE;
     if(bgProp)return '#F1E5DE';
   }
-  if(scheme==='dark')return value;
   if(value.toLowerCase()==='white'&&textProp)return CHOCOLATE;
   if(value.startsWith('rgba(')){
     if(textProp){
