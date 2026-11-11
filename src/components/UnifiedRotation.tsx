@@ -1,3 +1,5 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
 import { launchSafeImports } from '../music-launch-sources';
 
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -48,7 +50,7 @@ type Suggestion = Track & {
   source: 'activity' | 'catalog';
 };
 
-const GREEN = '#39E75F';
+const GREEN = '#BA8B73';
 const catalogArtCache = new Map<string, string>();
 // Apple Music metadata is used to decorate user-reviewed imports, not to infer listening.
 async function matchCatalogArtwork(track: Track): Promise<string> {
@@ -120,6 +122,8 @@ const rank = (t: Track, q: string) => {
 };
 
 export default function UnifiedRotation({
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   owner = false,
   userId,
   fallbackTracks = [],
@@ -1244,7 +1248,7 @@ export default function UnifiedRotation({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrap: {
     marginTop: 20,
     marginBottom: 14,
