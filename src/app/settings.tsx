@@ -76,7 +76,7 @@ export default function SettingsScreen(){
       <Text style={[styles.section,{color:colors.secondary}]}>MUSIC</Text>
       {group([
         {icon:'music.note',label:'Music service',detail:'Spotify or Apple Music playback',onPress:()=>router.push('/music-settings'),first:true},
-        {icon:'music.note.list',label:'My Spotify playlists',detail:'Showcase playlists you choose to share',onPress:()=>router.push('/spotify-showcase')},
+
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>ACTIVITY</Text>
       {group([
