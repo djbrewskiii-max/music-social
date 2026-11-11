@@ -32,6 +32,9 @@
 
 ### First-session participation
 - No new signup gate, music account connection, or separate page.
+- Favorite-artist onboarding now requires **three** deliberate selections instead
+  of five. Members can add more in Music Settings; no artist-data import is
+  required to begin using the social app.
 - Members with zero recorded post replies see **one dismissible, compact**
   invitation to a real music post on the For You feed.
 - The invitation opens that post's conversation, where users can answer with a
