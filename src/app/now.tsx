@@ -2903,13 +2903,13 @@ export default function NowScreen() {
                         accessibilityLabel={`More options for ${post.displayName}'s post`}
                         hitSlop={10}
                         onPress={() => Alert.alert('Post options',undefined,[
-                          {text:'Share post',onPress:()=>void shareOVRLEEPost({
+                          {text:'Share post',onPress:()=>setTimeout(()=>void shareOVRLEEPost({
                             id:post.id,songTitle:post.song_title,
                             artistName:post.artist_name,displayName:post.displayName
-                          })},
+                          }),250)},
                           {text:'Open conversation',onPress:()=>openPost(post.id)},
                           ...(post.user_id===viewerId ? [] : [
-                            {text:'Report post',onPress:()=>openPostReportDialog(post.id,post.user_id)}
+                            {text:'Report post',onPress:()=>setTimeout(()=>openPostReportDialog(post.id,post.user_id),250)}
                           ]),
                           {text:'Cancel',style:'cancel'}
                         ])}>
