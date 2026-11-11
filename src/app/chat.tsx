@@ -23,6 +23,7 @@ import {
 import { cardLabel, fallbackBody, MusicCard, openMusicCard, parseCard } from '../music-card';
 import { refreshUnreadCounts, setOpenConversation } from '../notifications';
 import { supabase } from '../supabase';
+import {openMessageReportDialog} from '../message-reporting';
 
 type Message = {
   id: string;
@@ -488,7 +489,14 @@ export default function ChatScreen() {
                       {isGroup && !isMine && (
                         <Text style={styles.senderNameLabel}>{senderDisplay}</Text>
                       )}
-                      <View
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={isMine?'Your message':`Message from ${senderDisplay}`}
+                        accessibilityHint={isMine?'Your sent message':'Long press to report this message'}
+                        onLongPress={isMine?undefined:()=>openMessageReportDialog(
+                          item.id,item.conversation_id,item.sender_id
+                        )}
+                        delayLongPress={450}
                         style={[
                           styles.messageBubble,
                           isMine ? styles.myMessage : styles.theirMessage,
@@ -540,7 +548,7 @@ export default function ChatScreen() {
                             {item.body}
                           </Text>
                         )}
-                      </View>
+                      </Pressable>
                     </View>
                   </View>
                 );
