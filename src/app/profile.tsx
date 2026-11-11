@@ -163,7 +163,7 @@ const trackKey = (
 export default function ProfileScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
-  const brandAccent=scheme==='light'?'#3B2218':'#BA8B73';
+  const brandAccent=scheme==='light'?'#3B2218':'#39E75F';
   const { userId } =
     useLocalSearchParams<{
       userId?: string;
