@@ -36,6 +36,7 @@
 - `Who's here` reports app presence from `listening_presence.last_active_at`
   (60-second window), not proof of live Spotify music playback.
 - No automated Spotify profile or playlist scraping has been re-enabled.
+- Native Spotify App Remote auto-reconnection and listeners have also been parked while the foreground app-presence heartbeat stays provider-independent.
 - Existing imported research data remains in the private database but is
   filtered out of recommendation experiences.
 - Post avatar is still a deliberate direct link to author profile; card taps
