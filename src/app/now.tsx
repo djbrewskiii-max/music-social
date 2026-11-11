@@ -2865,7 +2865,9 @@ export default function NowScreen() {
                   post.id;
 
                 return (
-                  <View
+                  <Pressable accessibilityRole="button"
+                    accessibilityLabel={`Open conversation about ${post.song_title} by ${post.artist_name}`}
+                    onPress={() => openPost(post.id)}
                     key={item.key}
                     style={styles.post}
                   >
@@ -3371,7 +3373,7 @@ export default function NowScreen() {
                         </Pressable>
                       </View>
                     )}
-                  </View>
+                  </Pressable>
                 );
               }
             )
