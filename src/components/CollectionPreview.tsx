@@ -28,8 +28,9 @@ type Props = {
 };
 
 export default function CollectionPreview({
+ post, username, slideWidth = 190 }: Props) {
   const {scheme}=useAppearance();
-  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]); post, username, slideWidth = 190 }: Props) {
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const { activeKey, loadingKey, toggle } = useSongPreview();
   // A font-loading delay must never hide the whole collection from the feed.
