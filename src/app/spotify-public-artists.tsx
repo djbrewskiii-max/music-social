@@ -365,5 +365,5 @@ const s=StyleSheet.create({
 
 // Keep this browser DOM reader out of release navigation.
 export default function PublicSpotifyArtistsPreview() {
-  return __DEV__ ? <PublicSpotifyArtistsPreviewExperiment /> : <SpotifyConnectScreen />;
+  return <SpotifyConnectScreen />; // Research artist grid parked; no public entry point.
 }
