@@ -98,6 +98,11 @@ export default function SettingsScreen(){
       {group([
         {icon:'bell',label:'Notifications',detail:'Replies, likes, follows and messages',onPress:()=>router.push('/notification-settings'),first:true}
       ])}
+      <Text style={[styles.section,{color:colors.secondary}]}>ACCOUNT</Text>
+      {group([
+        {icon:'trash',label:'Delete account',detail:'Permanently remove your OVRLEE account and data',
+          onPress:()=>router.push('/delete-account'),first:true}
+      ])}
       <Pressable onPress={signOut} accessibilityRole="button"
         style={[styles.signOut,{borderColor:colors.border}]}>
         <Text style={{color:'#C75D66',fontWeight:'800'}}>Sign out</Text>
