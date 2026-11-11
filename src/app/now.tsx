@@ -34,6 +34,7 @@ import {
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
 import SongPreviewButton from '../components/SongPreviewButton';
+import {shareOVRLEEPost} from '../post-sharing';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
 import BottomNav from '../components/BottomNav';
@@ -3096,9 +3097,17 @@ export default function NowScreen() {
                       </Pressable>
 
                       <Pressable
-                        style={
-                          styles.action
-                        }
+                        accessibilityRole="button"
+                        accessibilityLabel={`Share ${post.displayName}'s post`}
+                        hitSlop={8}
+                        onPress={() => void shareOVRLEEPost({
+                          id:post.id,
+                          songTitle:post.song_title,
+                          artistName:post.artist_name,
+                          displayName:post.displayName,
+                          caption:post.body
+                        })}
+                        style={styles.action}
                       >
                         <Text
                           style={
