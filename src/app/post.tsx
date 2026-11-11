@@ -15,7 +15,7 @@ import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
 type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
-type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null };
+type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null; parent_reply_id: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
 const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && post.photo_urls.length
@@ -31,6 +31,8 @@ export default function PostDetailScreen() {
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [author, setAuthor] = useState<{ name: string; username: string; avatar: string | null }>({ name: 'Listener', username: '', avatar: null });
   const [replies, setReplies] = useState<Reply[]>([]);
+  const [replyTo,setReplyTo]=useState<Reply|null>(null);
+  const threadRef=useRef<ScrollView|null>(null);
   const [body, setBody] = useState('');
   const [songReplyOpen, setSongReplyOpen] = useState(params.songReply === '1');
   const [songQuery, setSongQuery] = useState('');
@@ -131,7 +133,7 @@ export default function PostDetailScreen() {
       setPost(item);
       const [profileResult, replyResult, likeResult, userResult] = await Promise.all([
         supabase.from('profiles').select('user_id,display_name,username,avatar_url').eq('user_id', item.user_id).maybeSingle(),
-        supabase.from('post_replies').select('id,created_at,user_id,body,song_title,song_artist,song_artwork_url,song_catalog_id,song_source_url').eq('post_id', postId).order('created_at', { ascending: true }),
+        supabase.from('post_replies').select('id,created_at,user_id,body,song_title,song_artist,song_artwork_url,song_catalog_id,song_source_url,parent_reply_id').eq('post_id', postId).order('created_at', { ascending: true }),
         supabase.from('post_likes').select('user_id').eq('post_id', postId),
         supabase.auth.getUser(),
       ]);
@@ -171,6 +173,7 @@ export default function PostDetailScreen() {
       const { error: insertError } = await supabase.from('post_replies').insert({
         post_id: post.id,
         user_id: user.id,
+        parent_reply_id:replyTo?.id||null,
         body: trimmed || '♫',
         ...(song ? {
           song_title: song.song,
@@ -181,7 +184,7 @@ export default function PostDetailScreen() {
         } : {}),
       });
       if (insertError) throw insertError;
-      setBody(''); setSelectedReplySong(null); setSongQuery(''); setSongReplyOpen(false); await load();
+      setBody(''); setReplyTo(null); setSelectedReplySong(null); setSongQuery(''); setSongReplyOpen(false); await load();
     } catch (e: any) { Alert.alert('Reply failed', e?.message || 'Please try again.'); }
     finally { setBusy(false); }
   };
@@ -216,6 +219,31 @@ export default function PostDetailScreen() {
     const url = await resolveTrackLink(musicProvider, track.song, track.artist, track.id);
     try { await Linking.openURL(url); } catch { Alert.alert('Music', 'Unable to open this track.'); }
   };
+  const threadedReplies=useMemo(()=>{
+    const byParent=new Map<string,Reply[]>();
+    const ids=new Set(replies.map(r=>r.id));
+    const roots:Reply[]=[];
+    for(const item of replies){
+      if(item.parent_reply_id&&ids.has(item.parent_reply_id)){
+        const existing=byParent.get(item.parent_reply_id)||[];
+        existing.push(item);byParent.set(item.parent_reply_id,existing);
+      }else roots.push(item);
+    }
+    const ordered:{item:Reply;depth:number}[]=[];
+    const visited=new Set<string>();
+    const visit=(node:Reply,depth:number)=>{
+      if(visited.has(node.id))return;
+      visited.add(node.id);ordered.push({item:node,depth:Math.min(depth,2)});
+      for(const child of byParent.get(node.id)||[])visit(child,depth+1);
+    };
+    roots.forEach(r=>visit(r,0));
+    replies.filter(r=>!visited.has(r.id)).forEach(r=>visit(r,0));
+    return ordered;
+  },[replies]);
+  const respondTo=(target:Reply)=>{
+    setReplyTo(target);
+    threadRef.current?.scrollToEnd({animated:true});
+  };
   const photos = post ? photoList(post) : [];
   const music = post ? (Array.isArray(post.music_items) && post.music_items.length
     ? post.music_items : [{ id: post.apple_music_id || undefined, song: post.song_title, artist: post.artist_name, artworkUrl: post.artwork_url || undefined }]) : [];
@@ -228,7 +256,7 @@ export default function PostDetailScreen() {
     {loading && !post ? <ActivityIndicator color={green} style={{ marginTop: 45 }} /> : null}
     {!!error && <Text style={styles.error}>{error}</Text>}
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: 140 }]}>
+      <ScrollView ref={threadRef} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: 140 }]}>
         {post && <>
           <Pressable style={styles.author} onPress={() => openProfile(post.user_id)}>
             {author.avatar ? <Image source={{ uri: author.avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={{ color: '#fff' }}>{author.name[0]}</Text></View>}
@@ -325,7 +353,8 @@ export default function PostDetailScreen() {
           </Pressable>
           <Text style={styles.section}>CONVERSATION · {replies.length}</Text>
           {replies.length === 0 && <Text style={styles.secondary}>No replies yet. Start the conversation.</Text>}
-          {replies.map(r => <View key={r.id} style={styles.reply}>
+          {threadedReplies.map(({item:r,depth}) => <View key={r.id}
+            style={[styles.reply,depth>0&&styles.nestedReply,depth>0&&{marginLeft:Math.min(depth,2)*13}]}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
               <Pressable onPress={() => openProfile(r.user_id)}>
                 {r.avatarUrl ? <Image source={{ uri: r.avatarUrl }} style={styles.avatar} /> :
@@ -362,12 +391,24 @@ export default function PostDetailScreen() {
                       song={r.song_title!} artist={r.song_artist!}/>
                   </View>
                 </View>}
+                <Pressable accessibilityRole="button" accessibilityLabel={`Reply to ${r.displayName}`}
+                  onPress={()=>respondTo(r)} style={styles.threadAction}>
+                  <Text style={styles.threadActionText}>↳ REPLY TO ${r.displayName.toUpperCase()}</Text>
+                </Pressable>
               </View>
             </View>
           </View>)}
         </>}
       </ScrollView>
       {post && <View style={styles.replyComposer}>
+        {replyTo&&<View style={styles.replyToBar}>
+          <View style={{flex:1}}><Text style={styles.replyToTitle}>REPLYING TO {replyTo.displayName.toUpperCase()}</Text>
+            <Text numberOfLines={1} style={styles.replyToExcerpt}>
+              {replyTo.song_title?`♫ ${replyTo.song_title} — ${replyTo.song_artist}`:replyTo.body}
+            </Text></View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cancel reply to comment"
+            onPress={()=>setReplyTo(null)} hitSlop={10}><Text style={styles.replyToClose}>×</Text></Pressable>
+        </View>}
         {songReplyOpen && <View style={styles.songPicker}>
           <View style={styles.songPickerHeading}>
             <Text style={styles.songPickerLabel}>REPLY WITH A SONG</Text>
@@ -417,7 +458,7 @@ export default function PostDetailScreen() {
             onPress={() => setSongReplyOpen(value => !value)} style={styles.replyWithSong}>
             <Text style={{color:songReplyOpen?green:'#ddd',fontSize:20}}>♫</Text>
           </Pressable>
-          <TextInput value={body} onChangeText={setBody} placeholder={selectedReplySong?'Add a note (optional)...':'Reply to this post...'}
+          <TextInput value={body} onChangeText={setBody} placeholder={selectedReplySong?'Add a note (optional)...':replyTo?`Reply to ${replyTo.displayName}...`:'Reply to this post...'}
             placeholderTextColor="#777" style={styles.input} multiline maxLength={280} />
           <Pressable onPress={reply} disabled={busy || (!body.trim() && !selectedReplySong)}
             style={[styles.send, (!body.trim() && !selectedReplySong || busy) && { opacity: 0.4 }]}>
@@ -489,6 +530,13 @@ const baseStyles = StyleSheet.create({
   likeRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 24 },
   section: { color: '#999', fontSize: 12, fontWeight: '900', letterSpacing: 1.4, marginBottom: 12 },
   reply: { borderTopWidth: 1, borderTopColor: '#242424', paddingVertical: 16 },
+  nestedReply:{borderLeftWidth:2,borderLeftColor:'#4C6F53',paddingLeft:12},
+  threadAction:{alignSelf:'flex-start',paddingVertical:10,paddingHorizontal:1,marginTop:5},
+  threadActionText:{color:green,fontWeight:'800',fontSize:10,letterSpacing:0.6},
+  replyToBar:{flexDirection:'row',alignItems:'center',paddingHorizontal:16,paddingVertical:10,borderBottomWidth:1,borderBottomColor:'#343434'},
+  replyToTitle:{color:green,fontWeight:'900',fontSize:10,letterSpacing:0.8},
+  replyToExcerpt:{color:'#aaa',fontSize:12,marginTop:5},
+  replyToClose:{color:'#ddd',fontSize:25,paddingHorizontal:7},
   replyBody: { color: '#eee', fontSize: 15, lineHeight: 23, marginTop: 8 },
   replyComposer:{borderTopWidth:1,borderTopColor:'#252525',backgroundColor:'#0d0d0d'},
   replyInputRow: {padding:12,flexDirection:'row',alignItems:'center',gap:9},
