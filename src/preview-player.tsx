@@ -1,4 +1,3 @@
-import { usePathname } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
@@ -72,7 +71,7 @@ async function getPreviewUrl(track: PreviewTrack): Promise<string | null> {
 
 /**
  * Exactly one short preview for the whole app. This provider lives above the
- * navigation stack, so switching from feed to post details cannot overlap audio.
+ * navigation stack, so a preview keeps playing while navigating within OVRLEE.
  */
 export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
   const player = useAudioPlayer(null, { updateInterval: 300 });
@@ -82,7 +81,6 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
   const pausedRef = useRef<string | null>(null);
   const requestRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const path = usePathname();
 
   const clearStopTimer = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -119,13 +117,10 @@ export function PreviewPlayerProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [stop]);
 
-  const previousPath = useRef(path);
-  useEffect(() => {
-    if (previousPath.current !== path) {
-      previousPath.current = path;
-      stop();
-    }
-  }, [path, stop]);
+  // Keep the preview playing while navigating between OVRLEE screens.
+  // This player belongs to the root provider, not to an individual feed card.
+  // App backgrounding, switching to another track, stopping manually, and
+  // the 30-second preview cap still stop playback.
 
   const toggle = useCallback(async (track: PreviewTrack) => {
     const key = previewKey(track);
