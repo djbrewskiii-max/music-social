@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { CollectionMeta, itemsFromPost } from '../collection';
+import { CollectionMeta, itemsFromPost, searchSongs, type CollectionItem } from '../collection';
 import Slide, { buildSlides, SLIDE_H, SLIDE_W, ThemeKey } from '../components/CollectionSlides';
 import { captureSlides, saveSlides } from '../export-slides';
 import { addToRotation, openMusicCard } from '../music-card';
@@ -12,7 +12,7 @@ import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
 type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
-type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null };
+type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
 const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && post.photo_urls.length
@@ -20,13 +20,19 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
   : post.photo_url ? [post.photo_url] : [];
 
 export default function PostDetailScreen() {
-  const params = useLocalSearchParams<{ postId?: string }>();
+  const params = useLocalSearchParams<{ postId?: string; songReply?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [author, setAuthor] = useState<{ name: string; username: string; avatar: string | null }>({ name: 'Listener', username: '', avatar: null });
   const [replies, setReplies] = useState<Reply[]>([]);
   const [body, setBody] = useState('');
+  const [songReplyOpen, setSongReplyOpen] = useState(params.songReply === '1');
+  const [songQuery, setSongQuery] = useState('');
+  const [songResults, setSongResults] = useState<CollectionItem[]>([]);
+  const [songSearching, setSongSearching] = useState(false);
+  const [songSearchError, setSongSearchError] = useState('');
+  const [selectedReplySong, setSelectedReplySong] = useState<CollectionItem | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,6 +48,26 @@ export default function PostDetailScreen() {
   const [saveCount, setSaveCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   const exportRefs = useRef<(View | null)[]>([]);
+
+  useEffect(() => {
+    if (!songReplyOpen || selectedReplySong || songQuery.trim().length < 2) {
+      setSongResults([]);
+      setSongSearching(false);
+      setSongSearchError('');
+      return;
+    }
+    const controller = new AbortController();
+    const delay = setTimeout(() => {
+      setSongSearching(true);
+      searchSongs(songQuery.trim(), controller.signal)
+        .then(rows => { if (!controller.signal.aborted) setSongResults(rows.slice(0, 12)); })
+        .catch(error => { if (!controller.signal.aborted) setSongSearchError(
+          error instanceof Error ? error.message : 'Could not search songs.'
+        ); })
+        .finally(() => { if (!controller.signal.aborted) setSongSearching(false); });
+    }, 300);
+    return () => { clearTimeout(delay); controller.abort(); };
+  }, [songQuery, songReplyOpen, selectedReplySong]);
 
   const loadSaves = useCallback(async (id: string, me: string | null) => {
     const { data } = await supabase.from('collection_saves').select('user_id').eq('post_id', id);
@@ -100,7 +126,7 @@ export default function PostDetailScreen() {
       setPost(item);
       const [profileResult, replyResult, likeResult, userResult] = await Promise.all([
         supabase.from('profiles').select('user_id,display_name,username,avatar_url').eq('user_id', item.user_id).maybeSingle(),
-        supabase.from('post_replies').select('id,created_at,user_id,body').eq('post_id', postId).order('created_at', { ascending: true }),
+        supabase.from('post_replies').select('id,created_at,user_id,body,song_title,song_artist,song_artwork_url,song_catalog_id,song_source_url').eq('post_id', postId).order('created_at', { ascending: true }),
         supabase.from('post_likes').select('user_id').eq('post_id', postId),
         supabase.auth.getUser(),
       ]);
@@ -131,14 +157,26 @@ export default function PostDetailScreen() {
   };
   const reply = async () => {
     const trimmed = body.trim();
-    if (!trimmed || busy || !post) return;
+    if ((!trimmed && !selectedReplySong) || busy || !post) return;
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const { error: insertError } = await supabase.from('post_replies').insert({ post_id: post.id, user_id: user.id, body: trimmed });
+      const song = selectedReplySong;
+      const { error: insertError } = await supabase.from('post_replies').insert({
+        post_id: post.id,
+        user_id: user.id,
+        body: trimmed || '♫',
+        ...(song ? {
+          song_title: song.song,
+          song_artist: song.artist,
+          song_artwork_url: song.artworkUrl || null,
+          song_catalog_id: song.id || null,
+          song_source_url: song.sourceUrl || null,
+        } : {}),
+      });
       if (insertError) throw insertError;
-      setBody(''); await load();
+      setBody(''); setSelectedReplySong(null); setSongQuery(''); setSongReplyOpen(false); await load();
     } catch (e: any) { Alert.alert('Reply failed', e?.message || 'Please try again.'); }
     finally { setBusy(false); }
   };
@@ -297,17 +335,96 @@ export default function PostDetailScreen() {
                 <Pressable onPress={() => openProfile(r.user_id)}>
                   <Text style={styles.authorName}>{r.displayName} <Text style={styles.secondary}>@{r.username}</Text></Text>
                 </Pressable>
-                <Text style={styles.replyBody}>{r.body}</Text>
+                {r.body !== '♫' && <Text style={styles.replyBody}>{r.body}</Text>}
+                {!!r.song_title && !!r.song_artist && <View style={styles.songReplyCard}>
+                  <Pressable accessibilityRole="button"
+                    accessibilityLabel={`Open song reply ${r.song_title} by ${r.song_artist}`}
+                    style={styles.songReplyMain}
+                    onPress={() => void openMusic({
+                      song: r.song_title!, artist: r.song_artist!,
+                      artworkUrl: r.song_artwork_url || undefined,
+                      id: r.song_catalog_id || undefined,
+                      sourceUrl: r.song_source_url || undefined,
+                    })}>
+                    {r.song_artwork_url
+                      ? <Image source={{uri:r.song_artwork_url}} style={styles.songReplyArt}/>
+                      : <View style={styles.songReplyArt}><Text style={{color:green}}>♫</Text></View>}
+                    <View style={{flex:1}}>
+                      <Text style={styles.songReplyEyebrow}>SONG REPLY</Text>
+                      <Text style={styles.songReplyTitle} numberOfLines={1}>{r.song_title}</Text>
+                      <Text style={styles.secondary} numberOfLines={1}>{r.song_artist}</Text>
+                    </View>
+                    <Text style={styles.songReplyArrow}>↗</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" style={styles.songReplyPreview}
+                    onPress={() => toggleSongPreview({id:r.song_catalog_id || undefined,song:r.song_title!,artist:r.song_artist!})}>
+                    <Text style={{color:green,fontWeight:'900'}}>
+                      {previewActiveKey===previewKey({id:r.song_catalog_id||undefined,song:r.song_title!,artist:r.song_artist!})?'❚❚':'▶'} PREVIEW
+                    </Text>
+                  </Pressable>
+                </View>}
               </View>
             </View>
           </View>)}
         </>}
       </ScrollView>
-      {post && <View style={styles.replyInputRow}>
-        <TextInput value={body} onChangeText={setBody} placeholder="Reply to this post..." placeholderTextColor="#777" style={styles.input} multiline maxLength={500} />
-        <Pressable onPress={reply} disabled={busy || !body.trim()} style={[styles.send, (!body.trim() || busy) && { opacity: 0.4 }]}>
-          <Text style={{ color: '#000', fontWeight: '900' }}>{busy ? '...' : 'SEND'}</Text>
-        </Pressable>
+      {post && <View style={styles.replyComposer}>
+        {songReplyOpen && <View style={styles.songPicker}>
+          <View style={styles.songPickerHeading}>
+            <Text style={styles.songPickerLabel}>REPLY WITH A SONG</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close song picker"
+              onPress={() => { setSongReplyOpen(false); setSelectedReplySong(null); setSongQuery(''); }}>
+              <Text style={styles.songPickerClose}>×</Text>
+            </Pressable>
+          </View>
+          {selectedReplySong
+            ? <View style={styles.selectedReplySong}>
+                {selectedReplySong.artworkUrl
+                  ? <Image source={{uri:selectedReplySong.artworkUrl}} style={styles.songReplyArt}/>
+                  : <View style={styles.songReplyArt}><Text style={{color:green}}>♫</Text></View>}
+                <View style={{flex:1}}>
+                  <Text style={styles.songReplyTitle} numberOfLines={1}>{selectedReplySong.song}</Text>
+                  <Text style={styles.secondary} numberOfLines={1}>{selectedReplySong.artist}</Text>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel="Change song reply"
+                  onPress={() => setSelectedReplySong(null)}>
+                  <Text style={{color:green,fontWeight:'800'}}>CHANGE</Text>
+                </Pressable>
+              </View>
+            : <>
+                <TextInput style={styles.songSearchInput} value={songQuery}
+                  onChangeText={setSongQuery} placeholder="Search songs or artists"
+                  placeholderTextColor="#888" autoCorrect={false}/>
+                {songSearching && <ActivityIndicator color={green} style={{marginVertical:10}}/>}
+                {!!songSearchError && <Text style={styles.error}>{songSearchError}</Text>}
+                <ScrollView style={styles.songSearchResults} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                  {songResults.map(item => <Pressable key={item.id}
+                    accessibilityRole="button" onPress={() => setSelectedReplySong(item)}
+                    style={styles.songSearchRow}>
+                    {item.artworkUrl
+                      ? <Image source={{uri:item.artworkUrl}} style={styles.songReplyArt}/>
+                      : <View style={styles.songReplyArt}/>}
+                    <View style={{flex:1}}>
+                      <Text style={styles.songReplyTitle} numberOfLines={1}>{item.song}</Text>
+                      <Text style={styles.secondary} numberOfLines={1}>{item.artist}</Text>
+                    </View>
+                    <Text style={styles.songReplyArrow}>＋</Text>
+                  </Pressable>)}
+                </ScrollView>
+              </>}
+        </View>}
+        <View style={styles.replyInputRow}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Reply with a song"
+            onPress={() => setSongReplyOpen(value => !value)} style={styles.replyWithSong}>
+            <Text style={{color:songReplyOpen?green:'#ddd',fontSize:20}}>♫</Text>
+          </Pressable>
+          <TextInput value={body} onChangeText={setBody} placeholder={selectedReplySong?'Add a note (optional)...':'Reply to this post...'}
+            placeholderTextColor="#777" style={styles.input} multiline maxLength={280} />
+          <Pressable onPress={reply} disabled={busy || (!body.trim() && !selectedReplySong)}
+            style={[styles.send, (!body.trim() && !selectedReplySong || busy) && { opacity: 0.4 }]}>
+            <Text style={{ color: '#000', fontWeight: '900' }}>{busy ? '...' : 'SEND'}</Text>
+          </Pressable>
+        </View>
       </View>}
     </KeyboardAvoidingView>
     <Modal visible={collectionViewer !== null} onRequestClose={() => setCollectionViewer(null)} animationType="fade" statusBarTranslucent>
@@ -374,7 +491,25 @@ const styles = StyleSheet.create({
   section: { color: '#999', fontSize: 12, fontWeight: '900', letterSpacing: 1.4, marginBottom: 12 },
   reply: { borderTopWidth: 1, borderTopColor: '#242424', paddingVertical: 16 },
   replyBody: { color: '#eee', fontSize: 15, lineHeight: 23, marginTop: 8 },
-  replyInputRow: { borderTopWidth: 1, borderTopColor: '#222', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  replyComposer:{borderTopWidth:1,borderTopColor:'#252525',backgroundColor:'#0d0d0d'},
+  replyInputRow: {padding:12,flexDirection:'row',alignItems:'center',gap:9},
+  replyWithSong:{width:42,height:42,borderRadius:12,backgroundColor:'#202020',alignItems:'center',justifyContent:'center'},
+  songPicker:{paddingHorizontal:14,paddingTop:12,maxHeight:360},
+  songPickerHeading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:10},
+  songPickerLabel:{color:green,fontSize:11,fontWeight:'900',letterSpacing:1.2},
+  songPickerClose:{color:'#aaa',fontSize:27},
+  songSearchInput:{backgroundColor:'#202020',borderWidth:1,borderColor:'#3a3a3a',borderRadius:12,color:'#fff',padding:12},
+  songSearchResults:{maxHeight:225,marginTop:8},
+  songSearchRow:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:9,borderBottomWidth:1,borderBottomColor:'#242424'},
+  selectedReplySong:{flexDirection:'row',alignItems:'center',gap:10,padding:10,borderRadius:14,backgroundColor:'#17311e'},
+  songReplyCard:{marginTop:10,backgroundColor:'#151b16',borderWidth:1,borderColor:'#29412e',borderRadius:14,padding:10},
+  songReplyMain:{flexDirection:'row',alignItems:'center',gap:10},
+  songReplyArt:{width:48,height:48,borderRadius:8,backgroundColor:'#263429',alignItems:'center',justifyContent:'center'},
+  songReplyEyebrow:{color:green,fontSize:9,fontWeight:'900',letterSpacing:1},
+  songReplyTitle:{color:'#fff',fontSize:14,fontWeight:'800',marginTop:3},
+  songReplyArrow:{color:green,fontSize:20,fontWeight:'900'},
+  songReplyPreview:{marginTop:10,alignSelf:'flex-end',paddingVertical:7,paddingHorizontal:10},
+
   input: { backgroundColor: '#171717', color: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, flex: 1, maxHeight: 90 },
   send: { backgroundColor: green, borderRadius: 11, padding: 12 },
 });
