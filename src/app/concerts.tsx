@@ -270,7 +270,7 @@ export default function ConcertsScreen(){
  const list=view==='saved'?saved:selected?tour:[];
  return <SafeAreaView style={styles.screen}><View style={styles.page}>
  <ScrollView keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor="#fff" onRefresh={()=>{setRefreshing(true);load();firstListen.refresh({rescan:true});}}/>} contentContainerStyle={styles.content}>
- <View style={styles.top}><Text style={styles.brand}>NOW <Text style={{color:'#39E75F'}}>●</Text></Text><Text style={styles.topLabel}>RADAR</Text></View>
+ <View style={styles.top}><Text style={styles.brand}>OVRLEE <Text style={{color:'#39E75F'}}>●</Text></Text><Text style={styles.topLabel}>RADAR</Text></View>
  {selected&&view==='tour'?<>
   <Pressable onPress={()=>setSelected(null)} style={styles.back}><Text style={styles.backText}>‹  ALL ARTISTS</Text></Pressable>
   {!!selectedGroup?.artwork&&<Image source={{uri:selectedGroup.artwork}} style={styles.hero}/>}
