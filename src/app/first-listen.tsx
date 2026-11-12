@@ -300,6 +300,10 @@ export default function FirstListenRoom() {
   const visibleMessages = (track ? messages.filter((m) => m.track_number === track && m.room_id === activeEdition?.id) : messages)
     .slice().sort((a, b) => a.created_at.localeCompare(b.created_at));
   const trackName = (n: number | null) => (n ? tracks.find((t) => t.number === n)?.name || `Track ${n}` : '');
+  const messageTrackName = (message: RoomMessage) => {
+    const edition = editions.find(candidate => candidate.id === message.room_id);
+    return edition?.tracks?.find(t => t.number === message.track_number)?.name || trackName(message.track_number);
+  };
   const nameOf = (uid: string) => people[uid]?.display_name?.trim() || people[uid]?.username?.trim() || 'Listener';
 
   const toggleFollow = async () => {
@@ -420,9 +424,9 @@ export default function FirstListenRoom() {
             </Text>
             {fromHost && <Text style={styles.hostTag}>HOST</Text>}
             {!!item.track_number && !track && (
-              <Pressable onPress={() => setTrack(item.track_number)}>
+              <Pressable onPress={() => { setSelectedEdition(item.room_id); setTrack(item.track_number); }}>
                 <Text style={styles.trackTag}>
-                  #{item.track_number} {trackName(item.track_number)}
+                  #{item.track_number} {messageTrackName(item)}
                 </Text>
               </Pressable>
             )}
