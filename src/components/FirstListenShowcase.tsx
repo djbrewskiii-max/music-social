@@ -85,7 +85,7 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
         <Pressable onPress={() => router.push('/releases')} style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>{scanning ? 'Building the release calendar…' : 'No drops on the calendar yet.'}</Text>
           <Text style={styles.emptyText}>
-            Add albums to your Core Four and pin songs to your rotation, and OVRLEE will find your artists' next releases.
+            Add albums to your Core Four and pin songs to your rotation, and OVRLEE will find your artists&apos; next releases.
             You can also search any upcoming album.
           </Text>
           <Text style={styles.emptyCta}>FIND AN ALBUM →</Text>
