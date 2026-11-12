@@ -33,12 +33,14 @@ import DayOnePanel from '../components/DayOnePanel';
 import ListeningPartyPanel from '../components/ListeningPartyPanel';
 import { supabase } from '../supabase';
 import { useListeningParty } from '../use-listening-party';
+import { sameReleaseFamily, primaryRelease } from '../room-editions';
 
 const GREEN = '#39E75F';
 
 type Person = { user_id: string; display_name: string | null; username: string | null; avatar_url: string | null };
-type RoomMessage = { id: string; user_id: string; body: string; track_number: number | null; created_at: string };
+type RoomMessage = { id: string; room_id: string; user_id: string; body: string; track_number: number | null; created_at: string };
 type Rating = {
+  room_id: string;
   user_id: string;
   first_rating: number;
   first_rated_at: string;
@@ -56,6 +58,9 @@ export default function FirstListenRoom() {
 
   const [myId, setMyId] = useState('');
   const [room, setRoom] = useState<ReleaseRoom | null>(null);
+  const [editions, setEditions] = useState<ReleaseRoom[]>([]);
+  const [selectedEdition, setSelectedEdition] = useState('');
+  const editionIdsRef = useRef<string[]>([id]);
   const [summary, setSummary] = useState<RoomSummary | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
@@ -67,7 +72,7 @@ export default function FirstListenRoom() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [here, setHere] = useState(1);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [following, setFollowing] = useState(false);
 
   const [pick, setPick] = useState<number | null>(null);
@@ -92,12 +97,15 @@ export default function FirstListenRoom() {
   const loadRatings = useCallback(async () => {
     const { data, error: ratingsError } = await supabase
       .from('album_ratings')
-      .select('user_id, first_rating, first_rated_at, rating, rated_at, review')
-      .eq('room_id', id)
+      .select('room_id, user_id, first_rating, first_rated_at, rating, rated_at, review')
+      .in('room_id', editionIdsRef.current)
       .order('first_rated_at', { ascending: true })
       .limit(300);
     if (ratingsError) console.log('Ratings load:', ratingsError.message);
-    const rows = (data as Rating[]) || [];
+    const allRows = (data as Rating[]) || [];
+    const latest = new Map<string, Rating>();
+    for (const rating of allRows) { const earlier = latest.get(rating.user_id); if (!earlier || rating.rated_at > earlier.rated_at) latest.set(rating.user_id, rating); }
+    const rows = [...latest.values()];
     setRatings(rows);
     await ensurePeople(rows.map((r) => r.user_id));
     return rows;
@@ -127,15 +135,7 @@ export default function FirstListenRoom() {
       }
       setMyId(user.id);
 
-      const [roomResult, messageResult] = await Promise.all([
-        supabase.from('release_rooms').select(ROOM_COLUMNS).eq('id', id).maybeSingle(),
-        supabase
-          .from('release_room_messages')
-          .select('id, user_id, body, track_number, created_at')
-          .eq('room_id', id)
-          .order('created_at', { ascending: false })
-          .limit(200),
-      ]);
+      const roomResult = await supabase.from('release_rooms').select(ROOM_COLUMNS).eq('id', id).maybeSingle();
       if (!alive) return;
       if (roomResult.error || !roomResult.data) {
         setError('This room could not be found.');
@@ -143,8 +143,30 @@ export default function FirstListenRoom() {
         return;
       }
       const loadedRoom = roomResult.data as ReleaseRoom;
-      const loadedMessages = (messageResult.data as RoomMessage[]) || [];
-      setRoom(loadedRoom);
+      const { data: siblingRows } = await supabase.from('release_rooms')
+        .select(ROOM_COLUMNS).eq('artist_name', loadedRoom.artist_name).limit(100);
+      if (!alive) return;
+      const family = ((siblingRows as ReleaseRoom[]) || [loadedRoom])
+        .filter(candidate => sameReleaseFamily(loadedRoom, candidate));
+      if (!family.some(candidate => candidate.id === loadedRoom.id)) family.push(loadedRoom);
+      const primary = primaryRelease(family);
+      if (primary.id !== id) {
+        router.replace({ pathname: '/first-listen', params: { roomId: primary.id, ...(tabParam ? { tab: tabParam } : {}) } });
+        return;
+      }
+      editionIdsRef.current = family.map(edition => edition.id);
+      setEditions(family);
+      setSelectedEdition(primary.id);
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('release_room_messages')
+        .select('id, room_id, user_id, body, track_number, created_at')
+        .in('room_id', editionIdsRef.current)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (messagesError) console.log('Room messages:', messagesError.message);
+      if (!alive) return;
+      const loadedMessages = (messagesData as RoomMessage[]) || [];
+      setRoom(primary);
       setMessages(loadedMessages);
       await ensurePeople(loadedMessages.map((m) => m.user_id));
       const rows = await loadRatings();
@@ -203,7 +225,8 @@ export default function FirstListenRoom() {
 
   const open = room ? new Date(room.opens_at).getTime() <= now : false;
   const myRating = ratings.find((r) => r.user_id === myId) || null;
-  const tracks = useMemo(() => (Array.isArray(room?.tracks) ? room!.tracks : []), [room]);
+  const activeEdition = editions.find(edition => edition.id === selectedEdition) || room;
+  const tracks = useMemo(() => (Array.isArray(activeEdition?.tracks) ? activeEdition!.tracks : []), [activeEdition]);
 
   const average = ratings.length
     ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10) / 10
@@ -250,7 +273,8 @@ export default function FirstListenRoom() {
     return { byTrack, max };
   }, [partyState.reactions]);
 
-  const visibleMessages = track ? messages.filter((m) => m.track_number === track) : messages;
+  const visibleMessages = (track ? messages.filter((m) => m.track_number === track && m.room_id === activeEdition?.id) : messages)
+    .slice().sort((a, b) => a.created_at.localeCompare(b.created_at));
   const trackName = (n: number | null) => (n ? tracks.find((t) => t.number === n)?.name || `Track ${n}` : '');
   const nameOf = (uid: string) => people[uid]?.display_name?.trim() || people[uid]?.username?.trim() || 'Listener';
 
@@ -275,8 +299,8 @@ export default function FirstListenRoom() {
     setSending(true);
     const { data, error: sendError } = await supabase
       .from('release_room_messages')
-      .insert({ room_id: room.id, user_id: myId, body, track_number: track })
-      .select('id, user_id, body, track_number, created_at')
+      .insert({ room_id: track ? activeEdition?.id || room.id : room.id, user_id: myId, body, track_number: track })
+      .select('id, room_id, user_id, body, track_number, created_at')
       .single();
     setSending(false);
     if (sendError || !data) {
@@ -316,7 +340,7 @@ export default function FirstListenRoom() {
       ? await supabase
           .from('album_ratings')
           .update({ rating: pick, review: cleanReview })
-          .eq('room_id', room.id)
+           .eq('room_id', myRating.room_id)
           .eq('user_id', myId)
       : await supabase
           .from('album_ratings')
