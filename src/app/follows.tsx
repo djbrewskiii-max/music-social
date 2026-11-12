@@ -68,7 +68,7 @@ export default function FollowsScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={14}><Text style={styles.back}>←</Text></Pressable>
-        <View style={styles.headerCenter}><Text style={styles.brand}>NOW</Text><Text style={styles.subtitle}>{typeof params.name === 'string' ? params.name : 'CONNECTIONS'}</Text></View>
+        <View style={styles.headerCenter}><Text style={styles.brand}>OVRLEE</Text><Text style={styles.subtitle}>{typeof params.name === 'string' ? params.name : 'CONNECTIONS'}</Text></View>
         <View style={{ width: 26 }} />
       </View>
       <View style={styles.tabs}>
