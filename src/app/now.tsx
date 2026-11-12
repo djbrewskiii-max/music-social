@@ -35,6 +35,7 @@ import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
+import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
 import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
@@ -209,6 +210,24 @@ export default function NowScreen() {
   const [galleryIndexes, setGalleryIndexes] = useState<Record<string, number>>({});
   const [posts, setPosts] =
     useState<FeedPost[]>([]);
+  const [primaryArtists,setPrimaryArtists]=useState<Record<string,PrimaryArtist|null>>({});
+  useEffect(()=>{
+    let active=true;
+    // Only composite artist credits require disambiguation; a missing catalog
+    // record must not lead to a guessed discovery destination.
+    const combined=posts.filter(post=>isCombinedArtistCredit(post.artist_name||''));
+    const ids=[...new Set(combined.map(post=>String(post.apple_music_id||post.music_items?.[0]?.id||'')).filter(Boolean))];
+    if(!ids.length)return;
+    void Promise.all(ids.map(async id=>({id,artist:await applePrimaryArtist(id)}))).then(results=>{
+      if(!active)return;
+      setPrimaryArtists(previous=>{
+        const next={...previous};
+        for(const item of results)next[item.id]=item.artist;
+        return next;
+      });
+    });
+    return ()=>{active=false;};
+  },[posts]);
   const [viewerId,setViewerId]=useState<string|null>(null);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [feedError, setFeedError] = useState<string | null>(null);
@@ -3021,14 +3040,21 @@ export default function NowScreen() {
                       </View>
                     )}
 
-                    {!!post.artist_name && (
-                      <Pressable accessibilityRole="button"
-                        accessibilityLabel={`Discover listeners and posts for ${post.artist_name}`}
-                        onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
+                    {(() => {
+                      const combined=isCombinedArtistCredit(post.artist_name||'');
+                      const songId=String(post.apple_music_id||post.music_items?.[0]?.id||'');
+                      const resolved=primaryArtists[songId];
+                      // Hide the chip until Apple identifies the actual artist,
+                      // rather than incorrectly linking a combined credit.
+                      const target=combined ? resolved?.name : post.artist_name;
+                      if(!target)return null;
+                      return <Pressable accessibilityRole="button"
+                        accessibilityLabel={`Discover listeners and posts for ${target}`}
+                        onPress={() => router.push({ pathname: '/music-discovery', params: { artist: target, song: post.song_title } })}
                         style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: scheme==='light'?'#F2E6E0':'#112315' }}>
-                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>EXPLORE {post.artist_name.toUpperCase()} →</Text>
-                      </Pressable>
-                    )}
+                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>EXPLORE {target.toUpperCase()} →</Text>
+                      </Pressable>;
+                    })()}
                     <View
                       style={
                         styles.actions
