@@ -1,5 +1,7 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CatalogAlbum } from '../apple-catalog';
@@ -19,6 +21,8 @@ const prettyDate = (iso: string) => {
   page shows everything happening with them.
 */
 export default function ArtistReleasesSection({ artist }: { artist: string }) {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const [releases, setReleases] = useState<ArtistReleases | null>(null);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
@@ -98,7 +102,7 @@ export default function ArtistReleasesSection({ artist }: { artist: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrap: { marginBottom: 28 },
   eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   title: { color: '#ffffff', fontSize: 17, fontWeight: '900', marginTop: 6, marginBottom: 12 },
