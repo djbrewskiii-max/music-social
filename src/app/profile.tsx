@@ -1454,60 +1454,7 @@ export default function ProfileScreen() {
 
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
                   </View>
-        <View
-          style={
-            styles.eraTeaser
-          }
-        >
-          <Text
-            style={
-              styles.eraEyebrow
-            }
-          >
-            ERAS
-          </Text>
 
-          <Text
-            style={
-              styles.eraTitle
-            }
-          >
-            Their sound changes.
-            OVRLEE remembers it.
-          </Text>
-
-          <Text
-            style={
-              styles.eraText
-            }
-          >
-            Your listening history
-            will eventually live here
-            in chapters.
-          </Text>
-
-          <View
-            style={
-              styles.eraPreview
-            }
-          >
-            <Text
-              style={
-                styles.eraSeason
-              }
-            >
-              FALL '26
-            </Text>
-
-            <Text
-              style={
-                styles.eraComing
-              }
-            >
-              COMING SOON
-            </Text>
-          </View>
-        </View>
           </>
         )}
 
