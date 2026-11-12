@@ -370,7 +370,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
   const p = paletteFor(theme, spec.kind, artBg);
   // The standalone wordmark replaces the old black collection label.
 
-  const Dashed = ({ label, onPress, serif }: { label: string; onPress?: () => void; serif?: boolean }) =>
+  const renderDashed = ({ label, onPress, serif }: { label: string; onPress?: () => void; serif?: boolean }) =>
     editing && onPress ? (
       <Pressable onPress={onPress} style={{ alignSelf: 'flex-start', borderWidth: 1, borderStyle: 'dashed', borderColor: p.line, borderRadius: u(8), paddingHorizontal: u(10), paddingVertical: u(6), marginTop: u(10) }}>
         <Text style={{ color: p.sub, fontSize: serif ? u(16) : u(11), fontFamily: serif ? SERIF : undefined, fontWeight: serif ? undefined : '700' }}>{label}</Text>
@@ -378,7 +378,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     ) : null;
 
   // The collection title, in the chosen title font, sized to its length.
-  const Title = ({ text, base, lines = 4 }: { text: string; base: number; lines?: number }) => {
+  const renderTitle = ({ text, base, lines = 4 }: { text: string; base: number; lines?: number }) => {
     if (!text.trim()) return null;
     const size = titleSize(text, titleFont === 'serif' ? base : base * 0.78);
     return (
@@ -396,28 +396,29 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     );
   };
 
-  const Caption = ({ text }: { text: string; size?: number }) =>
+  const renderCaption = ({ text }: { text: string; size?: number }) =>
     text ? (
       <Text onPress={editing?.onTitle} style={{ fontFamily: SERIF, color: p.sub, fontSize: u(captionSize(text)), lineHeight: u(captionSize(text) * 1.2), marginTop: u(8) }} numberOfLines={4}>
         {text}
       </Text>
     ) : (
-      <Dashed label="Tap to add a caption" onPress={editing?.onTitle} serif />
+      renderDashed({label:'Tap to add a caption',onPress:editing?.onTitle,serif:true})
     );
 
-  const Photo = ({ uri, style, slot, focus, aspect, label = '+ Photo' }: { uri: string | null; style: any; slot: number; focus?: PhotoFocus; aspect?: number; label?: string }) => (
-    <Pressable disabled={!editing} onPress={() => editing?.onPhoto?.(slot)} style={[{ overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style]}>
+  const renderPhoto = ({ uri, style, slot, key, focus, aspect, label = '+ Photo' }: { uri: string | null; style: any; slot: number; key?: number; focus?: PhotoFocus; aspect?: number; label?: string }) => (
+    <Pressable key={key} disabled={!editing} onPress={() => editing?.onPhoto?.(slot)} style={[{ overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style]}>
       {uri ? <PhotoFrame uri={uri} focus={focus} aspect={aspect} /> : editing ? <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '800' }}>{label}</Text> : null}
     </Pressable>
   );
 
   // An album cover tile. In Arrange mode it shows its number and a remove
   // button, and the cover picked for a swap gets a ring.
-  const Cover = ({ uri, songIndex, style, radius = 4 }: { uri: string | null; songIndex: number; style: any; radius?: number }) => {
+  const renderCover = ({ uri, songIndex, key, style, radius = 4 }: { uri: string | null; songIndex: number; key?: number; style: any; radius?: number }) => {
     const arranging = !!editing?.arranging && songIndex >= 0;
     const picked = arranging && editing?.selected === songIndex;
     return (
       <Pressable
+        key={key}
         disabled={!editing}
         onPress={() => (uri ? editing?.onSong?.(songIndex) : editing?.onAddSong?.())}
         style={[{ borderRadius: u(radius), overflow: 'hidden', backgroundColor: p.tile, alignItems: 'center', justifyContent: 'center' }, style, picked && { borderWidth: u(3), borderColor: '#39E75F' }]}
@@ -458,8 +459,8 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           />
         </View>
         <View style={{ paddingTop: u(16), paddingHorizontal: u(4) }}>
-          <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={44} lines={3} />
-          <Caption text={spec.caption} />
+          {renderTitle({text:spec.title || (editing ? 'Tap to add a title' : ''),base:44,lines:3})}
+          {renderCaption({text:spec.caption})}
           <Text style={{ color: p.sub, fontSize: u(10.5), fontWeight: '700', marginTop: u(10), letterSpacing: u(0.4) }}>
             {spec.count} {spec.count === 1 ? 'song' : 'songs'}
             {handle ? ` · a collection by ${handle}` : ''}
@@ -475,7 +476,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     const art = item.note.length > 100 ? 220 : item.note.length > 40 ? 248 : 268;
     body = (
       <View style={{ position: 'absolute', top: u(58), left: u(22), right: u(22), bottom: u(64) }}>
-        <Cover uri={item.artworkUrl || null} songIndex={spec.index} radius={5} style={{ alignSelf: 'center', width: u(art), height: u(art) }} />
+        {renderCover({uri:item.artworkUrl || null,songIndex:spec.index,radius:5,style:{alignSelf:'center',width:u(art),height:u(art)}})}
         <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: u(24) }}>
           <Text style={{ color: p.sub, fontSize: u(11), fontWeight: '700', width: u(24) }}>{String(spec.index + 1).padStart(2, '0')}</Text>
           <Text style={{ flex: 1, color: p.ink, fontSize: u(26), fontWeight: '900', letterSpacing: u(-0.4) }} numberOfLines={2}>
@@ -490,7 +491,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
             “{item.note}”
           </Text>
         ) : (
-          <Dashed label="Tap to write a note…" onPress={editing?.onNote ? () => editing.onNote!(spec.index) : undefined} serif />
+          {renderDashed({label:'Tap to write a note…',onPress:editing?.onNote ? () => editing.onNote!(spec.index) : undefined,serif:true})}
         )}
       </View>
     );
@@ -544,18 +545,16 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
                 onPress={editing ? () => editing.onPhoto?.(0) : undefined} />
             </View>
             {placements.map((tile, index) => (
-              <Cover key={index} uri={spec.arts[index] || null}
-                songIndex={spec.artIdx[index] ?? -1} radius={3}
-                style={{ position: 'absolute', left: tile.x, top: tile.y, width: tile.w, height: tile.h }} />
+              {renderCover({key:index,uri:spec.arts[index] || null,songIndex:spec.artIdx[index] ?? -1,radius:3,style:{position:'absolute',left:tile.x,top:tile.y,width:tile.w,height:tile.h}})}
             ))}
           </>}
         </View>
         {(!!spec.title || !!spec.caption || !!editing) && (
           <View style={{ paddingTop: u(13) }}>
-            <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={36} lines={2} />
+            {renderTitle({text:spec.title || (editing ? 'Tap to add a title' : ''),base:36,lines:2})}
             {!!spec.caption && <Text onPress={editing?.onTitle}
               style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={2}>{spec.caption}</Text>}
-            {!spec.caption && <Caption text="" />}
+            {!spec.caption && {renderCaption({text:''})}}
           </View>
         )}
       </View>
@@ -568,15 +567,15 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     body = (
       <>
         {rects.map(([x, y, w, h], i) => (
-          <Photo key={i} uri={spec.photos[i] || null} slot={i} focus={spec.focus?.[i]} aspect={spec.aspects?.[i]} style={{ position: 'absolute', left: u(18 + x), top: u(52 + y), width: u(w), height: u(h), borderRadius: u(5) }} />
+          {renderPhoto({key:i,uri:spec.photos[i] || null,slot:i,focus:spec.focus?.[i],aspect:spec.aspects?.[i],style:{position:'absolute',left:u(18+x),top:u(52+y),width:u(w),height:u(h),borderRadius:u(5)}})}
         ))}
         <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: u(10) }}>
             <View style={{ width: u(22), height: Math.max(1, u(2)), backgroundColor: p.accent, marginRight: u(8) }} />
             <Text style={{ color: p.sub, fontSize: u(8), letterSpacing: u(2), fontWeight: '900' }}>A MOOD IN MUSIC</Text>
           </View>
-          <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={38} lines={2} />
-          <Caption text={spec.caption} />
+          {renderTitle({text:spec.title || (editing ? 'Tap to add a title' : ''),base:38,lines:2})}
+          {renderCaption({text:spec.caption})}
         </View>
       </>
     );
@@ -593,8 +592,8 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
       <View style={{ position: 'absolute', left: u(22), right: u(22), top: u(64), bottom: u(64) }}>
         {(spec.title || spec.caption || editing) && (
           <View style={{ paddingBottom: u(14) }}>
-            <Title text={spec.title || (editing ? 'Tap to add a title' : '')} base={48} lines={n > 6 ? 3 : 4} />
-            <Caption text={spec.caption} />
+            {renderTitle({text:spec.title || (editing ? 'Tap to add a title' : ''),base:48,lines:n > 6 ? 3 : 4})}
+            {renderCaption({text:spec.caption})}
           </View>
         )}
         {showMeta && (
@@ -607,7 +606,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           {g && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap, width: g.cols * g.size + (g.cols - 1) * gap + 1 }}>
               {spec.arts.map((a, i) => (
-                <Cover key={i} uri={a || null} songIndex={i} style={{ width: g.size, height: g.size }} />
+                {renderCover({key:i,uri:a || null,songIndex:i,style:{width:g.size,height:g.size}})}
               ))}
               {editing?.onAddSong && n === 0 && (
                 <Pressable onPress={editing.onAddSong} style={{ width: g.size, height: g.size, borderRadius: u(4), borderWidth: 1, borderStyle: 'dashed', borderColor: p.line, alignItems: 'center', justifyContent: 'center' }}>
