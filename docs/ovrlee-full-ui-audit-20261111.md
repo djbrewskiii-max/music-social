@@ -1,7 +1,7 @@
 # OVRLEE — Full source-level screen audit and cleanup
 **Audit date:** November 11, 2026
 **Branch:** `claude-build`
-**Scope:** All 47 `src/app/*.tsx` route/layout/intent files inventoried (44 screen routes + root layout + native-intent handling, with actual route aliases and archived experiment redirects). Reviewed key shared components including BottomNav, CoreFourSection, UnifiedRotation, OverlyIntro, YouTwoCard, ActivityBell and SpotifyShowcaseSection. Examined source code, not runtime screenshots of every page.
+**Scope:** All 47 `src/app/*.tsx` route/layout/intent files inventoried (45 screen routes + root layout + native-intent handling, with actual route aliases and archived experiment redirects). Reviewed key shared components including BottomNav, CoreFourSection, UnifiedRotation, OverlyIntro, YouTwoCard, ActivityBell and SpotifyShowcaseSection. Examined source code, not runtime screenshots of every page.
 
 ## Changes committed in this cleanup run
 
