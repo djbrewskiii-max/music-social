@@ -54,13 +54,6 @@ export default function MusicSettingsScreen() {
           <Text style={styles.name}>My favorite artists</Text><Text style={styles.check}>›</Text>
         </Pressable>
 
-        <Pressable accessibilityRole="button" onPress={() => router.push('/playlist-import')} style={styles.option}>
-          <View style={{flex:1}}>
-            <Text style={styles.name}>Music I've chosen to import</Text>
-            <Text style={styles.note}>Review music you voluntarily bring into OVRLEE.</Text>
-          </View>
-          <Text style={styles.check}>›</Text>
-        </Pressable>
         {busy&&<ActivityIndicator color={GREEN}/>}
       </ScrollView>
     </SafeAreaView>
