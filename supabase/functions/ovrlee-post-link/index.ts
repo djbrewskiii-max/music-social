@@ -1,8 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import {createClient} from "npm:@supabase/supabase-js@2.117.2";
+
+const escapeHtml=(input:string)=>input.replace(/[&<>"']/g, c=>({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+}[c]||c));
+
 
 // Public, privacy-preserving URL fallback for member-shared posts.
 // No service-role credentials, database reads, cookies or analytics.
-Deno.serve((request:Request)=>{
+Deno.serve(async (request:Request)=>{
   if(request.method!=="GET" && request.method!=="HEAD"){
     return new Response("Method not allowed",{status:405,headers:{"Allow":"GET, HEAD"}});
   }
@@ -12,14 +18,44 @@ Deno.serve((request:Request)=>{
     return new Response("Invalid post link",{status:400,headers:{"Content-Type":"text/plain; charset=utf-8"}});
   }
   const deepLink=`ovrlee://post?postId=${id}`;
+
+  // A UUID alone only grants a preview of public post-author identity.
+  // Never publish post bodies, DMs, private music evidence or account emails.
+  let author='Someone';
+  let avatar:string|null=null;
+  const serviceUrl=Deno.env.get('SUPABASE_URL');
+  const key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if(serviceUrl&&key){
+    try{
+      const db=createClient(serviceUrl,key,{auth:{persistSession:false,autoRefreshToken:false}});
+      const {data:post}=await db.from('posts').select('user_id').eq('id',id).maybeSingle();
+      if(post?.user_id){
+        const {data:profile}=await db.from('profiles').select('display_name,username,avatar_url')
+          .eq('user_id',post.user_id).maybeSingle();
+        if(profile){
+          author=String(profile.display_name||profile.username||'Someone').slice(0,80);
+          const raw=String(profile.avatar_url||'');
+          try{
+            const parsed=new URL(raw);
+            if(parsed.protocol==='https:')avatar=parsed.toString();
+          }catch{/* No public photo */ }
+        }
+      }
+    }catch(e){console.error('Shared post preview lookup failed',e instanceof Error?e.message:'Unknown');}
+  }
+  const shareTitle=escapeHtml("See "+author+"'s post on OVRLEE");
+  const photoMeta=avatar
+    ? '<meta property="og:image" content="'+escapeHtml(avatar)+'"><meta name="twitter:card" content="summary">'
+    : '<meta name="twitter:card" content="summary">';
   const html=`<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Someone shared a music conversation on OVRLEE">
+<meta property="og:title" content="${shareTitle}">
 <meta property="og:description" content="Discover music through people. Open this post in OVRLEE.">
-<title>Shared on OVRLEE</title>
+${photoMeta}
+<title>${shareTitle}</title>
 <style>
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;background:#FAF8F6;color:#3B2218;min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -32,7 +68,7 @@ a{display:block;color:#fff;background:#3B2218;padding:16px 20px;text-decoration:
 small{display:block;margin-top:20px;color:#88776F;font-size:12px;line-height:1.6}
 </style></head>
 <body><article><div class="brand">OVRLEE</div><div class="note">♫</div>
-<h1>Music is better when it's shared.</h1>
+<h1>${shareTitle}</h1>
 <p>Someone sent you a music conversation on OVRLEE. Open it in the app to listen and join in.</p>
 <a href="${deepLink}" rel="nofollow">OPEN IN OVRLEE ↗</a>
 <small>Have OVRLEE installed? Tap the button above. If you’re not in the beta yet, ask the person who shared this for access.</small>
