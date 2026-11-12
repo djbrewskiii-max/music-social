@@ -27,12 +27,20 @@ export default function PhotoFrame({
   onMeasure?: (box: { width: number; height: number; overflowX: number; overflowY: number }) => void;
 }) {
   const [box, setBox] = useState({ width: 0, height: 0 });
-  const [realAspect, setRealAspect] = useState(aspect || 1);
+  const [measuredAspect, setMeasuredAspect] = useState<{uri:string; value:number}|null>(null);
 
   useEffect(() => {
-    if (aspect && aspect > 0) setRealAspect(aspect);
-    else Image.getSize(uri, (w, h) => { if (w > 0 && h > 0) setRealAspect(w / h); }, () => {});
+    if (aspect && aspect > 0) return;
+    let active = true;
+    Image.getSize(uri, (w, h) => {
+      if (active && w > 0 && h > 0) setMeasuredAspect({uri,value:w/h});
+    }, () => {});
+    return () => { active = false; };
   }, [uri, aspect]);
+
+  const realAspect = aspect && aspect > 0
+    ? aspect
+    : measuredAspect?.uri === uri ? measuredAspect.value : 1;
 
   const zoom = focus?.zoom || 1;
   const g = photoGeometry(box.width, box.height, realAspect, zoom);
