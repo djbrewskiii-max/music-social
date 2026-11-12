@@ -374,7 +374,7 @@ export default function ListenersScreen() {
           <View style={styles.header}>
             <View style={styles.brand}>
               <Text style={styles.logo}>
-                NOW
+                OVRLEE
               </Text>
 
               <View
@@ -792,13 +792,12 @@ export default function ListenersScreen() {
           )}
 
           <Text style={styles.footer}>
-            YOUR MUSIC. YOUR PEOPLE. RIGHT
-            NOW.
+            FOR THE OVERLY OBSESSED.
           </Text>
         </ScrollView>
       </View>
 
-      <BottomNav active="discover" />
+      <BottomNav active="now" />
     </SafeAreaView>
   );
 }
