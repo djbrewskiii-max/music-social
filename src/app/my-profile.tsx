@@ -668,7 +668,7 @@ export default function MyProfileScreen() {
         );
 
         setStatusText(
-          'Music loaded, but NOW could not save your Music DNA.'
+          'Music loaded, but OVRLEE could not save your Music DNA.'
         );
 
         return false;
@@ -760,9 +760,9 @@ export default function MyProfileScreen() {
        } else {
          setStatusText(`Partial sync: ${names.size} artists saved · ${offset} scanned · tap Refresh Apple Music again to continue.`);
        }
-       console.log('NOW artist sync:', { pages, fetched, offset, count: names.size, complete });
+       console.log('OVRLEE artist sync:', { pages, fetched, offset, count: names.size, complete });
      } catch (error: any) {
-       console.log('NOW artist sync failed:', errorText(error));
+       console.log('OVRLEE artist sync failed:', errorText(error));
        setStatusText('Artist sync paused: ' + errorText(error) + '. Previously saved artists preserved.');
      } finally { setMusicLoading(false); }
    };
