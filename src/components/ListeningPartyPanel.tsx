@@ -31,8 +31,8 @@ const whenLabel = (iso: string) => {
 };
 
 function FloatingReaction({ emoji, onDone }: { emoji: string; onDone: () => void }) {
-  const rise = useRef(new Animated.Value(0)).current;
-  const left = useRef(10 + Math.random() * 70).current;
+  const [rise] = useState(() => new Animated.Value(0));
+  const [left] = useState(() => 10 + Math.random() * 70);
   useEffect(() => {
     Animated.timing(rise, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(onDone);
   }, [rise, onDone]);
