@@ -203,7 +203,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.footer}>
-            Your music. Your people. Right now.
+            For the overly obsessed.
           </Text>
         </View>
       </KeyboardAvoidingView>
