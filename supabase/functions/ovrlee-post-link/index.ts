@@ -37,7 +37,7 @@ Deno.serve(async (request:Request)=>{
           const raw=String(profile.avatar_url||'');
           try{
             const parsed=new URL(raw);
-            if(parsed.protocol==='https:')avatar=parsed.toString();
+            if(parsed.protocol==='https:' && parsed.hostname===new URL(serviceUrl).hostname && parsed.pathname.includes('/storage/v1/object/public/'))avatar=parsed.toString();
           }catch{/* No public photo */ }
         }
       }
