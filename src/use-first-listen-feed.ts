@@ -1,3 +1,4 @@
+import { collapseReleaseEditions } from './room-editions';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 
@@ -167,8 +168,11 @@ export function useFirstListenFeed(): FirstListenFeed {
     [userId]
   );
 
-  // Hosted nights get a boost so they're easy to find.
+  // A standard and bonus/deluxe edition share one discovery entry.
+  // Keep all original records so historic messages and ratings remain intact.
+  const primaryIds = new Set(collapseReleaseEditions(rooms).map(room => room.id));
   const ranked = rankRooms(rooms, profile, summaries, friends)
+    .filter(r => primaryIds.has(r.room.id))
     .map((r) => (parties[r.room.id] ? { ...r, score: r.score + 60 } : r))
     .sort((a, b) => b.score - a.score);
   return {
@@ -178,7 +182,7 @@ export function useFirstListenFeed(): FirstListenFeed {
     userId,
     comingSoon: ranked.filter((r) => !isOpen(r.room)),
     outNow: ranked.filter((r) => isOpen(r.room)),
-    calendar: rooms.filter((r) => !isOpen(r)),
+    calendar: rooms.filter((r) => primaryIds.has(r.id) && !isOpen(r)),
     summaries,
     profile,
     refresh,
