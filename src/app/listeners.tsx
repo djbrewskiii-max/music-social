@@ -352,7 +352,7 @@ export default function ListenersScreen() {
       setListeners([]);
 
       setErrorMessage(
-        'NOW could not load listeners right now.'
+        'OVRLEE could not load listeners right now.'
       );
     } finally {
       setLoading(false);
@@ -533,7 +533,7 @@ export default function ListenersScreen() {
               <Text
                 style={styles.emptyText}
               >
-                As more people join NOW,
+                As more people join OVRLEE,
                 they'll appear here.
               </Text>
             </View>
