@@ -113,7 +113,7 @@ export default function LoginScreen() {
         <View style={styles.content}>
           <View>
             <Text style={styles.logo}>
-              NOW
+              OVRLEE
             </Text>
 
             <Text style={styles.heading}>
