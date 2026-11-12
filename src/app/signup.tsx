@@ -23,8 +23,34 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthYear, setBirthYear] = useState('');
 
   const createAccount = async () => {
+    // This client check requires a matching Supabase server-side signup hook.
+    const y = Number(birthYear);
+    const m = Number(birthMonth);
+    const d = Number(birthDay);
+    const birth = new Date(Date.UTC(y, m - 1, d));
+    const valid = /^\\d{4}$/.test(birthYear)
+      && /^\\d{1,2}$/.test(birthMonth)
+      && /^\\d{1,2}$/.test(birthDay)
+      && y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31
+      && birth.getUTCFullYear() === y
+      && birth.getUTCMonth() === m - 1
+      && birth.getUTCDate() === d;
+    if (!valid) {
+      Alert.alert('Birth date needed', 'Enter a valid birth month, day, and year.');
+      return;
+    }
+    const now = new Date();
+    const cutoff = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
+    if (birth > cutoff) {
+      Alert.alert('Unable to register', 'OVRLEE is currently testing with adults only.');
+      return;
+    }
+    const birthDate = [birthYear, String(m).padStart(2, '0'), String(d).padStart(2, '0')].join('-');
     if (!email.trim() || !password) {
       Alert.alert(
         'Missing information',
@@ -46,6 +72,7 @@ export default function SignupScreen() {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: { data: { beta_birth_date: birthDate, beta_age_policy: '18plus-2026-11' } },
     });
 
     setLoading(false);
@@ -74,7 +101,7 @@ export default function SignupScreen() {
       >
         <View style={styles.content}>
           <View>
-            <Text style={styles.logo}>NOW</Text>
+            <Text style={styles.logo}>OVRLEE</Text>
 
             <Text style={styles.heading}>
               Find your people through music.
@@ -85,6 +112,17 @@ export default function SignupScreen() {
             </Text>
 
             <View style={styles.form}>
+              <Text style={styles.label}>DATE OF BIRTH</Text>
+              <Text style={styles.ageDescription}>Enter your birth date to check eligibility for the closed beta.</Text>
+              <View style={styles.birthRow}>
+                <TextInput style={[styles.input, styles.birthField]} placeholder="MM" placeholderTextColor="#746459"
+                  value={birthMonth} onChangeText={setBirthMonth} keyboardType="number-pad" maxLength={2} accessibilityLabel="Birth month" />
+                <TextInput style={[styles.input, styles.birthField]} placeholder="DD" placeholderTextColor="#746459"
+                  value={birthDay} onChangeText={setBirthDay} keyboardType="number-pad" maxLength={2} accessibilityLabel="Birth day" />
+                <TextInput style={[styles.input, styles.birthYear]} placeholder="YYYY" placeholderTextColor="#746459"
+                  value={birthYear} onChangeText={setBirthYear} keyboardType="number-pad" maxLength={4} accessibilityLabel="Birth year" />
+              </View>
+              <Text style={styles.ageDescription}>OVRLEE's initial closed beta is limited to adults 18 and older.</Text>
               <Text style={styles.label}>EMAIL</Text>
 
               <TextInput
@@ -187,9 +225,11 @@ const baseStyles=StyleSheet.create({
     maxWidth: 330,
   },
 
-  form: {
-    marginTop: 45,
-  },
+  form: { marginTop: 32 },
+  birthRow: { flexDirection: 'row', gap: 10 },
+  birthField: { flex: 1, minWidth: 0 },
+  birthYear: { flex: 1.5, minWidth: 0 },
+  ageDescription: { color: '#B8A697', fontSize: 12, lineHeight: 18, marginTop: 8, marginBottom: 8 },
 
   label: {
     color: '#777777',
