@@ -9,7 +9,7 @@ const HOLD_MS = 650;
 export default function OverlyIntro({ active }: { active: boolean }) {
   const [visible, setVisible] = useState(false);
   const [word, setWord] = useState(0);
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
   const running = useRef(false);
 
   useEffect(() => {
