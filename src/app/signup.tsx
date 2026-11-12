@@ -8,6 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -99,7 +100,7 @@ export default function SignupScreen() {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View>
             <Text style={styles.logo}>OVRLEE</Text>
 
@@ -181,7 +182,7 @@ export default function SignupScreen() {
           <Text style={styles.footer}>
             For the overly obsessed.
           </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -195,9 +196,10 @@ const baseStyles=StyleSheet.create({
 
   content: {
     flex: 1,
+    flexGrow: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 50,
+    paddingTop: 30,
     paddingBottom: 22,
   },
 
@@ -213,7 +215,7 @@ const baseStyles=StyleSheet.create({
     fontSize: 38,
     lineHeight: 44,
     fontWeight: '700',
-    marginTop: 65,
+    marginTop: 30,
     maxWidth: 330,
   },
 
@@ -225,7 +227,7 @@ const baseStyles=StyleSheet.create({
     maxWidth: 330,
   },
 
-  form: { marginTop: 32 },
+  form: { marginTop: 22 },
   birthRow: { flexDirection: 'row', gap: 10 },
   birthField: { flex: 1, minWidth: 0 },
   birthYear: { flex: 1.5, minWidth: 0 },
@@ -256,7 +258,7 @@ const baseStyles=StyleSheet.create({
     borderRadius: 30,
     paddingVertical: 17,
     alignItems: 'center',
-    marginTop: 30,
+    marginTop: 22,
   },
 
   buttonPressed: {
