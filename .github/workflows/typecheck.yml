@@ -18,6 +18,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node tools/beta-release-config.test.mjs
+      - run: node tools/beta-ui-brand.test.mjs
       - run: node --experimental-strip-types tools/music-launch-sources.test.mjs
       - run: node --experimental-strip-types tools/music-suggestion-signals.test.mjs
       - run: node --experimental-strip-types tools/music-taste-evidence.test.mjs
