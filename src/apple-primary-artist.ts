@@ -14,13 +14,13 @@ async function lookup(id:string):Promise<PrimaryArtist|null>{
   try {
     const res=await fetch(`https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&country=us`);
     if(!res.ok)return null;
-    const body=await res.json() as {results?:Array<{wrapperType?:string;kind?:string;artistId?:number;artistName?:string;artistLinkUrl?:string}>};
+    const body=await res.json() as {results?:{wrapperType?:string;kind?:string;artistId?:number;artistName?:string;artistLinkUrl?:string}[]};
     const song=body.results?.find(item=>item.wrapperType==='track'&&item.kind==='song');
     const artistId=song?.artistId;
     if(!artistId || !Number.isSafeInteger(artistId))return null;
     const artistRes=await fetch(`https://itunes.apple.com/lookup?id=${artistId}&country=us`);
     if(!artistRes.ok)return null;
-    const artistBody=await artistRes.json() as {results?:Array<{wrapperType?:string;artistName?:string;artistId?:number}>};
+    const artistBody=await artistRes.json() as {results?:{wrapperType?:string;artistName?:string;artistId?:number}[]};
     const artist=artistBody.results?.find(item=>item.wrapperType==='artist'&&item.artistId===artistId);
     const name=artist?.artistName?.trim();
     return name?{name,appleArtistId:String(artistId)}:null;
