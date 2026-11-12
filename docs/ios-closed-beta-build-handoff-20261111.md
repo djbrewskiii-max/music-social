@@ -50,6 +50,31 @@ npx eas-cli@latest submit --platform ios --profile beta
 Only after physical-device QA and the required App Store Connect,
 privacy, support, signing and moderation preparation.
 
+## Use OVRLEE without Metro running
+The `preview` profile already makes a standalone release-like iOS build. Once
+installed on a registered iPhone, it opens directly without `npx expo start`
+or a computer running.
+
+### Important practical notes
+- The `preview` and `development` profiles currently share
+  `com.brewskiii.musicsocial`; installing one may replace the other on the
+  same iPhone. Do not promise two separately installed copies until a distinct
+  preview bundle identifier is configured and native integrations checked.
+- EAS cloud builds need the required `EXPO_PUBLIC_*` environment variables
+  configured for the selected build environment. A local `.env.local` is not
+  itself a guarantee that the cloud build has those values. Never put
+  service-role keys or secrets in public Expo environment variables.
+- This only removes dependency on the local **Metro** server. Supabase, third
+  party music catalog endpoints and other hosted services still require
+  internet connectivity and their normal availability.
+- Updating JavaScript while Metro is running does not automatically update
+  the installed standalone binary. For periodic remote JS/asset updates,
+  add `expo-updates`, configure EAS Update and runtimeVersion, and make a new
+  compatible native build first; native dependency/permission changes still
+  require a rebuild.
+- The `beta` profile is for store/TestFlight submission, after legal pages,
+  age-gate activation and account-deletion/moderation QA are complete.
+
 ## Server-side safeguards completed
 - `ovrlee-delete-account` now has an authenticated **GET readiness
   endpoint** that only checks the caller's account media folders. It
