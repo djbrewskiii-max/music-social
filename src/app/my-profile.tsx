@@ -1333,69 +1333,6 @@ export default function MyProfileScreen() {
 
 
           </View>
-          <View
-            style={
-              styles.eraSection
-            }
-          >
-            <Text
-              style={
-                styles.eyebrow
-              }
-            >
-              ERAS
-            </Text>
-
-            <Text
-              style={
-                styles.eraTitle
-              }
-            >
-              Your sound changes.
-              OVRLEE remembers it.
-            </Text>
-
-            <Text
-              style={
-                styles.eraCopy
-              }
-            >
-              The artists, albums,
-              shows and moments that
-              defined a chapter of
-              your life.
-            </Text>
-
-            <View
-              style={[
-                styles.eraCard,
-                {
-                  borderColor:
-                    `${profileColor}35`,
-                },
-              ]}
-            >
-              <Text
-                style={
-                  styles.eraSeason
-                }
-              >
-                FALL '26
-              </Text>
-
-              <Text
-                style={[
-                  styles.eraComing,
-                  {
-                    color:
-                      profileColor,
-                  },
-                ]}
-              >
-                COMING SOON
-              </Text>
-            </View>
-          </View>
           {hasPresenceSong && (
             <View
               style={
