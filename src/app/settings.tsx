@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {useEffect,useState} from 'react';
 import {isOverlyIntroEnabled,setOverlyIntroEnabled} from '../overly-preferences';
 import { useAppearance, type AppearancePreference } from '../appearance';
@@ -100,7 +100,8 @@ export default function SettingsScreen(){
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>COMMUNITY</Text>
       {group([
-        {icon:'hand.raised',label:'Community guidelines',detail:'Safe music conversations, reporting and blocking',onPress:()=>router.push('/community-guidelines'),first:true}
+        {icon:'hand.raised',label:'Community guidelines',detail:'Safe music conversations, reporting and blocking',onPress:()=>router.push('/community-guidelines'),first:true},
+        {icon:'envelope',label:'Contact support',detail:'support@ovrlee.com',onPress:()=>void Linking.openURL('mailto:support@ovrlee.com?subject=OVRLEE%20support').catch(()=>Alert.alert('Contact support','Email support@ovrlee.com'))}
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>ACCOUNT</Text>
       {group([
