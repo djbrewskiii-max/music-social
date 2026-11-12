@@ -1,8 +1,7 @@
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
-import {useMemo} from 'react';
+import {useMemo, useState} from 'react';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -109,7 +108,7 @@ export default function SignupScreen() {
             </Text>
 
             <Text style={styles.subheading}>
-              Create your account to start discovering who's listening.
+              Create your account to start discovering who&apos;s listening.
             </Text>
 
             <View style={styles.form}>
@@ -123,7 +122,7 @@ export default function SignupScreen() {
                 <TextInput style={[styles.input, styles.birthYear]} placeholder="YYYY" placeholderTextColor="#746459"
                   value={birthYear} onChangeText={setBirthYear} keyboardType="number-pad" maxLength={4} accessibilityLabel="Birth year" />
               </View>
-              <Text style={styles.ageDescription}>OVRLEE's initial closed beta is limited to adults 18 and older.</Text>
+              <Text style={styles.ageDescription}>OVRLEE&apos;s initial closed beta is limited to adults 18 and older.</Text>
               <Text style={styles.label}>EMAIL</Text>
 
               <TextInput
