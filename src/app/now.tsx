@@ -3044,15 +3044,26 @@ export default function NowScreen() {
                       const combined=isCombinedArtistCredit(post.artist_name||'');
                       const songId=String(post.apple_music_id||post.music_items?.[0]?.id||'');
                       const resolved=primaryArtists[songId];
-                      // Hide the chip until Apple identifies the actual artist,
-                      // rather than incorrectly linking a combined credit.
-                      const target=combined ? resolved?.name : post.artist_name;
-                      if(!target)return null;
+                      const primary=resolved?.name;
+                      const target=combined ? (primary && !isCombinedArtistCredit(primary) ? primary : null) : post.artist_name;
+                      // For multi-artist releases with no unambiguous primary
+                      // catalog artist, let the member choose the credited page.
+                      const candidates=post.artist_name.split(/\s*(?:,|&|\+|\/|×|\s+x\s+|\s+feat\.?\s+|\s+ft\.?\s+)\s*/i)
+                        .map(value=>value.trim()).filter(Boolean);
+                      if(!target && candidates.length<2)return null;
+                      const label=target ? 'EXPLORE '+target.toUpperCase() : 'EXPLORE ARTISTS';
+                      const go=(artist:string)=>router.push({pathname:'/music-discovery',params:{artist,song:post.song_title}});
                       return <Pressable accessibilityRole="button"
-                        accessibilityLabel={`Discover listeners and posts for ${target}`}
-                        onPress={() => router.push({ pathname: '/music-discovery', params: { artist: target, song: post.song_title } })}
+                        accessibilityLabel={target ? `Discover listeners and posts for ${target}` : 'Choose a credited artist to explore'}
+                        onPress={() => {
+                          if(target){go(target);return;}
+                          Alert.alert('Explore an artist','Choose a credited artist',[
+                            ...candidates.slice(0,8).map(artist=>({text:artist,onPress:()=>go(artist)})),
+                            {text:'Cancel',style:'cancel' as const},
+                          ]);
+                        }}
                         style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: scheme==='light'?'#F2E6E0':'#112315' }}>
-                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>EXPLORE {target.toUpperCase()} →</Text>
+                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>{label} →</Text>
                       </Pressable>;
                     })()}
                     <View
