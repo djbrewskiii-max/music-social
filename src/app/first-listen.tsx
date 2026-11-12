@@ -469,6 +469,22 @@ export default function FirstListenRoom() {
           />
         )}
 
+        {editions.length > 1 && (
+          <View style={styles.editionWrap}>
+            <Text style={styles.editionLabel}>ONE RELEASE · MULTIPLE EDITIONS</Text>
+            <View style={styles.editionRow}>
+              {[...editions].sort((a,b)=>a.release_date.localeCompare(b.release_date)).map(edition => (
+                <Pressable key={edition.id} accessibilityRole="button"
+                  onPress={() => { setSelectedEdition(edition.id); setTrack(null); }}
+                  style={[styles.editionChip, selectedEdition === edition.id && styles.editionChipOn]}>
+                  <Text numberOfLines={1} style={[styles.editionText, selectedEdition === edition.id && styles.editionTextOn]}>
+                    {edition.id === room.id ? 'ORIGINAL' : edition.album_title.replace(room.album_title, '').replace(/[()]/g,'').trim().toUpperCase() || 'BONUS EDITION'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
         <View style={styles.statsRow}>
           <Text style={styles.stat}>
             <Text style={styles.statNumber}>{summary?.waiting ?? 0}</Text> waiting
@@ -508,19 +524,33 @@ export default function FirstListenRoom() {
               </View>
             )}
             <FlatList
+              style={{ flex: 1 }}
               data={visibleMessages}
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
-              inverted
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.messageList}
+              ListHeaderComponent={!track ? (
+                <View style={styles.conversationStart}>
+                  <Text style={styles.promptEyebrow}>THE CONVERSATION</Text>
+                  <Text style={styles.promptTitle}>{open ? "What's your first impression?" : 'What are you hoping to hear?'}</Text>
+                  <Text style={styles.promptSub}>A great conversation starts with one take. Yours can be the first.</Text>
+                  <View style={styles.promptActions}>
+                    <Pressable style={styles.promptChip} onPress={() => setTab('tracks')}>
+                      <Text style={styles.promptChipText}>♫ Best track?</Text>
+                    </Pressable>
+                    <Pressable style={styles.promptChip} onPress={() => setDraft('My hot take: ')}>
+                      <Text style={styles.promptChipText}>Hot take</Text>
+                    </Pressable>
+                    {open && <Pressable style={styles.promptChip} onPress={() => setTab('ratings')}>
+                      <Text style={styles.promptChipText}>☆ Rate it</Text>
+                    </Pressable>}
+                  </View>
+                </View>
+              ) : null}
               ListEmptyComponent={
-                <Text style={[styles.emptyRoom, { transform: [{ scaleY: -1 }] }]}>
-                  {open
-                    ? track
-                      ? 'No one has talked about this track yet. Start the thread.'
-                      : 'The room is open. Say what you hear.'
-                    : 'Pre-release talk. What are you hoping for?'}
+                <Text style={styles.emptyRoom}>
+                  {track ? 'No one has talked about this track yet. Start the thread.' : 'No takes yet. Start the conversation.'}
                 </Text>
               }
             />
@@ -773,7 +803,21 @@ const baseStyles = StyleSheet.create({
   },
   threadText: { color: GREEN, fontSize: 12, fontWeight: '800', flex: 1, marginRight: 10 },
   threadClose: { color: '#bbbbbb', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  messageList: { paddingHorizontal: 18, paddingVertical: 12 },
+  messageList: { paddingHorizontal: 18, paddingVertical: 12, paddingBottom: 28 },
+  conversationStart: { borderWidth: 1, borderColor: '#303f32', backgroundColor: '#101b13', borderRadius: 18, padding: 17, marginBottom: 20 },
+  promptEyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
+  promptTitle: { color: '#ffffff', fontSize: 19, fontWeight: '900', marginTop: 9 },
+  promptSub: { color: '#aaaaaa', fontSize: 12, lineHeight: 18, marginTop: 7 },
+  promptActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  promptChip: { borderWidth: 1, borderColor: '#3d6145', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 9 },
+  promptChipText: { color: '#d7f5de', fontSize: 12, fontWeight: '800' },
+  editionWrap: { paddingHorizontal: 20, paddingTop: 12 },
+  editionLabel: { color: '#aaaaaa', fontSize: 9, letterSpacing: 1.2, fontWeight: '900', marginBottom: 9 },
+  editionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  editionChip: { borderWidth: 1, borderColor: '#414141', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
+  editionChipOn: { backgroundColor: '#1b3824', borderColor: GREEN },
+  editionText: { color: '#aaaaaa', fontSize: 10, fontWeight: '900' },
+  editionTextOn: { color: GREEN },
   emptyRoom: { color: '#777777', fontSize: 13, textAlign: 'center', marginTop: 40, paddingHorizontal: 30 },
   message: { flexDirection: 'row', paddingVertical: 8 },
   avatar: { width: 34, height: 34, borderRadius: 17 },
