@@ -132,7 +132,7 @@ export default function ConcertDetailScreen() {
 
       if (!externalId) {
         setErrorMessage(
-          'NOW could not identify this concert.'
+          'OVRLEE could not identify this concert.'
         );
         return;
       }
@@ -290,7 +290,7 @@ export default function ConcertDetailScreen() {
       );
 
       setErrorMessage(
-        'NOW could not load this concert right now.'
+        'OVRLEE could not load this concert right now.'
       );
     } finally {
       setLoading(false);
@@ -427,7 +427,7 @@ export default function ConcertDetailScreen() {
       );
 
       setErrorMessage(
-        'NOW could not save this show right now.'
+        'OVRLEE could not save this show right now.'
       );
     } finally {
       setAttendanceLoading(
@@ -490,7 +490,7 @@ export default function ConcertDetailScreen() {
         );
 
         setErrorMessage(
-          'NOW could not update this show right now.'
+          'OVRLEE could not update this show right now.'
         );
       } finally {
         setAttendanceLoading(
@@ -620,7 +620,7 @@ export default function ConcertDetailScreen() {
                 styles.logo
               }
             >
-              NOW
+              OVRLEE
             </Text>
 
             <View
@@ -917,7 +917,7 @@ export default function ConcertDetailScreen() {
                 styles.emptyCrowdText
               }
             >
-              Nobody on NOW has
+              Nobody on OVRLEE has
               marked this show yet.
               Start the crowd.
             </Text>
@@ -1041,7 +1041,7 @@ export default function ConcertDetailScreen() {
               }
             >
               This night is now
-              part of your NOW.
+              part of your OVRLEE story.
             </Text>
 
             <Text
