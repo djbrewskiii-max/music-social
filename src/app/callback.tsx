@@ -173,7 +173,7 @@ export default function SpotifyCallbackScreen() {
           </Pressable>
         )}
         <Pressable onPress={() => router.replace('/now')}>
-          <Text style={styles.back}>Return to NOW</Text>
+          <Text style={styles.back}>Return to OVRLEE</Text>
         </Pressable>
       </View>
     </SafeAreaView>
