@@ -107,7 +107,7 @@ export default function EditProfileScreen() {
 
         Alert.alert(
           'Could not load profile',
-          'NOW could not load your profile right now.'
+          'OVRLEE could not load your profile right now.'
         );
 
         return;
@@ -137,7 +137,7 @@ export default function EditProfileScreen() {
 
       Alert.alert(
         'Something went wrong',
-        'NOW could not load your profile right now.'
+        'OVRLEE could not load your profile right now.'
       );
     } finally {
       setLoading(false);
@@ -154,7 +154,7 @@ export default function EditProfileScreen() {
       if (!permission.granted) {
         Alert.alert(
           'Photos permission needed',
-          'Allow NOW to access your photos so you can choose a profile image.'
+          'Allow OVRLEE to access your photos so you can choose a profile image.'
         );
 
         return;
@@ -180,7 +180,7 @@ export default function EditProfileScreen() {
       if (!asset?.uri) {
         Alert.alert(
           'Could not use photo',
-          'NOW could not read that photo. Try choosing another one.'
+          'OVRLEE could not read that photo. Try choosing another one.'
         );
 
         return;
@@ -210,7 +210,7 @@ export default function EditProfileScreen() {
 
     try {
       console.log(
-        '========== NOW PROFILE MEDIA UPLOAD =========='
+        '========== OVRLEE PROFILE MEDIA UPLOAD =========='
       );
 
       const {
@@ -223,7 +223,7 @@ export default function EditProfileScreen() {
         !sessionData.session
       ) {
         throw new Error(
-          'Your NOW session has expired. Please sign in again.'
+          'Your OVRLEE session has expired. Please sign in again.'
         );
       }
 
@@ -235,7 +235,7 @@ export default function EditProfileScreen() {
 
       if (!imageResponse.ok) {
         throw new Error(
-          `NOW could not read the selected image (${imageResponse.status}).`
+          `OVRLEE could not read the selected image (${imageResponse.status}).`
         );
       }
 
@@ -311,7 +311,7 @@ export default function EditProfileScreen() {
 
       if (!publicUrlData?.publicUrl) {
         throw new Error(
-          'The photo uploaded, but NOW could not create its image URL.'
+          'The photo uploaded, but OVRLEE could not create its image URL.'
         );
       }
 
@@ -345,7 +345,7 @@ export default function EditProfileScreen() {
 
       const message =
         error?.message ||
-        'NOW could not upload that image.';
+        'OVRLEE could not upload that image.';
 
       Alert.alert(
         'Upload failed',
@@ -440,7 +440,7 @@ export default function EditProfileScreen() {
       }
 
       console.log(
-        '========== NOW PROFILE SAVE =========='
+        '========== OVRLEE PROFILE SAVE =========='
       );
 
       console.log(
@@ -600,7 +600,7 @@ export default function EditProfileScreen() {
       Alert.alert(
         'Could not save',
         error?.message ||
-          'NOW could not save your profile right now.'
+          'OVRLEE could not save your profile right now.'
       );
     } finally {
       setSaving(false);
@@ -1173,7 +1173,7 @@ export default function EditProfileScreen() {
                 styles.personalizationTitle
               }
             >
-              Your corner of NOW.
+              Your corner of OVRLEE.
             </Text>
 
             <Text
@@ -1208,7 +1208,7 @@ export default function EditProfileScreen() {
                     styles.liveLanguageTitle
                   }
                 >
-                  NOW GREEN
+                  LIVE GREEN
                 </Text>
 
                 <Text
