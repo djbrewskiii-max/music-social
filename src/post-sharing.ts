@@ -1,4 +1,4 @@
-import {Alert, Share} from 'react-native';
+import {Alert, Platform, Share} from 'react-native';
 
 /** Stable in-app URI. Works in an installed iOS OVRLEE build.
  * A public https:// universal link requires a verified domain and web fallback.
@@ -33,7 +33,11 @@ export async function shareOVRLEEPost(post:SharePostDetails):Promise<void>{
   const title=`See ${user}'s post on OVRLEE`;
   const message=`${title}\n${description}\n${postShareUrl(post.id)}`;
   try{
-    await Share.share({message,title},{dialogTitle:'Share an OVRLEE post'});
+    // iOS needs a URL payload for LinkPresentation to fetch the author's
+    // Open Graph image. A text-only share may show a generic document icon.
+    const url=postShareUrl(post.id);
+    const payload=Platform.OS==='ios' ? {url,title} : {message,title};
+    await Share.share(payload,{dialogTitle:'Share an OVRLEE post'});
   }catch(error){
     const reason=error instanceof Error?error.message:'Try again.';
     Alert.alert('Couldn’t share this post',reason);
