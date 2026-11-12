@@ -16,7 +16,7 @@ const shortDate = (room: ReleaseRoom) => {
 };
 
 function useNow(intervalMs = 30000) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(timer);
