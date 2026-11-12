@@ -283,7 +283,7 @@ export default function SetupProfileScreen() {
             </Pressable>
 
             <Text style={styles.footer}>
-              Your music. Your people. Right now.
+              For the overly obsessed.
             </Text>
           </View>
         </View>
