@@ -491,7 +491,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
             “{item.note}”
           </Text>
         ) : (
-          {renderDashed({label:'Tap to write a note…',onPress:editing?.onNote ? () => editing.onNote!(spec.index) : undefined,serif:true})}
+          renderDashed({label:'Tap to write a note…',onPress:editing?.onNote ? () => editing.onNote!(spec.index) : undefined,serif:true})
         )}
       </View>
     );
@@ -554,7 +554,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
             {renderTitle({text:spec.title || (editing ? 'Tap to add a title' : ''),base:36,lines:2})}
             {!!spec.caption && <Text onPress={editing?.onTitle}
               style={{ fontFamily: SERIF, color: p.sub, fontSize: u(15), marginTop: u(4) }} numberOfLines={2}>{spec.caption}</Text>}
-            {!spec.caption && {renderCaption({text:''})}}
+            {!spec.caption && renderCaption({text:''})}
           </View>
         )}
       </View>
