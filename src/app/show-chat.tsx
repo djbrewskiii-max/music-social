@@ -4,8 +4,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../supabase';
+import ProfileAvatar from '../components/ProfileAvatar';
 type ChatMessage={id:string;external_id:string;user_id:string;body:string;created_at:string};
-type Profile={user_id:string;display_name:string|null;username:string|null};
+type Profile={user_id:string;display_name:string|null;username:string|null;avatar_url:string|null};
 const param=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]||'':v||'';
 export default function ShowChatScreen(){
   const { scheme } = useAppearance();
@@ -16,7 +17,7 @@ export default function ShowChatScreen(){
  const [mine,theirs]=await Promise.all([supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id),supabase.from('user_blocks').select('blocker_id').eq('blocked_id',user.id)]);
  if(active)setBlocked([...new Set([...(mine.data||[]).map((r:any)=>r.blocked_id),...(theirs.data||[]).map((r:any)=>r.blocker_id)])]);
  await load();channel=supabase.channel(`show-chat-${externalId}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'concert_chat_messages',filter:`external_id=eq.${externalId}`},()=>{load();}).subscribe();}
- async function load(){const {data,error:e}=await supabase.from('concert_chat_messages').select('id,external_id,user_id,body,created_at').eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);if(!active)return;if(e){setError('Could not load this concert chat. Go back and reopen the show to retry.');setLoading(false);return;}setMessages(data||[]);const ids=[...new Set((data||[]).map(x=>x.user_id))];if(ids.length){const {data:people}=await supabase.from('profiles').select('user_id,display_name,username').in('user_id',ids);if(active)setProfiles(Object.fromEntries((people||[]).map(x=>[x.user_id,x])));}setLoading(false);}
+ async function load(){const {data,error:e}=await supabase.from('concert_chat_messages').select('id,external_id,user_id,body,created_at').eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);if(!active)return;if(e){setError('Could not load this concert chat. Go back and reopen the show to retry.');setLoading(false);return;}setMessages(data||[]);const ids=[...new Set((data||[]).map(x=>x.user_id))];if(ids.length){const {data:people}=await supabase.from('profiles').select('user_id,display_name,username,avatar_url').in('user_id',ids);if(active)setProfiles(Object.fromEntries((people||[]).map(x=>[x.user_id,x])));}setLoading(false);}
  if(externalId)init();else{setError('Missing concert ID.');setLoading(false);}return()=>{active=false;if(channel)supabase.removeChannel(channel);};},[externalId]);
  async function send(){const body=draft.trim();if(!body||busy||!myId)return;setBusy(true);setError('');const {error:e}=await supabase.from('concert_chat_messages').insert({external_id:externalId,user_id:myId,body});if(e){setError(e.message);}else{setDraft('');const {data}=await supabase.from('concert_chat_messages').select('id,external_id,user_id,body,created_at').eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);if(data)setMessages(data);}setBusy(false);}
  function showDetails(){router.push({pathname:'/concert-detail',params:{externalId,name:param(p.name),artist,city,region:param(p.region),venue,date,time:param(p.time),dateTime:param(p.dateTime),artworkUrl:param(p.artworkUrl),ticketUrl:param(p.ticketUrl)}});}
@@ -24,12 +25,29 @@ export default function ShowChatScreen(){
  return <SafeAreaView style={styles.screen}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={0}>
  <View style={styles.header}><Pressable onPress={()=>router.back()}><Text style={styles.back}>‹</Text></Pressable><View style={{flex:1}}><Text numberOfLines={1} style={styles.title}>{artist} · {city}</Text><Text style={styles.meta}>{date} · {venue}</Text></View><Pressable onPress={showDetails}><Text style={styles.details}>SHOW INFO ↗</Text></Pressable></View>
  <View style={styles.notice}><Text style={styles.noticeTitle}>THE SHOW CHAT</Text><Text style={styles.noticeText}>Thinking about going? You're welcome here. You don't need a ticket or an RSVP to join the conversation.</Text></View>
- {loading?<ActivityIndicator style={{marginTop:30}} color="#39E75F"/>:<FlatList ref={list} data={visible} keyExtractor={x=>x.id} contentContainerStyle={styles.messages} onContentSizeChange={()=>list.current?.scrollToEnd({animated:false})} ListEmptyComponent={<Text style={styles.empty}>Start the conversation. Who's thinking of going?</Text>} renderItem={({item})=>{const own=item.user_id===myId;const profile=profiles[item.user_id];return <View style={[styles.message,own&&styles.ownMessage]}><Pressable accessibilityRole="button" disabled={own}
-onPress={()=>router.push({pathname:'/profile',params:{userId:item.user_id}})}>
-<Text style={[styles.author,own&&styles.ownAuthor]}>{own?'YOU':profile?.username?`@${profile.username}`:profile?.display_name||'Listener'}</Text>
-</Pressable><Text style={styles.body}>{item.body}</Text></View>;}}/>}
+ {loading?<ActivityIndicator style={{marginTop:30}} color="#39E75F"/>:<FlatList ref={list} data={visible} keyExtractor={x=>x.id} contentContainerStyle={styles.messages} onContentSizeChange={()=>list.current?.scrollToEnd({animated:false})} ListEmptyComponent={<Text style={styles.empty}>Start the conversation. Who's thinking of going?</Text>} renderItem={({item})=>{
+  const own=item.user_id===myId;
+  const profile=profiles[item.user_id];
+  const displayName=profile?.display_name||profile?.username||'Listener';
+  const avatar=<ProfileAvatar uri={profile?.avatar_url} name={displayName} size={35}/>;
+  return <View style={[styles.messageRow,own&&styles.ownRow]}>
+    {!own&&<Pressable accessibilityRole="button" accessibilityLabel={`Open ${displayName}'s profile`}
+      onPress={()=>router.push({pathname:'/profile',params:{userId:item.user_id}})}>
+      {avatar}
+    </Pressable>}
+    <View style={[styles.message,own&&styles.ownMessage]}>
+      <Pressable accessibilityRole="button" onPress={()=>router.push(own?'/my-profile':{pathname:'/profile',params:{userId:item.user_id}})}>
+        <Text style={[styles.author,own&&styles.ownAuthor]}>{own?'YOU':profile?.username?`@${profile.username}`:displayName}</Text>
+      </Pressable>
+      <Text style={styles.body}>{item.body}</Text>
+    </View>
+    {own&&<Pressable accessibilityRole="button" accessibilityLabel="Open your profile" onPress={()=>router.push('/my-profile')}>
+      {avatar}
+    </Pressable>}
+  </View>;
+}}/>}
  {!!error&&<Text style={styles.error}>{error}</Text>}
  <View style={styles.composer}><TextInput style={styles.input} value={draft} onChangeText={setDraft} placeholder="Message the show..." placeholderTextColor="#777" multiline maxLength={1000}/><Pressable onPress={send} disabled={busy||!draft.trim()} style={[styles.send,(!draft.trim()||busy)&&{opacity:.4}]}><Text style={styles.sendText}>↑</Text></Pressable></View>
  </KeyboardAvoidingView></SafeAreaView>;
 }
-const baseStyles = StyleSheet.create({screen:{flex:1,backgroundColor:'#080808'},header:{flexDirection:'row',alignItems:'center',gap:14,paddingHorizontal:18,paddingVertical:15,borderBottomWidth:1,borderBottomColor:'#222'},back:{fontSize:35,color:'#fff',lineHeight:39},title:{color:'#fff',fontSize:16,fontWeight:'900'},meta:{color:'#888',fontSize:11,marginTop:4},details:{color:'#39E75F',fontSize:10,fontWeight:'900'},notice:{backgroundColor:'#141414',paddingHorizontal:20,paddingVertical:15},noticeTitle:{color:'#39E75F',fontSize:10,fontWeight:'900',letterSpacing:1},noticeText:{color:'#aaa',fontSize:12,lineHeight:18,marginTop:6},messages:{paddingHorizontal:17,paddingVertical:20,gap:13,flexGrow:1},empty:{color:'#888',fontSize:14,textAlign:'center',marginTop:55},message:{alignSelf:'flex-start',maxWidth:'85%',backgroundColor:'#202020',padding:13,borderRadius:15},ownMessage:{alignSelf:'flex-end',backgroundColor:'#18331f'},author:{color:'#bbb',fontSize:10,fontWeight:'800',marginBottom:6},ownAuthor:{color:'#39E75F'},body:{color:'#fff',fontSize:14,lineHeight:20},error:{color:'#e99',fontSize:12,paddingHorizontal:17,paddingVertical:8},composer:{flexDirection:'row',alignItems:'flex-end',gap:10,paddingHorizontal:14,paddingVertical:11,borderTopWidth:1,borderTopColor:'#252525'},input:{flex:1,color:'#fff',backgroundColor:'#1b1b1b',borderRadius:22,minHeight:45,maxHeight:115,paddingHorizontal:17,paddingVertical:12,fontSize:14},send:{width:44,height:44,borderRadius:22,backgroundColor:'#39E75F',alignItems:'center',justifyContent:'center'},sendText:{color:'#080808',fontSize:24,fontWeight:'900'}});
+const baseStyles = StyleSheet.create({screen:{flex:1,backgroundColor:'#080808'},header:{flexDirection:'row',alignItems:'center',gap:14,paddingHorizontal:18,paddingVertical:15,borderBottomWidth:1,borderBottomColor:'#222'},back:{fontSize:35,color:'#fff',lineHeight:39},title:{color:'#fff',fontSize:16,fontWeight:'900'},meta:{color:'#888',fontSize:11,marginTop:4},details:{color:'#39E75F',fontSize:10,fontWeight:'900'},notice:{backgroundColor:'#141414',paddingHorizontal:20,paddingVertical:15},noticeTitle:{color:'#39E75F',fontSize:10,fontWeight:'900',letterSpacing:1},noticeText:{color:'#aaa',fontSize:12,lineHeight:18,marginTop:6},messages:{paddingHorizontal:17,paddingVertical:20,gap:13,flexGrow:1},empty:{color:'#888',fontSize:14,textAlign:'center',marginTop:55},messageRow:{flexDirection:'row',alignItems:'flex-end',gap:9,alignSelf:'flex-start',maxWidth:'94%'},ownRow:{alignSelf:'flex-end'},message:{flexShrink:1,backgroundColor:'#202020',padding:13,borderRadius:15},ownMessage:{backgroundColor:'#18331f'},author:{color:'#bbb',fontSize:10,fontWeight:'800',marginBottom:6},ownAuthor:{color:'#39E75F'},body:{color:'#fff',fontSize:14,lineHeight:20},error:{color:'#e99',fontSize:12,paddingHorizontal:17,paddingVertical:8},composer:{flexDirection:'row',alignItems:'flex-end',gap:10,paddingHorizontal:14,paddingVertical:11,borderTopWidth:1,borderTopColor:'#252525'},input:{flex:1,color:'#fff',backgroundColor:'#1b1b1b',borderRadius:22,minHeight:45,maxHeight:115,paddingHorizontal:17,paddingVertical:12,fontSize:14},send:{width:44,height:44,borderRadius:22,backgroundColor:'#39E75F',alignItems:'center',justifyContent:'center'},sendText:{color:'#080808',fontSize:24,fontWeight:'900'}});
