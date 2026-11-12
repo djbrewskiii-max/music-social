@@ -1,5 +1,7 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DayOne, fmtMs, loadDayOne, Snapshot, SNAPSHOT_LABELS } from '../day-one';
@@ -21,6 +23,8 @@ type Props = {
   impressions. After: the permanent Day One card and how opinion moved.
 */
 export default function DayOnePanel({ roomId, opensAt, now, currentAverage, currentCount, trackName }: Props) {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const [record, setRecord] = useState<DayOne | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
@@ -153,7 +157,7 @@ export default function DayOnePanel({ roomId, opensAt, now, currentAverage, curr
 
 export { DayOnePanel };
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   pending: { borderWidth: 1, borderColor: '#2b5a33', backgroundColor: '#0d150f', borderRadius: 18, padding: 16, marginBottom: 16 },
   pendingText: { color: '#d7e9da', fontSize: 14, lineHeight: 20, marginTop: 8 },
   pendingSub: { color: '#8fb898', fontSize: 12, marginTop: 8 },
