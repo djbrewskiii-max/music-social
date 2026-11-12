@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -47,6 +49,8 @@ type Rating = {
 type Tab = 'room' | 'tracks' | 'ratings';
 
 export default function FirstListenRoom() {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const { roomId, tab: tabParam } = useLocalSearchParams<{ roomId?: string; tab?: string }>();
   const id = typeof roomId === 'string' ? roomId : '';
 
@@ -677,7 +681,7 @@ export default function FirstListenRoom() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#070707' },
   backWrap: { padding: 22 },
   back: { color: '#ffffff', fontSize: 34, lineHeight: 38 },
