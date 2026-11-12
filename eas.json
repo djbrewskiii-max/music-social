@@ -6,7 +6,8 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -14,17 +15,20 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ebflucbdptxpboqjxaox.supabase.co",
         "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_SibnO1c3UEAxA9dxtZ622w_3vUrnW_5"
       },
-      "node": "22.23.3"
+      "node": "22.23.3",
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     },
     "beta": {
       "distribution": "store",
       "autoIncrement": true,
       "ios": {
         "buildConfiguration": "Release"
-      }
+      },
+      "channel": "beta"
     }
   },
   "submit": {

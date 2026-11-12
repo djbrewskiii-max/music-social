@@ -19,6 +19,7 @@
         "NSAppleMusicUsageDescription": "OVRLEE uses your Apple Music library and music selections so you can share songs, express your music taste, and discover conversations.",
         "NSMicrophoneUsageDescription": "OVRLEE uses the microphone only when you tap Recognize Music to identify a song playing near you.",
         "LSApplicationQueriesSchemes": [
+          "spotify",
           "spotify"
         ]
       }
@@ -28,7 +29,21 @@
         "foregroundImage": "./assets/icon/adaptive-icon.png",
         "backgroundColor": "#3B2218"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -94,8 +109,31 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ec97215f-fbf5-47ed-a26d-5626c7dde9c5"
+        "projectId": "ec97215f-fbf5-47ed-a26d-5626c7dde9c5",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "PosttoOVRLEE",
+                  "bundleIdentifier": "com.brewskiii.musicsocial.share-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.brewskiii.musicsocial"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ec97215f-fbf5-47ed-a26d-5626c7dde9c5"
     }
   }
 }
