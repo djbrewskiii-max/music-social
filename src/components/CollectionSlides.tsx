@@ -545,7 +545,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
                 onPress={editing ? () => editing.onPhoto?.(0) : undefined} />
             </View>
             {placements.map((tile, index) => (
-              {renderCover({key:index,uri:spec.arts[index] || null,songIndex:spec.artIdx[index] ?? -1,radius:3,style:{position:'absolute',left:tile.x,top:tile.y,width:tile.w,height:tile.h}})}
+              renderCover({key:index,uri:spec.arts[index] || null,songIndex:spec.artIdx[index] ?? -1,radius:3,style:{position:'absolute',left:tile.x,top:tile.y,width:tile.w,height:tile.h}})
             ))}
           </>}
         </View>
@@ -567,7 +567,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
     body = (
       <>
         {rects.map(([x, y, w, h], i) => (
-          {renderPhoto({key:i,uri:spec.photos[i] || null,slot:i,focus:spec.focus?.[i],aspect:spec.aspects?.[i],style:{position:'absolute',left:u(18+x),top:u(52+y),width:u(w),height:u(h),borderRadius:u(5)}})}
+          renderPhoto({key:i,uri:spec.photos[i] || null,slot:i,focus:spec.focus?.[i],aspect:spec.aspects?.[i],style:{position:'absolute',left:u(18+x),top:u(52+y),width:u(w),height:u(h),borderRadius:u(5)}})
         ))}
         <View style={{ position: 'absolute', left: u(20), right: u(20), top: u(464), bottom: u(64), justifyContent: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: u(10) }}>
@@ -606,7 +606,7 @@ export default function Slide({ spec, width, username, index, total, theme = 'au
           {g && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap, width: g.cols * g.size + (g.cols - 1) * gap + 1 }}>
               {spec.arts.map((a, i) => (
-                {renderCover({key:i,uri:a || null,songIndex:i,style:{width:g.size,height:g.size}})}
+                renderCover({key:i,uri:a || null,songIndex:i,style:{width:g.size,height:g.size}})
               ))}
               {editing?.onAddSong && n === 0 && (
                 <Pressable onPress={editing.onAddSong} style={{ width: g.size, height: g.size, borderRadius: u(4), borderWidth: 1, borderStyle: 'dashed', borderColor: p.line, alignItems: 'center', justifyContent: 'center' }}>
