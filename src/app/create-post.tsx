@@ -345,7 +345,7 @@ export default function CreatePostScreen() {
             <Text style={styles.hint}>At least one song is required. Up to 10 combined media items per post. Captions are optional and don't count.</Text>
           </> : <>
             <Text style={styles.heading}>Add music.</Text>
-            {musicProvider === 'spotify' && <Text style={styles.muted}>Search NOW's song catalog. Spotify listeners will open songs in Spotify. Spotify account syncing isn't available yet.</Text>}
+            {musicProvider === 'spotify' && <Text style={styles.muted}>Search OVRLEE's song catalog. Spotify listeners will open songs in Spotify. Spotify account syncing isn't available yet.</Text>}
             <Text style={styles.muted}>{itemCount}/{MAX_ITEMS} · album artwork appears beside each track</Text>
             <View style={{ borderWidth: 1, borderColor: '#303030', borderRadius: 14, backgroundColor: '#121212', padding: 12, marginTop: 16, marginBottom: 15 }}>
               <Text style={[styles.eyebrow, { marginTop: 0 }]}>ADD FROM A LINK</Text>
