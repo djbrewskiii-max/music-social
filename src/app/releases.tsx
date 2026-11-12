@@ -1,5 +1,7 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +33,8 @@ import { useFirstListenFeed } from '../use-first-listen-feed';
 const GREEN = '#39E75F';
 
 export default function ReleasesScreen() {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const feed = useFirstListenFeed();
   const [calSort, setCalSort] = useState<'popular' | 'date'>('popular');
   const [ranks, setRanks] = useState<Record<string, number>>({});
@@ -406,7 +410,7 @@ export default function ReleasesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#080808' },
   content: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 60 },
   back: { color: '#aaaaaa', fontSize: 16, marginTop: 8, marginBottom: 22 },
