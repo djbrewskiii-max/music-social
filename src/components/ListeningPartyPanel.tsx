@@ -1,6 +1,8 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { openAlbumInMusicApp } from '../first-listen';
@@ -31,6 +33,8 @@ const whenLabel = (iso: string) => {
 };
 
 function FloatingReaction({ emoji, onDone }: { emoji: string; onDone: () => void }) {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const [rise] = useState(() => new Animated.Value(0));
   const [left] = useState(() => 10 + Math.random() * 70);
   useEffect(() => {
@@ -56,6 +60,8 @@ function FloatingReaction({ emoji, onDone }: { emoji: string; onDone: () => void
 }
 
 export default function ListeningPartyPanel({ partyState, room, here }: Props) {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const { party, host, isHost, tracks, now, loc, reactions, controls, react } = partyState;
   const [provider, setProvider] = useState<'apple' | 'spotify' | null>(null);
   const [floating, setFloating] = useState<{ key: string; emoji: string }[]>([]);
@@ -277,7 +283,7 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   panel: {
     marginHorizontal: 16,
     marginTop: 14,
