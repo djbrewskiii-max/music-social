@@ -112,10 +112,11 @@ export default function FirstListenRoom() {
   }, [id, ensurePeople]);
 
   const refreshSummary = useCallback(async () => {
-    const map = await loadSummaries([id]);
+    const ids = editionIdsRef.current;
+    const map = await loadSummaries(ids);
     if (map[id]) {
-      setSummary(map[id]);
-      setFollowing(map[id].i_follow);
+      setSummary({ ...map[id], waiting: ids.reduce((sum, roomId) => sum + (map[roomId]?.waiting || 0), 0) });
+      setFollowing(!!map[id].i_follow);
     }
   }, [id]);
 
@@ -182,7 +183,7 @@ export default function FirstListenRoom() {
     return () => {
       alive = false;
     };
-  }, [id, ensurePeople, loadRatings, refreshSummary]);
+  }, [id, tabParam, ensurePeople, loadRatings, refreshSummary]);
 
   // Live messages + who's here right now
   useEffect(() => {
@@ -216,6 +217,29 @@ export default function FirstListenRoom() {
       supabase.removeChannel(channel);
     };
   }, [id, myId, ensurePeople]);
+
+  // Older editions retain their original room IDs. Subscribe to those threads
+  // as well, so the shared conversation updates without requiring a refresh.
+  useEffect(() => {
+    if (!myId || editions.length < 2) return;
+    const channels = editions.filter(edition => edition.id !== id).map(edition => {
+      const channel = supabase.channel('first-listen-edition-' + edition.id)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'release_room_messages', filter: 'room_id=eq.' + edition.id },
+          async payload => {
+            const message = payload.new as RoomMessage;
+            await ensurePeople([message.user_id]);
+            setMessages(previous => previous.some(item => item.id === message.id) ? previous : [message, ...previous]);
+          })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'release_room_messages', filter: 'room_id=eq.' + edition.id },
+          payload => {
+            const removed = payload.old as { id?: string };
+            if (removed.id) setMessages(previous => previous.filter(item => item.id !== removed.id));
+          });
+      channel.subscribe();
+      return channel;
+    });
+    return () => { channels.forEach(channel => { void supabase.removeChannel(channel); }); };
+  }, [id, myId, editions, ensurePeople]);
 
   // Tick the countdown
   useEffect(() => {
@@ -340,7 +364,7 @@ export default function FirstListenRoom() {
       ? await supabase
           .from('album_ratings')
           .update({ rating: pick, review: cleanReview })
-           .eq('room_id', myRating.room_id)
+          .eq('room_id', myRating.room_id)
           .eq('user_id', myId)
       : await supabase
           .from('album_ratings')
@@ -440,7 +464,7 @@ export default function FirstListenRoom() {
               {room.artist_name}
             </Text>
             <View style={styles.heroButtons}>
-              <Pressable onPress={() => openAlbumInMusicApp(room).catch(() => undefined)} style={styles.listenButton}>
+              <Pressable onPress={() => openAlbumInMusicApp(activeEdition || room).catch(() => undefined)} style={styles.listenButton}>
                 <Text style={styles.listenText}>{open ? '▶ LISTEN' : 'PRE-ADD'}</Text>
               </Pressable>
               {!open && (
