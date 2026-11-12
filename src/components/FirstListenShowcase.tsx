@@ -1,3 +1,6 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
+import { useMemo } from 'react';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,6 +28,8 @@ function useNow(intervalMs = 30000) {
 }
 
 function Countdown({ opensAt, now }: { opensAt: string; now: number }) {
+  // Countdown sits on dark album artwork in both appearance modes.
+  const styles = baseStyles;
   const ms = Math.max(0, new Date(opensAt).getTime() - now);
   const totalMinutes = Math.floor(ms / 60000);
   const blocks = [
@@ -50,6 +55,8 @@ type Props = {
 };
 
 export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const now = useNow();
   const { comingSoon, outNow, summaries, loading, scanning, setFollowing, parties } = feed;
 
@@ -115,30 +122,30 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
         <ImageBackground
           source={hero.room.artwork_url ? { uri: hero.room.artwork_url } : undefined}
           blurRadius={40}
-          style={styles.hero}
-          imageStyle={styles.heroImage}
+          style={baseStyles.hero}
+          imageStyle={baseStyles.heroImage}
         >
-          <View style={styles.heroShade} />
-          <View style={styles.heroInner}>
-            <View style={styles.heroTop}>
-              <View style={[styles.statusPill, heroOpen && styles.statusLive]}>
-                {heroOpen && <View style={styles.liveDot} />}
-                <Text style={[styles.statusText, heroOpen && styles.statusTextLive]}>
+          <View style={baseStyles.heroShade} />
+          <View style={baseStyles.heroInner}>
+            <View style={baseStyles.heroTop}>
+              <View style={[baseStyles.statusPill, heroOpen && baseStyles.statusLive]}>
+                {heroOpen && <View style={baseStyles.liveDot} />}
+                <Text style={[baseStyles.statusText, heroOpen && baseStyles.statusTextLive]}>
                   {heroOpen ? 'ROOM IS LIVE' : `OUT ${shortDate(hero.room)}`}
                 </Text>
               </View>
-              {!!heroSummary?.waiting && !heroOpen && <Text style={styles.waiting}>{heroSummary.waiting} waiting</Text>}
+              {!!heroSummary?.waiting && !heroOpen && <Text style={baseStyles.waiting}>{heroSummary.waiting} waiting</Text>}
             </View>
 
             {!!heroParty && (
-              <View style={styles.heroHost}>
+              <View style={baseStyles.heroHost}>
                 {heroParty.hostAvatar ? (
-                  <Image source={{ uri: heroParty.hostAvatar }} style={styles.heroHostAvatar} />
+                  <Image source={{ uri: heroParty.hostAvatar }} style={baseStyles.heroHostAvatar} />
                 ) : (
-                  <View style={[styles.heroHostAvatar, styles.artFallback]} />
+                  <View style={[baseStyles.heroHostAvatar, baseStyles.artFallback]} />
                 )}
-                <Text style={styles.heroHostText} numberOfLines={1}>
-                  HOSTED BY <Text style={styles.heroHostName}>{heroParty.hostName.toUpperCase()}</Text>
+                <Text style={baseStyles.heroHostText} numberOfLines={1}>
+                  HOSTED BY <Text style={baseStyles.heroHostName}>{heroParty.hostName.toUpperCase()}</Text>
                   {'  ·  '}
                   {heroParty.status === 'live' || heroParty.status === 'paused' ? 'PLAYING NOW' : partyTime(heroParty.starts_at)}
                 </Text>
@@ -146,25 +153,25 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
             )}
 
             {hero.room.artwork_url ? (
-              <Image source={{ uri: hero.room.artwork_url }} style={styles.heroArt} />
+              <Image source={{ uri: hero.room.artwork_url }} style={baseStyles.heroArt} />
             ) : (
-              <View style={[styles.heroArt, styles.artFallback]} />
+              <View style={[baseStyles.heroArt, baseStyles.artFallback]} />
             )}
 
-            <Text style={styles.heroTitle} numberOfLines={2}>
+            <Text style={baseStyles.heroTitle} numberOfLines={2}>
               {hero.room.album_title}
             </Text>
-            <Text style={styles.heroArtist} numberOfLines={1}>
+            <Text style={baseStyles.heroArtist} numberOfLines={1}>
               {hero.room.artist_name}
             </Text>
             {!!hero.reason && (
-              <Text style={styles.reason} numberOfLines={1}>
+              <Text style={baseStyles.reason} numberOfLines={1}>
                 ✦ {hero.reason}
               </Text>
             )}
 
             {heroOpen ? (
-              <Text style={styles.liveLine}>
+              <Text style={baseStyles.liveLine}>
                 {heroSummary?.ratings
                   ? `${heroSummary.average_rating} avg · ${heroSummary.ratings} first impressions`
                   : 'Be one of the first critics.'}
@@ -173,19 +180,19 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
               <Countdown opensAt={hero.room.opens_at} now={now} />
             )}
 
-            <View style={styles.heroButtons}>
+            <View style={baseStyles.heroButtons}>
               {!heroOpen && (
                 <Pressable
                   onPress={() => setFollowing(hero.room.id, !heroFollowing)}
-                  style={[styles.secondary, heroFollowing && styles.secondaryOn]}
+                  style={[baseStyles.secondary, heroFollowing && baseStyles.secondaryOn]}
                 >
-                  <Text style={[styles.secondaryText, heroFollowing && styles.secondaryTextOn]}>
+                  <Text style={[baseStyles.secondaryText, heroFollowing && baseStyles.secondaryTextOn]}>
                     {heroFollowing ? '🔔 NOTIFYING' : 'NOTIFY ME'}
                   </Text>
                 </Pressable>
               )}
-              <Pressable onPress={() => openRoom(hero.room.id)} style={styles.primary}>
-                <Text style={styles.primaryText}>{heroOpen ? 'JOIN THE ROOM →' : 'ENTER ROOM →'}</Text>
+              <Pressable onPress={() => openRoom(hero.room.id)} style={baseStyles.primary}>
+                <Text style={baseStyles.primaryText}>{heroOpen ? 'JOIN THE ROOM →' : 'ENTER ROOM →'}</Text>
               </Pressable>
             </View>
           </View>
@@ -339,7 +346,7 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrap: { marginBottom: 30 },
   headRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 14 },
   eyebrow: { color: GREEN, fontSize: 10, fontWeight: '900', letterSpacing: 2.4 },
