@@ -33,9 +33,9 @@ export default function SignupScreen() {
     const m = Number(birthMonth);
     const d = Number(birthDay);
     const birth = new Date(Date.UTC(y, m - 1, d));
-    const valid = /^\\d{4}$/.test(birthYear)
-      && /^\\d{1,2}$/.test(birthMonth)
-      && /^\\d{1,2}$/.test(birthDay)
+    const valid = /^\d{4}$/.test(birthYear)
+      && /^\d{1,2}$/.test(birthMonth)
+      && /^\d{1,2}$/.test(birthDay)
       && y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31
       && birth.getUTCFullYear() === y
       && birth.getUTCMonth() === m - 1
