@@ -1278,8 +1278,7 @@ export default function EditProfileScreen() {
               styles.footer
             }
           >
-            YOUR MUSIC. YOUR PEOPLE.
-            RIGHT NOW.
+            FOR THE OVERLY OBSESSED.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
