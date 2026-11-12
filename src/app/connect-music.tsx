@@ -13,8 +13,7 @@ import {
 
 export default function ConnectMusicScreen() {
   const [connecting, setConnecting] = useState(false);
-  // The current Spotify entry uses the public-profile reader. Legacy native
-  // OAuth callback support is retained separately until its dependencies are audited.
+  // Spotify playback preference is separate from experimental public-profile research.
   const connectSpotify = () => {
     // The public-page reader is experimental; release builds never invoke it.
     router.push('/spotify-connect');
@@ -45,7 +44,7 @@ export default function ConnectMusicScreen() {
 
       Alert.alert(
         'Apple Music not connected',
-        'OVRLEE needs Apple Music permission to build your Music DNA.'
+        'Apple Music access was not granted. You can still enjoy OVRLEE and choose music manually.'
       );
     } catch (error) {
       console.error('Apple Music connection error:', error);
@@ -73,7 +72,7 @@ export default function ConnectMusicScreen() {
             <Text style={styles.heading}>Bring your music with you.</Text>
 
             <Text style={styles.subheading}>
-              Help OVRLEE learn what you enjoy, so the right music and people find you.
+              Choose how you want to open music. You can still share songs, discover people and join conversations without connecting a service.
             </Text>
           </View>
 
@@ -127,7 +126,7 @@ export default function ConnectMusicScreen() {
           </Pressable>
 
           <Text style={styles.footer}>
-            Choose your music once. Let OVRLEE do the discovering.
+            Music and conversation are at the center of OVRLEE.
           </Text>
         </View>
       </View>
