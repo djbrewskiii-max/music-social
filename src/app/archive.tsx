@@ -1,5 +1,7 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { ArchiveRow, loadArchive } from '../day-one';
@@ -12,6 +14,8 @@ const GREEN = '#39E75F';
   received on Day One, and where opinion stands now.
 */
 export default function ArchiveScreen() {
+  const { scheme } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const [rows, setRows] = useState<ArchiveRow[]>([]);
   const [now, setNow] = useState<Record<string, RoomSummary>>({});
   const [loading, setLoading] = useState(true);
@@ -91,7 +95,7 @@ export default function ArchiveScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#080808' },
   header: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 10 },
   back: { color: '#aaaaaa', fontSize: 16, marginTop: 6, marginBottom: 20 },
