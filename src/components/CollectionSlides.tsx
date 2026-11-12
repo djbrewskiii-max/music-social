@@ -254,26 +254,20 @@ const aspectCache = new Map<string, number>();
 
 /** The photo's real shape (width ÷ height), so it can be shown whole. */
 function useAspect(uri: string | null) {
-  const [aspect, setAspect] = useState<number | null>(uri ? aspectCache.get(uri) ?? null : null);
+  const [measured, setMeasured] = useState<{uri:string; value:number}|null>(null);
   useEffect(() => {
-    if (!uri) return setAspect(null);
-    const known = aspectCache.get(uri);
-    if (known) return setAspect(known);
-    let alive = true;
-    Image.getSize(
-      uri,
-      (w, h) => {
-        const a = w && h ? w / h : 1;
-        aspectCache.set(uri, a);
-        if (alive) setAspect(a);
-      },
-      () => alive && setAspect(1)
-    );
-    return () => {
-      alive = false;
-    };
+    if (!uri || aspectCache.has(uri)) return;
+    let active = true;
+    Image.getSize(uri, (w, h) => {
+      const value = w > 0 && h > 0 ? w / h : 1;
+      aspectCache.set(uri, value);
+      if (active) setMeasured({uri, value});
+    }, () => {
+      if (active) setMeasured({uri, value: 1});
+    });
+    return () => { active = false; };
   }, [uri]);
-  return aspect;
+  return uri ? aspectCache.get(uri) ?? (measured?.uri === uri ? measured.value : null) : null;
 }
 
 /**
