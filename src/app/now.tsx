@@ -107,6 +107,7 @@ type FeedPost = PostRow & {
   avatarUrl: string | null;
   likeCount: number;
   likedByMe: boolean;
+  savedByMe: boolean;
   replyCount: number;
   replies: FeedReply[];
   latestReply: FeedReply | null;
@@ -274,6 +275,8 @@ export default function NowScreen() {
     likingPostIds,
     setLikingPostIds,
   ] = useState<string[]>([]);
+
+  const [savingPostIds, setSavingPostIds] = useState<string[]>([]);
 
   const [
     replyingPostId,
@@ -771,6 +774,7 @@ export default function NowScreen() {
           const [
             likeResult,
             replyResult,
+            savesResult,
           ] = await Promise.all([
             supabase
               .from('post_likes')
@@ -797,6 +801,8 @@ export default function NowScreen() {
                   ascending: true,
                 }
               ),
+            supabase.from('collection_saves')
+              .select('post_id').eq('user_id',user.id).in('post_id',postIds),
           ]);
 
           if (
@@ -820,6 +826,8 @@ export default function NowScreen() {
           const likes =
             (likeResult.data as LikeRow[]) ||
             [];
+          if (savesResult.error) console.log('Private saved-post lookup:', savesResult.error.message);
+          const savedPostIds = new Set((savesResult.data || []).map(row => row.post_id));
 
           const replies = ((replyResult.data as ReplyRow[]) || []).filter(
             (reply) => !relationships.hidden.has(reply.user_id)
@@ -961,6 +969,8 @@ export default function NowScreen() {
                         like.user_id ===
                         user.id
                     ),
+
+                  savedByMe: savedPostIds.has(post.id),
 
                   replyCount:
                     feedReplies.length,
@@ -1383,6 +1393,29 @@ export default function NowScreen() {
         );
       }
     };
+
+  const toggleSave = async (postId: string) => {
+    if (savingPostIds.includes(postId)) return;
+    const post = posts.find(item => item.id === postId);
+    if (!post) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.replace('/login'); return; }
+    const wasSaved = post.savedByMe;
+    setSavingPostIds(current => [...current, postId]);
+    setPosts(current => current.map(p => p.id === postId ? {...p,savedByMe:!wasSaved} : p));
+    try {
+      const { error } = wasSaved
+        ? await supabase.from('collection_saves').delete().eq('user_id',user.id).eq('post_id',postId)
+        : await supabase.from('collection_saves').insert({user_id:user.id,post_id:postId});
+      if (error && error.code !== '23505') throw error;
+    } catch (e) {
+      console.log('Private save failed:', e);
+      setPosts(current => current.map(p => p.id === postId ? {...p,savedByMe:wasSaved} : p));
+      Alert.alert('Could not save post','Please try again.');
+    } finally {
+      setSavingPostIds(current => current.filter(id => id !== postId));
+    }
+  };
 
   const startQuickReply =
     (postId: string) => {
@@ -3145,6 +3178,14 @@ export default function NowScreen() {
                         </Text>
                       </Pressable>
 
+                      <Pressable accessibilityRole="button"
+                        accessibilityLabel={post.savedByMe ? 'Remove from private saved posts' : 'Save post privately'}
+                        disabled={savingPostIds.includes(post.id)}
+                        onPress={() => void toggleSave(post.id)}
+                        style={styles.action}>
+                        <Text style={[styles.actionIcon, post.savedByMe && styles.likedIcon]}>{post.savedByMe ? '▣' : '▢'}</Text>
+                        <Text style={[styles.actionText, post.savedByMe && styles.likedText]}>{post.savedByMe ? 'SAVED' : 'SAVE'}</Text>
+                      </Pressable>
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Share ${post.displayName}'s post`}
