@@ -84,7 +84,6 @@ export default function PostDetailScreen() {
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const [saved, setSaved] = useState(false);
-  const [saveCount, setSaveCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   const exportRefs = useRef<(View | null)[]>([]);
 
@@ -109,23 +108,22 @@ export default function PostDetailScreen() {
   }, [songQuery, songReplyOpen, selectedReplySong]);
 
   const loadSaves = useCallback(async (id: string, me: string | null) => {
-    const { data } = await supabase.from('collection_saves').select('user_id').eq('post_id', id);
-    const rows = (data as { user_id: string }[]) || [];
-    setSaveCount(rows.length);
-    setSaved(!!me && rows.some((r) => r.user_id === me));
+    if (!me) { setSaved(false); return; }
+    // Never read another member's saves. The database enforces owner-only access.
+    const { data } = await supabase.from('collection_saves')
+      .select('post_id').eq('post_id', id).eq('user_id', me).limit(1);
+    setSaved(!!data?.length);
   }, []);
 
   const toggleSave = async () => {
     if (!post || !myUserId) return;
     const next = !saved;
     setSaved(next);
-    setSaveCount((c) => Math.max(0, c + (next ? 1 : -1)));
     const result = next
       ? await supabase.from('collection_saves').insert({ user_id: myUserId, post_id: post.id })
       : await supabase.from('collection_saves').delete().eq('user_id', myUserId).eq('post_id', post.id);
     if (result.error && result.error.code !== '23505') {
       setSaved(!next);
-      setSaveCount((c) => Math.max(0, c + (next ? -1 : 1)));
     }
   };
 
@@ -324,18 +322,11 @@ export default function PostDetailScreen() {
                     </Pressable>
                   ))}
                 </ScrollView>
-                <View style={styles.collectionActions}>
-                  {post.user_id !== myUserId ? (
-                    <Pressable onPress={toggleSave} style={[styles.saveButton, saved && styles.saveButtonOn]}>
-                      <Text style={[styles.saveText, saved && { color: green }]}>{saved ? 'SAVED ✓' : 'SAVE COLLECTION'}</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable onPress={() => exportCollection(slides.length)} disabled={exporting} style={[styles.saveButton, exporting && { opacity: 0.5 }]}>
-                      <Text style={styles.saveText}>{exporting ? 'SAVING…' : 'SAVE SLIDES'}</Text>
-                    </Pressable>
-                  )}
-                  {saveCount > 0 && <Text style={styles.secondary}>{saveCount} {saveCount === 1 ? 'save' : 'saves'}</Text>}
-                </View>
+                {post.user_id === myUserId && <View style={styles.collectionActions}>
+                  <Pressable onPress={() => exportCollection(slides.length)} disabled={exporting} style={[styles.saveButton, exporting && { opacity: 0.5 }]}>
+                    <Text style={styles.saveText}>{exporting ? 'SAVING…' : 'SAVE SLIDES'}</Text>
+                  </Pressable>
+                </View>}
                 <View style={styles.offscreen} pointerEvents="none">
                   {slides.map((spec, i) => (
                     <View key={i} ref={(v) => { exportRefs.current[i] = v; }} collapsable={false} style={{ width: SLIDE_W, height: SLIDE_H }}>
@@ -398,6 +389,11 @@ export default function PostDetailScreen() {
               accessibilityRole="button" accessibilityLabel={liked?'Unlike post':'Like post'}>
               <Text style={{ color: liked ? green : '#aaa', fontSize: 22 }}>{liked ? '♥' : '♡'}</Text>
               <Text style={styles.secondary}>{likes} {likes === 1 ? 'like' : 'likes'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from private saved posts' : 'Save post privately'}
+              onPress={toggleSave} style={{paddingHorizontal:8,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:6}}>
+              <Text style={{fontSize:20,color:saved?green:(scheme==='light'?'#3B2218':'#FFFFFF')}}>{saved ? '▣' : '▢'}</Text>
+              <Text style={[styles.secondary,{fontWeight:'800',letterSpacing:0.6}]}>{saved ? 'SAVED' : 'SAVE'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Share this post"
               hitSlop={10}
