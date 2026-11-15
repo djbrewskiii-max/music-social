@@ -51,9 +51,17 @@ export default function ShareIntentHandler() {
     if (showcased?.kind === 'playlist') {
       if (PROFILE_NOT_READY.has(pathname)) return;
       setPending(null);
-      // Spotify officially supports sharing and embedding playlist links.
-      // Open the member-shared playlist using Spotify's public link. No track list is read.
-      router.push({ pathname: '/spotify-explore', params: { url: showcased.url } });
+      // A playlist share can become a curated OVRLEE profile link or an external preview.
+      // The member must explicitly choose to publish it to their showcase.
+      Alert.alert('Share a Spotify playlist', 'What would you like to do with this link?', [
+        { text: 'Add to my profile', onPress: () => router.push({
+          pathname: '/spotify-showcase', params: { url: showcased.url },
+        }) },
+        { text: 'Explore playlist', onPress: () => router.push({
+          pathname: '/spotify-explore', params: { url: showcased.url },
+        }) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
       return;
     }
     if(NOT_READY.has(pathname))return;

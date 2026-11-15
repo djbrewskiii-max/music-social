@@ -127,3 +127,13 @@ Official sources:
   discovery, pending CI, TestFlight QA and general app/privacy review.
 - **NO-GO** for selling or promising an automatic 300-song Spotify sync
   without documented authorization.
+
+## November 14 enhancement: user-curated playlist publishing
+
+The previously archived Spotify showcase editor is restored at `/spotify-showcase`.
+Members may feature their own Spotify profile URL plus up to six public playlist
+links; oEmbed supplies the *link title only*, not tracks, followers, listening
+history, or inferred taste. Music Settings and Settings link to the editor.
+An incoming Spotify playlist share now offers **Add to my profile** or
+**Explore playlist**. No publishing occurs without the member tapping Save.
+Existing `spotify_showcase_links` RLS and table constraints are reused.
