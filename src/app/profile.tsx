@@ -1640,6 +1640,9 @@ export default function ProfileScreen() {
                   <Text style={[styles.tabText, profileTab === key && styles.tabTextActive]}>{label}</Text>
                 </Pressable>
               ))}
+              <Pressable accessibilityRole="button" accessibilityLabel="View public likes" onPress={() => router.push({pathname:'/post-collections',params:{userId,tab:'likes'}})} style={styles.tab}>
+                <Text style={styles.tabText}>Likes</Text>
+              </Pressable>
             </View>
 
             {profileTab === 'posts' && (
