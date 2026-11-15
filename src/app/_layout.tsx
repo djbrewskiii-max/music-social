@@ -68,6 +68,7 @@ function OVRLEERoot() {
         <Stack.Screen name="spotify-library" />
         <Stack.Screen name="spotify-public-artists" />
         <Stack.Screen name="activity" />
+        <Stack.Screen name="post-collections" />
         <Stack.Screen name="notification-settings" />
         <Stack.Screen name="update-status" />
         <Stack.Screen name="releases" />
