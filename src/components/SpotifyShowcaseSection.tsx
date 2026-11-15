@@ -1,11 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { supabase } from '../supabase';
 import type { SpotifyShowcaseLink } from '../spotify-showcase';
+import { getSpotifyOEmbed } from '../spotify-oembed';
 
 const GREEN = '#39E75F';
 
@@ -13,7 +14,24 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
   const {scheme,colors}=useAppearance();
   const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [links, setLinks] = useState<SpotifyShowcaseLink[]>([]);
+  const [artwork, setArtwork] = useState<Record<string,string>>({});
   const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const selected = links.filter(link => link.kind === 'playlist').slice(0, 6);
+    if (!selected.length) { setArtwork({}); return; }
+    void Promise.all(selected.map(async link => {
+      try {
+        const preview = await getSpotifyOEmbed(link.url, controller.signal);
+        const url = preview?.thumbnail_url || '';
+        return [link.id, url.startsWith('https://') ? url : ''] as const;
+      } catch { return [link.id, ''] as const; }
+    })).then(pairs => {
+      if (active) setArtwork(Object.fromEntries(pairs.filter(pair => !!pair[1])));
+    });
+    return () => { active = false; controller.abort(); };
+  }, [links]);
   const load = useCallback(async () => {
     try {
       const accountId = owner
@@ -64,10 +82,13 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
             <Pressable key={link.id} accessibilityRole="link"
               accessibilityLabel={`Open ${link.title} on Spotify`}
               onPress={() => void open(link)} style={s.card}>
-              <View style={s.iconBox}>
-                <SymbolView name={link.kind === 'profile' ? 'person.crop.circle' : 'music.note.list'}
-                  tintColor={colors.accent} size={32} fallback={<Text style={{ color: colors.accent, fontSize: 30 }}>♪</Text>} />
-              </View>
+              {link.kind === 'playlist' && artwork[link.id]
+                ? <Image accessibilityLabel={`Playlist artwork for ${link.title}`}
+                    source={{uri:artwork[link.id]}} style={s.coverArt} />
+                : <View style={s.iconBox}>
+                    <SymbolView name={link.kind === 'profile' ? 'person.crop.circle' : 'music.note.list'}
+                      tintColor={colors.accent} size={32} fallback={<Text style={{ color: colors.accent, fontSize: 30 }}>♪</Text>} />
+                  </View>}
               <Text style={s.label}>{link.kind === 'profile' ? 'SPOTIFY PROFILE' : 'EXPLORE PLAYLIST'}</Text>
               <Text style={s.name} numberOfLines={2}>{link.title}</Text>
               {!!link.note && <Text style={s.note} numberOfLines={2}>{link.note}</Text>}
@@ -97,6 +118,7 @@ const baseStyles = StyleSheet.create({
   items: { paddingHorizontal: 20, gap: 11 },
   card: { width: 200, minHeight: 190, backgroundColor: '#151515', borderWidth: 1, borderColor: '#29432D', borderRadius: 14, padding: 15 },
   iconBox: { height: 44, width: 44, backgroundColor: '#142519', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  coverArt: { width: '100%', height: 122, backgroundColor: '#202020', borderRadius: 10, marginBottom: 14 },
   label: { color: GREEN, fontSize: 9, letterSpacing: 1.3, fontWeight: '900' },
   name: { color: '#fff', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 5 },
   note: { color: '#aaa', fontSize: 11, lineHeight: 16, marginTop: 7 },
