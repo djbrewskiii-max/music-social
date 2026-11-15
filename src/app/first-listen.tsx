@@ -32,6 +32,7 @@ import {
 import DayOnePanel from '../components/DayOnePanel';
 import ListeningPartyPanel from '../components/ListeningPartyPanel';
 import { supabase } from '../supabase';
+import { getMusicProvider, type MusicProvider } from '../music-provider';
 import { useListeningParty } from '../use-listening-party';
 import { sameReleaseFamily, primaryRelease } from '../room-editions';
 
@@ -74,6 +75,12 @@ export default function FirstListenRoom() {
   const [here, setHere] = useState(1);
   const [now, setNow] = useState(() => Date.now());
   const [following, setFollowing] = useState(false);
+  const [musicProvider, setMusicProvider] = useState<MusicProvider>('apple_music');
+  useEffect(() => {
+    let live=true;
+    getMusicProvider().then(p=>{if(live)setMusicProvider(p);}).catch(()=>undefined);
+    return () => { live=false; };
+  }, []);
 
   const [pick, setPick] = useState<number | null>(null);
   const [review, setReview] = useState('');
@@ -469,7 +476,7 @@ export default function FirstListenRoom() {
             </Text>
             <View style={styles.heroButtons}>
               <Pressable onPress={() => openAlbumInMusicApp(activeEdition || room).catch(() => undefined)} style={styles.listenButton}>
-                <Text style={styles.listenText}>{open ? '▶ LISTEN' : 'PRE-ADD'}</Text>
+                <Text style={styles.listenText}>{musicProvider==='spotify' ? (open ? '▶ OPEN IN SPOTIFY' : 'OPEN SPOTIFY') : (open ? '▶ LISTEN' : 'PRE-ADD')}</Text>
               </Pressable>
               {!open && (
                 <Pressable onPress={toggleFollow} style={[styles.notifyButton, following && styles.notifyOn]}>
