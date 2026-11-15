@@ -1,5 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { supabase } from '../supabase';
@@ -8,6 +10,8 @@ import type { SpotifyShowcaseLink } from '../spotify-showcase';
 const GREEN = '#39E75F';
 
 export default function SpotifyShowcaseSection({ userId, owner = false }: { userId?: string | null; owner?: boolean }) {
+  const {scheme,colors}=useAppearance();
+  const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [links, setLinks] = useState<SpotifyShowcaseLink[]>([]);
   const [loaded, setLoaded] = useState(false);
   const load = useCallback(async () => {
@@ -62,7 +66,7 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
               onPress={() => void open(link)} style={s.card}>
               <View style={s.iconBox}>
                 <SymbolView name={link.kind === 'profile' ? 'person.crop.circle' : 'music.note.list'}
-                  tintColor={GREEN} size={32} fallback={<Text style={{ color: GREEN, fontSize: 30 }}>♪</Text>} />
+                  tintColor={colors.accent} size={32} fallback={<Text style={{ color: colors.accent, fontSize: 30 }}>♪</Text>} />
               </View>
               <Text style={s.label}>{link.kind === 'profile' ? 'SPOTIFY PROFILE' : 'EXPLORE PLAYLIST'}</Text>
               <Text style={s.name} numberOfLines={2}>{link.title}</Text>
@@ -82,7 +86,7 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
   );
 }
 
-const s = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { marginTop: 25, marginBottom: 25 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 13 },
   eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.4, color: GREEN },
