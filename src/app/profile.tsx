@@ -32,6 +32,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 import { sharedTasteNames, type TasteEvidence, tasteKey } from '../music-taste-evidence';
 
@@ -1319,6 +1320,7 @@ export default function ProfileScreen() {
         
         {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
         {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
+        {typeof userId === 'string' && <SpotifyShowcaseSection userId={userId} />}
         <View
           style={
             styles.section
