@@ -52,7 +52,7 @@ function add(profile: TasteProfile, artist: string | null | undefined, score: nu
 }
 
 export async function buildTasteProfile(userId: string): Promise<TasteProfile> {
-  const [coreFour, pins, dna, library, posts] = await Promise.all([
+  const [coreFour, pins, dna, library, posts, favorites, activity, profile] = await Promise.all([
     supabase.from('core_four_albums').select('album_title, artist_name').eq('user_id', userId),
     supabase.from('profile_rotation_pins').select('artist').eq('user_id', userId),
     supabase.from('music_dna').select('top_artists').eq('user_id', userId).maybeSingle(),
@@ -63,6 +63,10 @@ export async function buildTasteProfile(userId: string): Promise<TasteProfile> {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(60),
+    // First-party preference signals work for both Spotify and Apple Music members.
+    supabase.from('music_taste_artists').select('artist_name').eq('user_id',userId).eq('source','favorite').limit(30),
+    supabase.from('music_activity_artists').select('artist_name,posted_count,liked_count').eq('user_id',userId).limit(100),
+    supabase.from('profiles').select('preferred_music_service').eq('user_id',userId).maybeSingle(),
   ]);
 
   const profile: TasteProfile = new Map();
@@ -73,13 +77,19 @@ export async function buildTasteProfile(userId: string): Promise<TasteProfile> {
   for (const pin of (pins.data as { artist: string }[]) || []) {
     add(profile, pin.artist, 70, 'An artist in your rotation');
   }
+  for (const favorite of favorites.data || []) {
+    add(profile, favorite.artist_name, 90, 'An artist you chose on OVRLEE');
+  }
+  for (const signal of activity.data || []) {
+    add(profile, signal.artist_name, Math.min(50, 8 + signal.posted_count * 10 + signal.liked_count * 3), 'Music you engaged with on OVRLEE');
+  }
   const topArtists: any[] = Array.isArray((dna.data as any)?.top_artists) ? (dna.data as any).top_artists : [];
-  topArtists.slice(0, 30).forEach((artist, index) => {
+  if (profile.data?.preferred_music_service !== 'spotify') topArtists.slice(0, 30).forEach((artist, index) => {
     add(profile, artist?.name || artist?.artistName, Math.max(20, 60 - index * 2), 'One of your most played');
   });
   const libraryArtists: unknown[] = Array.isArray((library.data as any)?.artists) ? (library.data as any).artists : [];
-  libraryArtists.slice(0, 400).forEach((name) => {
-    if (typeof name === 'string') add(profile, name, 15, 'In your library');
+  if (profile.data?.preferred_music_service !== 'spotify') libraryArtists.slice(0, 400).forEach((name) => {
+    if (typeof name === 'string') add(profile, name, 15, 'In your Apple Music library');
   });
   for (const post of (posts.data as { artist_name: string | null; music_items: any[] | null }[]) || []) {
     const items = Array.isArray(post.music_items) && post.music_items.length ? post.music_items : [{ artist: post.artist_name }];
