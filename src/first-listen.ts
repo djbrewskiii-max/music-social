@@ -98,13 +98,38 @@ export async function openRoomForAlbum(album: CatalogAlbum): Promise<string> {
   return created.id;
 }
 
+// Resolve exact Spotify release links from the Apple catalog ID via a
+// cross-platform link resolver. This avoids Spotify account/API access.
+// A failed/ambiguous match falls back to Spotify search.
+const spotifyAlbumLinkCache = new Map<string,string>();
+async function linkToSpotifyAlbum(room: Pick<ReleaseRoom,'apple_album_id'|'album_title'|'artist_name'>): Promise<string> {
+  const search = `https://open.spotify.com/search/${encodeURIComponent(`${room.album_title} ${room.artist_name}`)}`;
+  const albumId=String(room.apple_album_id||'');
+  if(!/^[0-9]+$/.test(albumId))return search;
+  if(spotifyAlbumLinkCache.has(albumId))return spotifyAlbumLinkCache.get(albumId)!;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),4500);
+  try {
+    const appleUrl=`https://music.apple.com/us/album/${albumId}`;
+    const response=await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(appleUrl)}`,{signal:controller.signal});
+    if(response.ok){
+      const json=await response.json();
+      const spotifyUrl=json?.linksByPlatform?.spotify?.url;
+      if(typeof spotifyUrl==='string' && /^https:\/\/open\.spotify\.com\/album\//i.test(spotifyUrl)){
+        spotifyAlbumLinkCache.set(albumId,spotifyUrl);
+        return spotifyUrl;
+      }
+    }
+  } catch (error) {
+    console.log('Spotify album deep link not resolved; using Spotify search.');
+  } finally { clearTimeout(timeout); }
+  return search;
+}
 export async function openAlbumInMusicApp(room: Pick<ReleaseRoom, 'apple_album_id' | 'album_title' | 'artist_name'>) {
   const provider = await getMusicProvider();
-  const terms = encodeURIComponent(`${room.album_title} ${room.artist_name}`);
-  const url =
-    provider === 'spotify'
-      ? `https://open.spotify.com/search/${terms}`
-      : `https://music.apple.com/us/album/${encodeURIComponent(room.apple_album_id)}`;
+  const url = provider === 'spotify'
+    ? await linkToSpotifyAlbum(room)
+    : `https://music.apple.com/us/album/${encodeURIComponent(room.apple_album_id)}`;
   await Linking.openURL(url);
 }
 
