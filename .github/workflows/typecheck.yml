@@ -16,6 +16,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Generate Expo Router route types
+        run: npx expo customize tsconfig.json
       - run: npx tsc --noEmit
       - run: node tools/beta-release-config.test.mjs
       - run: node tools/beta-ui-brand.test.mjs
