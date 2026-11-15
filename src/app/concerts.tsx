@@ -77,6 +77,7 @@ export default function ConcertsScreen(){
  const [libraryArtists,setLibraryArtists]=useState<string[]>([]);
  const [libraryComplete,setLibraryComplete]=useState(false);
  const [libraryStatus,setLibraryStatus]=useState<'loading'|'connected'|'unavailable'>('loading');
+ const [musicService,setMusicService]=useState<'spotify'|'apple_music'>('apple_music');
  const [searchError,setSearchError]=useState('');
  const [catalogArtists,setCatalogArtists]=useState<ArtistSuggestion[]>([]);
  const [libraryArtwork,setLibraryArtwork]=useState<Record<string,string>>({});
@@ -193,12 +194,18 @@ export default function ConcertsScreen(){
  const searching=search.trim().length>0&&view==='tour';
  async function load(){setError('');try{
   const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace('/login');return;}
-  const [p,d,a,libraryResult]=await Promise.all([
-   supabase.from('profiles').select('city').eq('user_id',user.id).maybeSingle(),
+  const [p,d,a,libraryResult,favorites,pins,core,activity]=await Promise.all([
+   supabase.from('profiles').select('city,preferred_music_service').eq('user_id',user.id).maybeSingle(),
    supabase.from('music_dna').select('top_artists,top_songs,recent_tracks').eq('user_id',user.id).maybeSingle(),
    supabase.from('concert_attendance').select('concert_id,status,concerts(external_id,artist_name,event_name,venue_name,city,region,starts_at,artwork_url,ticket_url)').eq('user_id',user.id).eq('status','going'),
-    supabase.from('music_library_sync').select('artists,synced_at,artists_complete,songs_complete').eq('user_id',user.id).maybeSingle()
+    supabase.from('music_library_sync').select('artists,synced_at,artists_complete,songs_complete').eq('user_id',user.id).maybeSingle(),
+   supabase.from('music_taste_artists').select('artist_name').eq('user_id',user.id).eq('source','favorite').limit(30),
+   supabase.from('profile_rotation_pins').select('artist').eq('user_id',user.id).limit(15),
+   supabase.from('core_four_albums').select('artist_name').eq('user_id',user.id).limit(10),
+   supabase.from('music_activity_artists').select('artist_name,posted_count,liked_count').eq('user_id',user.id).order('last_activity_at',{ascending:false}).limit(50)
   ]);
+  const musicServiceValue=p.data?.preferred_music_service==='spotify'?'spotify':'apple_music';
+  setMusicService(musicServiceValue);
   const location=p.data?.city?.trim()||'Hartford';setCity(location);
   // Listening signals must rank ahead of the library's (often alphabetical) API order.
   // Top artists carry their actual recent-play counts; songs and tracks reinforce them.
@@ -212,23 +219,30 @@ export default function ConcertsScreen(){
   const recentTracks=Array.isArray(d.data?.recent_tracks)?d.data.recent_tracks:[];
   // Weight actual recent plays more heavily than merely being saved.
   // Apple's recent-history endpoint is a short sample, not lifetime play counts.
-  topArtists.forEach((a:any)=>addSignal(String(a?.name||a?.artistName||''),10+Math.min(Number(a?.count)||0,30)*4));
-  topSongs.forEach((t:any)=>addSignal(artistFromTrack(t),4+Math.min(Number(t?.count)||0,20)*2));
-  recentTracks.forEach((t:any,i:number)=>addSignal(artistFromTrack(t),Math.max(3,24-Math.floor(i/3)*2)));
+  if(musicServiceValue==='apple_music')topArtists.forEach((a:any)=>addSignal(String(a?.name||a?.artistName||''),10+Math.min(Number(a?.count)||0,30)*4));
+  if(musicServiceValue==='apple_music')topSongs.forEach((t:any)=>addSignal(artistFromTrack(t),4+Math.min(Number(t?.count)||0,20)*2));
+  if(musicServiceValue==='apple_music')recentTracks.forEach((t:any,i:number)=>addSignal(artistFromTrack(t),Math.max(3,24-Math.floor(i/3)*2)));
   const listeningRanked=Array.from(scores.values()).sort((a,b)=>b.score-a.score).map(x=>x.name);
+  // Only explicitly chosen and OVRLEE-native artist signals; no Spotify scraping.
+  (favorites.data||[]).forEach(x=>addSignal(x.artist_name,130));
+  (core.data||[]).forEach(x=>addSignal(x.artist_name,105));
+  (pins.data||[]).forEach(x=>addSignal(x.artist,95));
+  (activity.data||[]).forEach(x=>addSignal(x.artist_name,Math.min(65,12+x.posted_count*12+x.liked_count*4)));
   setRotationArtists(listeningRanked);
-   setLibraryComplete(libraryResult.data?.artists_complete===true);
-   const savedArtists:string[]=Array.isArray(libraryResult.data?.artists)
+   setLibraryComplete(musicServiceValue==='apple_music'&&libraryResult.data?.artists_complete===true);
+   const savedArtists:string[]=musicServiceValue==='apple_music'&&Array.isArray(libraryResult.data?.artists)
      ? libraryResult.data.artists.filter((name:any):name is string=>typeof name==='string'&&!!name.trim()) : [];
    if(libraryResult.error)console.log('RADAR SYNC READ ERROR:',libraryResult.error.message);
-   setLibraryStatus(savedArtists.length?'connected':'unavailable');
-  setLibraryArtists(savedArtists);
+   savedArtists.forEach(name=>addSignal(name,6));
+  const eligibleNames=[...scores.values()].sort((a,b)=>b.score-a.score).map(x=>x.name);
+  setLibraryStatus(eligibleNames.length?'connected':'unavailable');
+  setLibraryArtists(eligibleNames);
   // Library order is not a taste ranking. Never allow alphabetically returned
   // library entries to displace an artist we know the user actually plays.
-  const savedKeys=new Set(savedArtists.map(normalizeArtist));
+  const savedKeys=new Set(eligibleNames.map(normalizeArtist));
   // Strict membership: only library artists can enter the personalized feed.
   // Listening history ranks those artists but cannot introduce outsiders.
-  const prioritized=[...listeningRanked.filter(n=>savedKeys.has(normalizeArtist(n))),...savedArtists];
+  const prioritized=eligibleNames;
   const ranked=Array.from(new Map(prioritized.map(n=>[normalizeArtist(n),n])).values());
   setTaste(ranked);
   // No generic local-event fallback: it introduced artists outside the library.
@@ -283,18 +297,19 @@ export default function ConcertsScreen(){
  <Text style={styles.eyebrow}>LIVE MUSIC STARTS HERE</Text><Text style={styles.title}>Radar.</Text><Text style={styles.sub}>New albums and live shows from the artists you love.</Text>
  <View style={styles.searchWrap}><Text style={styles.searchIcon}>⌕</Text><TextInput style={styles.input} placeholder="Search an artist for new music & shows" placeholderTextColor="#777" value={search} onChangeText={setSearch} autoCapitalize="none" returnKeyType="search" onSubmitEditing={()=>{if(search.trim())openArtist(search.trim());}}/>{!!search&&<Pressable onPress={()=>{setSearch('');setSelected(null);}}><Text style={styles.clear}>×</Text></Pressable>}</View>
  {searching&&<View style={styles.suggestionPanel}>
-  {!!librarySuggestions.length&&<><Text style={styles.suggestionHeading}>FROM YOUR APPLE MUSIC LIBRARY</Text>{librarySuggestions.map(a=><Pressable key={a.id} style={styles.suggestionRow} onPress={()=>openArtist(a.name)}>{artworkForLibrary(a.name)?<Image source={{uri:artworkForLibrary(a.name)}} style={styles.suggestionIcon}/>:<View style={styles.suggestionIcon}><Text style={styles.suggestionNote}>♫</Text></View>}<View style={{flex:1}}><Text style={styles.suggestionName}>{a.name}</Text><Text style={styles.suggestionMeta}>In your library{scoresForDisplay.has(normalizeArtist(a.name))?' · Recently played':''}</Text></View><Text style={styles.suggestionArrow}>→</Text></Pressable>)}</>}
-  {search.trim().length>=2&&<Text style={styles.suggestionHeading}>DISCOVER ON APPLE MUSIC</Text>}
+  {!!librarySuggestions.length&&<><Text style={styles.suggestionHeading}>FROM YOUR ARTISTS</Text>{librarySuggestions.map(a=><Pressable key={a.id} style={styles.suggestionRow} onPress={()=>openArtist(a.name)}>{artworkForLibrary(a.name)?<Image source={{uri:artworkForLibrary(a.name)}} style={styles.suggestionIcon}/>:<View style={styles.suggestionIcon}><Text style={styles.suggestionNote}>♫</Text></View>}<View style={{flex:1}}><Text style={styles.suggestionName}>{a.name}</Text><Text style={styles.suggestionMeta}>From your taste{scoresForDisplay.has(normalizeArtist(a.name))?' · Recently played':''}</Text></View><Text style={styles.suggestionArrow}>→</Text></Pressable>)}</>}
+  {search.trim().length>=2&&<Text style={styles.suggestionHeading}>DISCOVER ARTISTS</Text>}
   {catalogLoading&&<ActivityIndicator color="#39E75F" style={{marginVertical:12}}/>}
-  {!catalogLoading&&catalogSuggestions.map(a=><Pressable key={a.id} style={styles.suggestionRow} onPress={()=>openArtist(a.name)}>{!!a.artwork?<Image source={{uri:a.artwork}} style={styles.suggestionIcon}/>:<View style={styles.suggestionIcon}><Text style={styles.suggestionNote}>♫</Text></View>}<View style={{flex:1}}><Text style={styles.suggestionName}>{a.name}</Text><Text style={styles.suggestionMeta}>{libraryComplete?'Apple Music artist · Not in your saved library':'Apple Music artist · Library sync incomplete'}</Text></View><Text style={styles.suggestionArrow}>→</Text></Pressable>)}
+  {!catalogLoading&&catalogSuggestions.map(a=><Pressable key={a.id} style={styles.suggestionRow} onPress={()=>openArtist(a.name)}>{!!a.artwork?<Image source={{uri:a.artwork}} style={styles.suggestionIcon}/>:<View style={styles.suggestionIcon}><Text style={styles.suggestionNote}>♫</Text></View>}<View style={{flex:1}}><Text style={styles.suggestionName}>{a.name}</Text><Text style={styles.suggestionMeta}>{'Artist · Check new music and concerts'}</Text></View><Text style={styles.suggestionArrow}>→</Text></Pressable>)}
   {!!catalogError&&<Text style={styles.suggestionMeta}>{catalogError}</Text>}
   {!catalogLoading&&!catalogSuggestions.length&&!catalogError&&search.trim().length>=2&&<Text style={styles.suggestionMeta}>No additional artists found.</Text>}
   <Pressable style={styles.searchAction} onPress={()=>openArtist(search.trim())}><Text style={styles.searchActionText}>NEW MUSIC & TOUR DATES FOR “{search.trim()}”  →</Text></Pressable>
  </View>}
  {!searching&&<FirstListenShowcase feed={firstListen}/>}
  {!searching&&<><Text style={styles.liveEyebrow}>LIVE SHOWS</Text><View style={styles.tabs}><Pressable onPress={()=>{setView('tour');setSelected(null);}} style={[styles.tab,view==='tour'&&styles.tabOn]}><Text style={[styles.tabText,view==='tour'&&styles.tabTextOn]}>ON TOUR</Text></Pressable><Pressable onPress={()=>{setView('saved');setSelected(null);}} style={[styles.tab,view==='saved'&&styles.tabOn]}><Text style={[styles.tabText,view==='saved'&&styles.tabTextOn]}>YOUR SHOWS</Text></Pressable></View>
- {view==='tour'?<><Text style={styles.section}>ON YOUR RADAR</Text><Text style={styles.hint}>{libraryStatus==='loading'?'Checking your Apple Music library…':libraryStatus==='connected'?'Only artists saved in your Apple Music library.': 'Open your profile and tap REFRESH APPLE MUSIC to sync your saved artists.'}</Text>
- {loading?<ActivityIndicator color="#39E75F" style={{marginTop:30}}/>:filtered.length?<View style={styles.grid}>{filtered.map(g=><Pressable key={g.name} style={styles.artistCard} onPress={()=>openArtist(g.name)}>{g.artwork?<Image source={{uri:g.artwork}} style={styles.artwork}/>:<View style={[styles.artwork,styles.placeholder]}><Text style={styles.placeholderText}>♫</Text></View>}<Text numberOfLines={1} style={styles.artistName}>{g.name}</Text>{scoresForDisplay.has(normalizeArtist(g.name))?<Text style={styles.libraryMeta}>RECENTLY PLAYED</Text>:libraryKeys.has(normalizeArtist(g.name))?<Text style={styles.libraryMeta}>IN YOUR LIBRARY</Text>:null}<Text style={styles.artistMeta}>VIEW TOUR DATES  →</Text></Pressable>)}</View>:<Text style={styles.empty}>{search?'Not in nearby results. Tap Search Tour Dates above to look nationwide.':libraryStatus==='unavailable'?'No saved library sync found. Refresh Apple Music from your profile, then return to Radar.': 'No upcoming shows found for the saved artists checked yet. You can still search any artist above.'}</Text>}</>:<><Text style={styles.section}>YOUR SHOWS</Text>{saved.length?saved.map(s=><Pressable key={s.id} style={styles.dateRow} onPress={()=>openChat(s)}><View style={{flex:1}}><Text style={styles.date}>{formatDate(s.date)}</Text><Text style={styles.city}>{s.artist} · {s.city}</Text><Text style={styles.venue}>{s.venue}</Text></View><Text style={styles.arrow}>→</Text></Pressable>):<Text style={styles.empty}>When you mark a show Going, it will appear here.</Text>}</>}
+ {view==='tour'?<><Text style={styles.section}>ON YOUR RADAR</Text><Text style={styles.hint}>{libraryStatus==='loading'?'Finding your artists…':libraryStatus==='connected'?'Based on your OVRLEE favorites, Core Four, In Rotation and activity'+(musicService==='apple_music'?' · plus saved Apple Music artists.':'.'):'Choose favorite artists to personalize concert discovery.'}</Text>
+ {loading?<ActivityIndicator color="#39E75F" style={{marginTop:30}}/>:filtered.length?<View style={styles.grid}>{filtered.map(g=><Pressable key={g.name} style={styles.artistCard} onPress={()=>openArtist(g.name)}>{g.artwork?<Image source={{uri:g.artwork}} style={styles.artwork}/>:<View style={[styles.artwork,styles.placeholder]}><Text style={styles.placeholderText}>♫</Text></View>}<Text numberOfLines={1} style={styles.artistName}>{g.name}</Text>{scoresForDisplay.has(normalizeArtist(g.name))?<Text style={styles.libraryMeta}>RECENTLY PLAYED</Text>:libraryKeys.has(normalizeArtist(g.name))?<Text style={styles.libraryMeta}>IN YOUR TASTE</Text>:null}<Text style={styles.artistMeta}>VIEW TOUR DATES  →</Text></Pressable>)}</View>:<Text style={styles.empty}>{search?'Not in nearby results. Tap Search Tour Dates above to look nationwide.':libraryStatus==='unavailable'?'Add favorite artists to your OVRLEE music identity, then return to Radar.': 'No upcoming shows found for the saved artists checked yet. You can still search any artist above.'}</Text>}</>:<><Text style={styles.section}>YOUR SHOWS</Text>{saved.length?saved.map(s=><Pressable key={s.id} style={styles.dateRow} onPress={()=>openChat(s)}><View style={{flex:1}}><Text style={styles.date}>{formatDate(s.date)}</Text><Text style={styles.city}>{s.artist} · {s.city}</Text><Text style={styles.venue}>{s.venue}</Text></View><Text style={styles.arrow}>→</Text></Pressable>):<Text style={styles.empty}>When you mark a show Going, it will appear here.</Text>}</>}
+ {libraryStatus==='unavailable'&&view==='tour'&&<Pressable onPress={()=>router.push({pathname:'/pick-artists',params:{edit:'1'}})} style={styles.searchAction}><Text style={styles.searchActionText}>CHOOSE FAVORITE ARTISTS →</Text></Pressable>}
  {!!error&&<Text style={styles.error}>{error}</Text>}
  </>}</>}
  </ScrollView><BottomNav active="radar"/></View></SafeAreaView>;
