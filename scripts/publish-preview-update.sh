@@ -45,6 +45,15 @@ if [[ "$answer" != "y" && "$answer" != "Y" ]]; then
   echo "Canceled; no update published."
   exit 0
 fi
+echo "Regenerating Expo Router typed routes (new screens may be missing from the local .expo cache)…"
+npx expo customize tsconfig.json
+# Expo CLI writes .expo/types/router.d.ts, which is intentionally not committed.
+# Stop if the generation unexpectedly changed tracked project configuration.
+if ! git diff --quiet -- tsconfig.json; then
+  echo "STOP: Expo type generation changed tracked tsconfig.json; review before publishing."
+  git diff -- tsconfig.json
+  exit 1
+fi
 echo "Running the TypeScript check…"
 npx tsc --noEmit
 echo "Publishing preview update…"
