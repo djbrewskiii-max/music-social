@@ -283,7 +283,7 @@ export default function CreatePostScreen() {
           <Pressable onPress={() => step === 'music' ? setStep('compose') : router.replace('/now')}>
             <Text style={styles.back}>{step === 'music' ? '‹' : '×'}</Text>
           </Pressable>
-          <Text style={styles.brand}>{step === 'music' ? 'ADD MUSIC' : 'OVRLEE'}<Text style={{ color: green }}>•</Text></Text>
+          <Text style={styles.brand}>{step === 'music' ? 'ADD MUSIC' : 'OVRLEE'}<Text style={{ color: scheme === 'light' ? '#3B2218' : green }}>•</Text></Text>
           {step === 'compose' ?
             <Pressable onPress={publish} disabled={!selected || posting}>
               <Text style={[styles.headerAction, !selected && { color: '#555' }]}>{posting ? 'POSTING' : 'POST'}</Text>
