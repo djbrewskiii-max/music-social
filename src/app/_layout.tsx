@@ -69,6 +69,7 @@ function OVRLEERoot() {
         <Stack.Screen name="spotify-public-artists" />
         <Stack.Screen name="activity" />
         <Stack.Screen name="notification-settings" />
+        <Stack.Screen name="update-status" />
         <Stack.Screen name="releases" />
         <Stack.Screen name="first-listen" />
         <Stack.Screen name="studio" options={{ gestureEnabled: false }} />

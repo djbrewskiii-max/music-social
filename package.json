@@ -63,7 +63,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "postinstall": "patch-package",
-    "update": "bash scripts/ovrlee-update.sh"
+    "update": "bash scripts/ovrlee-update.sh",
+    "publish:preview": "bash scripts/publish-preview-update.sh"
   },
   "private": true
 }

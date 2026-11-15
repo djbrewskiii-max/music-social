@@ -98,6 +98,12 @@ export default function SettingsScreen(){
       {group([
         {icon:'bell',label:'Notifications',detail:'Replies, likes, follows and messages',onPress:()=>router.push('/notification-settings'),first:true}
       ])}
+      <Text style={[styles.section,{color:colors.secondary}]}>APP UPDATES</Text>
+      {group([
+        {icon:'arrow.clockwise.circle',label:'Version & updates',
+          detail:'Check which build and update channel your iPhone is running',
+          onPress:()=>router.push('/update-status'),first:true},
+      ])}
       <Text style={[styles.section,{color:colors.secondary}]}>COMMUNITY</Text>
       {group([
         {icon:'hand.raised',label:'Community guidelines',detail:'Safe music conversations, reporting and blocking',onPress:()=>router.push('/community-guidelines'),first:true},

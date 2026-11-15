@@ -16,7 +16,8 @@
         "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_SibnO1c3UEAxA9dxtZ622w_3vUrnW_5"
       },
       "node": "22.23.3",
-      "channel": "preview"
+      "channel": "preview",
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
