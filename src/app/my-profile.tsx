@@ -37,6 +37,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 
 type Profile = {
@@ -1178,6 +1179,8 @@ export default function MyProfileScreen() {
           <CoreFourSection owner />
 
           <FirstListenShelf owner />
+
+          <SpotifyShowcaseSection owner />
 
           <View
             style={
