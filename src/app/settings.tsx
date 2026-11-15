@@ -96,7 +96,8 @@ export default function SettingsScreen(){
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>ACTIVITY</Text>
       {group([
-        {icon:'bell',label:'Notifications',detail:'Replies, likes, follows and messages',onPress:()=>router.push('/notification-settings'),first:true}
+        {icon:'bell',label:'Notifications',detail:'Replies, likes, follows and messages',onPress:()=>router.push('/notification-settings'),first:true},
+        {icon:'bookmark',label:'Your activity',detail:'Private saved posts, likes and comment history',onPress:()=>router.push('/post-collections')}
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>APP UPDATES</Text>
       {group([
