@@ -1,4 +1,5 @@
 import { artworkUrl } from './apple-catalog';
+import { getSpotifyOEmbed, parseSpotifyOEmbedTitle } from './spotify-oembed';
 
 /*
   Turns a link shared from Apple Music or Spotify into a song (or album)
@@ -124,9 +125,14 @@ async function resolveAppleItem(id: string, kind: 'song' | 'album'): Promise<Sha
 }
 
 async function fromSpotify(url: string): Promise<SharedMusic | null> {
-  const response = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}&userCountry=US`);
-  if (!response.ok) throw new Error(`Songlink returned ${response.status}`);
-  const json = await response.json();
+  // A link resolver is optional infrastructure, not a Spotify user-data API.
+  // If unavailable, try Spotify's official public link-preview metadata.
+  let json: any = null;
+  try {
+    const response = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(url)}&userCountry=US`);
+    if (response.ok) json = await response.json();
+  } catch { /* oEmbed fallback below */ }
+  if (!json) return fromSpotifyOEmbed(url);
 
   // Best case: Songlink knows the Apple Music version.
   const appleKey: string | undefined = json?.linksByPlatform?.appleMusic?.entityUniqueId || json?.linksByPlatform?.itunes?.entityUniqueId;
@@ -143,7 +149,7 @@ async function fromSpotify(url: string): Promise<SharedMusic | null> {
   // Otherwise use what Spotify says about it.
   const spotifyKey: string | undefined = json?.linksByPlatform?.spotify?.entityUniqueId;
   const entity = spotifyKey ? json?.entitiesByUniqueId?.[spotifyKey] : null;
-  if (!entity?.title) return null;
+  if (!entity?.title) return fromSpotifyOEmbed(url);
   return {
     id: '',
     song: String(entity.title),
@@ -154,6 +160,26 @@ async function fromSpotify(url: string): Promise<SharedMusic | null> {
     source: 'spotify',
     sourceUrl: url,
   };
+}
+
+async function fromSpotifyOEmbed(url: string): Promise<SharedMusic | null> {
+  // Spotify may expose only a title. If it doesn't identify the artist,
+  // don't attribute a different artist or pretend to have a catalog match.
+  try {
+    const preview = await getSpotifyOEmbed(url);
+    const parsed = parseSpotifyOEmbedTitle(preview?.title || '');
+    if (!parsed) return null;
+    return {
+      id: '',
+      song: parsed.song,
+      artist: parsed.artist,
+      album: parsed.kind === 'album' ? parsed.song : '',
+      artworkUrl: preview?.thumbnail_url || '',
+      kind: parsed.kind,
+      source: 'spotify',
+      sourceUrl: url,
+    };
+  } catch { return null; }
 }
 
 export async function resolveSharedMusic(textOrUrl: string): Promise<SharedMusic | null> {

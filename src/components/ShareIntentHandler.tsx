@@ -100,6 +100,9 @@ export default function ShareIntentHandler() {
 
     Alert.alert('Share to OVRLEE', 'What do you want to do with it?', [
       { text: 'Post it', onPress: post },
+      { text: 'Reply with this song', onPress: () => router.push({
+        pathname: '/share-song-reply', params: { sharedUrl: url },
+      }) },
       { text: 'Add to my rotation', onPress: () => void pin() },
       { text: 'Cancel', style: 'cancel' },
     ]);

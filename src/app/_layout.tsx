@@ -59,6 +59,7 @@ function OVRLEERoot() {
         <Stack.Screen name="chat" />
         <Stack.Screen name="create-post" />
         <Stack.Screen name="post" />
+        <Stack.Screen name="share-song-reply" />
         <Stack.Screen name="music-discovery" />
         <Stack.Screen name="spotify-showcase" />
         <Stack.Screen name="spotify-explore" />

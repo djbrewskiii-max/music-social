@@ -14,6 +14,7 @@ import { addToRotation, openMusicCard } from '../music-card';
 import { previewKey, useSongPreview } from '../preview-player';
 import { supabase } from '../supabase';
 import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music-provider';
+import { resolveSharedMusic } from '../shared-music';
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
 type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
@@ -27,7 +28,7 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
 export default function PostDetailScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
-  const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string }>();
+  const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string; sharedUrl?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
@@ -45,6 +46,32 @@ export default function PostDetailScreen() {
   const [songSearching, setSongSearching] = useState(false);
   const [songSearchError, setSongSearchError] = useState('');
   const [selectedReplySong, setSelectedReplySong] = useState<CollectionItem | null>(null);
+  const [sharedSongLoading, setSharedSongLoading] = useState(false);
+  useEffect(() => {
+    const sharedUrl = typeof params.sharedUrl === 'string' ? params.sharedUrl : '';
+    if (!sharedUrl) return;
+    let active = true;
+    setSongReplyOpen(true);
+    setSelectedReplySong(null);
+    setSongSearchError('');
+    setSharedSongLoading(true);
+    resolveSharedMusic(sharedUrl).then(found => {
+      if (!active) return;
+      if (!found || found.kind !== 'song' || !found.song || !found.artist) {
+        setSongSearchError('Could not identify that song. Search for it below, or share an individual Spotify track.');
+        return;
+      }
+      setSelectedReplySong({
+        kind: 'song', id: found.id, song: found.song,
+        artist: found.artist, album: found.album,
+        artworkUrl: found.artworkUrl, sourceUrl: found.sourceUrl || sharedUrl,
+        bg: '#151515', ink: '#FFFFFF', note: '',
+      });
+    }).catch(() => {
+      if (active) setSongSearchError('Could not load the shared song. Search for it below.');
+    }).finally(() => { if (active) setSharedSongLoading(false); });
+    return () => { active = false; };
+  }, [params.sharedUrl, postId]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -462,6 +489,7 @@ export default function PostDetailScreen() {
               <Text style={styles.songPickerClose}>×</Text>
             </Pressable>
           </View>
+          {sharedSongLoading && <Text style={styles.secondary}>Preparing your shared Spotify song…</Text>}
           {selectedReplySong
             ? <View style={styles.selectedReplySong}>
                 {selectedReplySong.artworkUrl
