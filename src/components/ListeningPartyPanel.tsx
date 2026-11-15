@@ -162,7 +162,7 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
       {party.status === 'scheduled' && (
         <Text style={styles.note}>
           {startsIn > 0
-            ? `${hostName} plays ${room.album_title} start to finish${albumOut ? '' : ' the moment it drops'}. Listen in sync in OVRLEE, react to every moment.`
+            ? `${hostName} hosts a track-by-track listen to ${room.album_title}${albumOut ? '' : ' when it drops'}. Apple Music can sync playback; Spotify listeners follow the live track timeline and react together.`
             : `Waiting for ${hostName} to press play…`}
         </Text>
       )}
@@ -204,6 +204,7 @@ export default function ListeningPartyPanel({ partyState, room, here }: Props) {
           )}
           {(provider === 'spotify' || (provider === 'apple' && sync.state === 'unavailable')) && (
             <View style={styles.follow}>
+              {provider === 'spotify' && <Text style={styles.followNote}>Spotify listening is manual: play the album in Spotify and follow the host's track timeline here. Live reactions and chat are shared with everyone.</Text>}
               {!!sync.message && <Text style={styles.followNote}>{sync.message}</Text>}
               {provider === 'apple' && (
                 <Pressable onPress={sync.retry} style={styles.retry}>
