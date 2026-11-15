@@ -287,7 +287,7 @@ export default function CreatePostScreen() {
           {step === 'compose' ?
             <Pressable onPress={publish} disabled={!selected || posting}>
               <Text style={[styles.headerAction, !selected && { color: '#555' }]}>{posting ? 'POSTING' : 'POST'}</Text>
-            </Pressable> : <Pressable onPress={loadMusic}><Text style={styles.headerAction}>REFRESH</Text></Pressable>}
+            </Pressable> : <Pressable onPress={loadMusic} accessibilityRole="button" style={styles.refreshButton}><Text style={styles.refreshText}>REFRESH</Text></Pressable>}
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {step === 'compose' ? <>
@@ -347,20 +347,20 @@ export default function CreatePostScreen() {
             <Text style={styles.heading}>Add music.</Text>
             {musicProvider === 'spotify' && <Text style={styles.muted}>Search OVRLEE's song catalog. Spotify listeners will open songs in Spotify. Spotify account syncing isn't available yet.</Text>}
             <Text style={styles.muted}>{itemCount}/{MAX_ITEMS} · album artwork appears beside each track</Text>
-            <View style={{ borderWidth: 1, borderColor: '#303030', borderRadius: 14, backgroundColor: '#121212', padding: 12, marginTop: 16, marginBottom: 15 }}>
-              <Text style={[styles.eyebrow, { marginTop: 0 }]}>ADD FROM A LINK</Text>
-              <Text style={[styles.muted, { marginTop: 5, marginBottom: 8 }]}>Paste a Spotify or Apple Music link. No account connection required.</Text>
+            <View style={styles.linkCard}>
+              <Text style={styles.linkHeading}>ADD FROM A LINK</Text>
+              <Text style={styles.linkDescription}>Paste a Spotify or Apple Music link. No account connection required.</Text>
               <TextInput value={linkInput} onChangeText={setLinkInput} autoCapitalize="none" autoCorrect={false}
                 keyboardType="url" placeholder="Paste a song or album link" placeholderTextColor="#777"
-                style={styles.search} />
+                style={styles.linkInput} />
               <Pressable accessibilityRole="button" accessibilityLabel="Attach music from link" onPress={() => void attachMusicLink(linkInput)}
                 disabled={resolvingLink || !linkInput.trim() || atLimit}
-                style={{ backgroundColor: green, padding: 12, borderRadius: 10, marginTop: 8, opacity: resolvingLink || !linkInput.trim() || atLimit ? 0.4 : 1 }}>
-                {resolvingLink ? <ActivityIndicator color="#050505" /> : <Text style={{ textAlign: 'center', color: '#050505', fontWeight: '900' }}>ADD MUSIC</Text>}
+                style={[styles.linkButton, (resolvingLink || !linkInput.trim() || atLimit) && styles.disabled]}>
+                {resolvingLink ? <ActivityIndicator color={scheme === 'light' ? '#3B2218' : '#050505'} /> : <Text style={styles.linkButtonText}>ADD MUSIC</Text>}
               </Pressable>
             </View>
             <TextInput value={query} onChangeText={setQuery} autoCapitalize="none"
-              placeholder="Search songs or artists..." placeholderTextColor="#777" style={styles.search} />
+              placeholder="Search songs or artists..." placeholderTextColor={scheme === 'light' ? '#8A7A72' : '#777'} style={styles.search} />
             {query.trim() ? <>
               <Text style={styles.eyebrow}>SEARCH RESULTS</Text>
               {searching && <ActivityIndicator color={green} style={{ marginVertical: 20 }} />}
@@ -393,12 +393,20 @@ const baseStyles=StyleSheet.create({
   sharedNote: { color: '#39E75F', fontSize: 13, fontWeight: '700', marginBottom: 10 },
   counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemCounter: { color: green, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  linkCard: { borderWidth: 1, borderColor: '#393939', borderRadius: 16, backgroundColor: '#121212', padding: 15, marginTop: 16, marginBottom: 15 },
+  linkHeading: { color: '#aaaaaa', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 9 },
+  linkDescription: { color: '#bbbbbb', fontSize: 13, lineHeight: 19, marginBottom: 11 },
+  linkInput: { backgroundColor: '#232323', borderColor: '#4b4b4b', borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, paddingVertical: 13, color: '#ffffff', fontSize: 14 },
+  linkButton: { backgroundColor: '#39E75F', borderRadius: 11, paddingVertical: 14, paddingHorizontal: 12, marginTop: 10 },
+  linkButtonText: { color: '#050505', textAlign: 'center', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+  refreshButton: { minWidth: 80, alignItems: 'flex-end', justifyContent: 'center', paddingVertical: 12 },
+  refreshText: { color: '#ffffff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   screen: { flex: 1, backgroundColor: '#050505' },
   header: { height: 66, borderBottomWidth: 1, borderBottomColor: '#202020', paddingHorizontal: 20,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30, width: 55 },
   brand: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 2 },
-  headerAction: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1, width: 55, textAlign: 'right' },
+  headerAction: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1, minWidth: 55, textAlign: 'right' },
   content: { padding: 22, paddingBottom: 90 },
   eyebrow: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginTop: 22, marginBottom: 15 },
   heading: { color: '#fff', fontSize: 30, fontWeight: '800', marginBottom: 18 },
@@ -426,7 +434,7 @@ const baseStyles=StyleSheet.create({
   publish: { backgroundColor: green, borderRadius: 14, alignItems: 'center', padding: 17, marginTop: 30 },
   disabled: { opacity: 0.35 },
   publishText: { color: '#000', fontWeight: '900', fontSize: 14 },
-  search: { backgroundColor: '#181818', borderRadius: 12, padding: 16, color: '#fff', fontSize: 15 },
+  search: { backgroundColor: '#181818', borderColor: '#454545', borderWidth: 1, borderRadius: 12, padding: 16, color: '#fff', fontSize: 15 },
   muted: { color: '#777', fontSize: 13, marginBottom: 12 },
   separator: { height: 1, backgroundColor: '#222', marginTop: 18 },
   postCard: { marginTop: 26, padding: 18, borderWidth: 1, borderColor: '#333', borderRadius: 22, backgroundColor: '#0d0d0d' },
