@@ -4,6 +4,7 @@ import { artworkUrl } from './apple-catalog';
 import { CollectionItem, searchSongs, slideColors } from './collection';
 import { getMusicProvider } from './music-provider';
 import { supabase } from './supabase';
+import { retainSelectedMusicLabel } from './collection-selection';
 
 /*
   "Your music" for the collection studio, so people pick instead of type:
@@ -118,7 +119,7 @@ export async function completeItem(item: CollectionItem): Promise<CollectionItem
   if (item.id) return item;
   try {
     const [match] = await searchSongs(`${item.song} ${item.artist}`);
-    return match ? { ...match, note: item.note } : { ...item, id: `local-${Date.now()}` };
+    return match ? retainSelectedMusicLabel(item,match) : { ...item, id: `local-${Date.now()}` };
   } catch {
     return { ...item, id: `local-${Date.now()}` };
   }
