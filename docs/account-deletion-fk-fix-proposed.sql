@@ -1,4 +1,7 @@
--- PROPOSED ONLY — NOT APPLIED TO THE LIVE DATABASE.
+-- HISTORICAL PROPOSAL — APPLIED AND VERIFIED ON NOVEMBER 15, 2026.
+-- The authoritative mirrored migration is
+-- supabase/migrations/20261116012848_account_deletion_profiles_music_dna_cascade.sql.
+-- DO NOT run this proposal again; duplicate constraint names would fail.
 -- OVRLEE closed beta account-deletion verification, November 15, 2026.
 -- Evidence: public.profiles and public.music_dna have user_id but no FK to
 -- auth.users; no cleanup trigger was found; both tables currently have zero
