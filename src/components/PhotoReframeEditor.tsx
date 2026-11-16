@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import PhotoFrame from './PhotoFrame';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, PanResponder, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
@@ -19,6 +21,8 @@ type Props = {
  * so the same composition appears in Studio, feeds, and slide exports.
  */
 export default function PhotoReframeEditor({ uri, initial, frameAspect = 1, onClose, onSave }: Props) {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [focus, setFocus] = useState<PhotoFocus>({ x: 50, y: 50, zoom: 1 });
   const focusRef = useRef(focus);
   const start = useRef({ x: 50, y: 50 });
@@ -60,7 +64,7 @@ export default function PhotoReframeEditor({ uri, initial, frameAspect = 1, onCl
 
   return (
     <Modal visible={!!uri} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
         <View style={styles.top}>
           <Pressable onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
           <Text style={styles.title}>Frame your photo</Text>
@@ -93,7 +97,7 @@ export default function PhotoReframeEditor({ uri, initial, frameAspect = 1, onCl
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#080808', paddingHorizontal: 18 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   cancel: { color: '#aaa', fontWeight: '700', fontSize: 15 },
