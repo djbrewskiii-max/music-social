@@ -599,9 +599,10 @@ export default function NowScreen() {
                   LIVE_FRESHNESS_MS;
 
               const listeningNow =
-                presence.is_playing ===
-                  true &&
-                verificationIsFresh;
+                presence.is_playing === true &&
+                verificationIsFresh &&
+                !!presence.song_title?.trim() &&
+                !!presence.artist_name?.trim();
 
               return {
                 ...presence,
@@ -2021,6 +2022,11 @@ export default function NowScreen() {
                         .toUpperCase() ||
                       '?';
 
+                    const song = person.listeningNow ? person.song_title : person.sharedSong;
+                    const artist = person.listeningNow ? person.artist_name : person.sharedArtist;
+                    const artwork = person.listeningNow ? person.artwork_url : person.sharedArtwork;
+                    const hasSong = !!song?.trim() && !!artist?.trim();
+
                     return (
                       <Pressable
                         key={person.user_id}
@@ -2041,22 +2047,29 @@ export default function NowScreen() {
                           </View>
                           <View style={styles.onlineIndicator} />
                         </View>
-                        <View style={styles.compactListenerTrack}>
-                          {(person.listeningNow ? person.artwork_url : person.sharedArtwork) ? (
-                            <Image source={{ uri: (person.listeningNow ? person.artwork_url : person.sharedArtwork)! }} style={styles.compactArtwork} />
-                          ) : (
-                            <View style={[styles.compactArtwork, styles.presenceArtworkPlaceholder]}>
-                              <Text style={styles.presenceMusicNote}>♪</Text>
+                        {hasSong ? (
+                          <View style={styles.compactListenerTrack}>
+                            {artwork ? (
+                              <Image source={{uri:artwork}} style={styles.compactArtwork} />
+                            ) : (
+                              <View style={[styles.compactArtwork, styles.compactMusicPlaceholder]}>
+                                <Text style={styles.presenceMusicNote}>♪</Text>
+                              </View>
+                            )}
+                            <View style={styles.compactTrackInfo}>
+                              <Text style={styles.presenceSong} numberOfLines={1}>{song}</Text>
+                              <Text style={styles.presenceArtist} numberOfLines={1}>{artist}</Text>
+                              <Text style={[styles.presenceStatusText,person.listeningNow?styles.presenceStatusLive:styles.presenceStatusOnline]} numberOfLines={1}>
+                                {person.listeningNow ? '● LISTENING NOW' : '♫ RECENTLY SHARED'}
+                              </Text>
                             </View>
-                          )}
-                          <View style={styles.compactTrackInfo}>
-                            <Text style={styles.presenceSong} numberOfLines={1}>{person.listeningNow ? (person.song_title||'Listening') : (person.sharedSong||'Here for the music')}</Text>
-                            <Text style={styles.presenceArtist} numberOfLines={1}>{person.listeningNow ? (person.artist_name||'Live') : (person.sharedArtist||'Active on OVRLEE')}</Text>
-                            <Text style={[styles.presenceStatusText, person.listeningNow ? styles.presenceStatusLive : styles.presenceStatusOnline]} numberOfLines={1}>
-                              {person.listeningNow ? '● LISTENING NOW' : person.sharedSong ? '♫ RECENTLY SHARED' : '● HERE NOW'}
-                            </Text>
                           </View>
-                        </View>
+                        ) : (
+                          <View style={styles.compactOnlineSummary}>
+                            <Text style={styles.compactOnlineTitle}>● HERE NOW</Text>
+                            <Text style={styles.compactOnlineDetail}>Active on OVRLEE · View profile →</Text>
+                          </View>
+                        )}
                       </Pressable>
                     );
                   }
@@ -3582,6 +3595,28 @@ const baseStyles = StyleSheet.create({
       borderRadius: 8,
       backgroundColor: '#181818',
       marginRight: 10,
+    },
+    // Only use fixed-size artwork in compact cards; the full-width placeholder
+    // used elsewhere caused a giant empty square in Who's Here.
+    compactMusicPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    compactOnlineSummary: {
+      minHeight: 38,
+      justifyContent: 'center',
+      paddingVertical: 3,
+    },
+    compactOnlineTitle: {
+      color: '#39E75F',
+      fontSize: 10,
+      fontWeight: '900',
+      letterSpacing: 0.8,
+    },
+    compactOnlineDetail: {
+      color: '#999999',
+      fontSize: 11,
+      marginTop: 5,
     },
     compactTrackInfo: {
       flex: 1,
