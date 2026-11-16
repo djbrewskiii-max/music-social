@@ -639,7 +639,7 @@ export default function StudioScreen() {
               <View key={`${item.id}-${i}`}
                 style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12,
                   backgroundColor: selected === i ? (scheme==='light'?'#EFE0D7':'#183C21') : colors.surface,
-                  borderWidth: 1, borderColor: selected === i ? accent : colors.border, padding: 8 }>
+                  borderWidth: 1, borderColor: selected === i ? accent : colors.border, padding: 8 }}>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.song} for arrangement`}
                   onPress={() => tapInArrange(i)}
                   style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 7 }}>
