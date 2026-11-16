@@ -493,9 +493,9 @@ export default function StudioScreen() {
                 setPage(0);
                 pager.current?.scrollToOffset({ offset: 0, animated: false });
               }}
-              style={[styles.chip, template === t.key && styles.chipOn]}
+              style={[styles.chip, template === t.key && (scheme==='light'?{backgroundColor:accent,borderColor:accent}:styles.chipOn)]}
             >
-              <Text style={[styles.chipText, template === t.key && styles.chipTextOn]}>{t.name}</Text>
+              <Text style={[styles.chipText, template === t.key && (scheme==='light'?{color:colors.accentText}:styles.chipTextOn)]}>{t.name}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -569,7 +569,7 @@ export default function StudioScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 20 }}>
             {THEMES.map((t) => (
               <Pressable key={t.key} onPress={() => setTheme(t.key)} style={{ alignItems: 'center' }} accessibilityLabel={`${t.name} color`}>
-                <View style={[styles.swatch, theme === t.key && styles.swatchOn]}>
+                <View style={[styles.swatch, theme === t.key && (scheme==='light'?{borderColor:accent}:styles.swatchOn)]}>
                   {t.key === 'auto' ? (
                     <View style={styles.autoSwatch}>
                       <View style={[styles.autoHalf, { backgroundColor: '#C65B7C' }]} />
@@ -697,8 +697,8 @@ export default function StudioScreen() {
             ] as const)
               .filter(([key]) => key !== 'recent' || library.recent === null || library.recent.length > 0)
               .map(([key, label]) => (
-                <Pressable key={key} onPress={() => setSource(key)} style={[styles.chip, source === key && styles.chipOn]}>
-                  <Text style={[styles.chipText, source === key && styles.chipTextOn]}>{label}</Text>
+                <Pressable key={key} onPress={() => setSource(key)} style={[styles.chip, source === key && (scheme==='light'?{backgroundColor:accent,borderColor:accent}:styles.chipOn)]}>
+                  <Text style={[styles.chipText, source === key && (scheme==='light'?{color:colors.accentText}:styles.chipTextOn)]}>{label}</Text>
                 </Pressable>
               ))}
           </View>
@@ -810,8 +810,8 @@ export default function StudioScreen() {
                 ['serif', 'Handwritten'],
                 ['bold', 'Bold'],
               ] as const).map(([key, label]) => (
-                <Pressable key={key} onPress={() => setTitleFont(key)} style={[styles.chip, titleFont === key && styles.chipOn]}>
-                  <Text style={[styles.chipText, titleFont === key && styles.chipTextOn, key === 'serif' && { fontFamily: SERIF, fontSize: 15, fontWeight: '400' }]}>{label}</Text>
+                <Pressable key={key} onPress={() => setTitleFont(key)} style={[styles.chip, titleFont === key && (scheme==='light'?{backgroundColor:accent,borderColor:accent}:styles.chipOn)]}>
+                  <Text style={[styles.chipText, titleFont === key && (scheme==='light'?{color:colors.accentText}:styles.chipTextOn), key === 'serif' && { fontFamily: SERIF, fontSize: 15, fontWeight: '400' }]}>{label}</Text>
                 </Pressable>
               ))}
             </View>
