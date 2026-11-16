@@ -8,6 +8,7 @@ import BottomNav from '../components/BottomNav';
 import FirstListenShowcase from '../components/FirstListenShowcase';
 import { useFirstListenFeed } from '../use-first-listen-feed';
 import { supabase } from '../supabase';
+import { isUpcomingShow } from '../profile-display';
 
 type Show = { id:string; name:string; artist:string; venue:string; city:string; region:string; date:string; time:string; dateTime:string; artworkUrl:string; ticketUrl:string };
 type ArtistGroup = { name:string; artwork:string; shows:Show[] };
@@ -269,7 +270,7 @@ export default function ConcertsScreen(){
   if(candidates.length&&!succeeded)setError('Could not load your artists’ tour dates. Pull down to retry.');
   const myShows:Show[]=(a.data||[]).flatMap((r:any)=>{const c=Array.isArray(r.concerts)?r.concerts[0]:r.concerts;if(!c)return [];
    const dt=c.starts_at?new Date(c.starts_at):null;return [{id:c.external_id,name:c.event_name||c.artist_name,artist:c.artist_name,venue:c.venue_name,city:c.city,region:c.region||'',date:dt?`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`:'',time:dt?`${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'',dateTime:c.starts_at||'',artworkUrl:c.artwork_url||'',ticketUrl:c.ticket_url||''}];});
-  setSaved(myShows);
+  setSaved(myShows.filter(show=>isUpcomingShow(show.dateTime)));
  }catch(e){console.log('Radar error',e);setError('Could not load Radar. Pull down to retry.');}finally{setLoading(false);setRefreshing(false);}}
  const scoresForDisplay=useMemo(()=>new Set(rotationArtists.map(normalizeArtist)),[rotationArtists]);
  const libraryKeys=useMemo(()=>new Set(libraryArtists.map(normalizeArtist)),[libraryArtists]);
