@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import { isUpcomingShow, overlyDescription } from '../profile-display';
 import YouTwoCard from '../components/YouTwoCard';
 import CoreFourSection from '../components/CoreFourSection';
 
@@ -459,7 +460,7 @@ export default function ProfileScreen() {
                     .concerts[0]
                 : attendance.concerts;
 
-            if (concert) {
+            if (concert && isUpcomingShow(concert.starts_at)) {
               showRows.push(
                 concert
               );
@@ -1235,11 +1236,12 @@ export default function ProfileScreen() {
 
           {!!profile.bio && <Text style={styles.profileBio}>{profile.bio}</Text>}
           {!!profile.overly_trait && (
-            <View style={{alignSelf:'flex-start',flexDirection:'row',alignItems:'center',
-              gap:7,marginTop:12,marginBottom:6}}>
-              <Text style={{color:brandAccent,fontSize:10,letterSpacing:1.2,fontWeight:'900'}}>OVERLY</Text>
-              <Text style={{color:scheme==='light'?'#3B2218':'#E1EDE3',fontSize:13,fontWeight:'700'}}>{profile.overly_trait}</Text>
-            </View>
+            <Text style={{alignSelf:'center',textAlign:'center',marginTop:12,marginBottom:6,fontSize:13,fontWeight:'700'}}>
+              <Text style={{color:brandAccent,fontWeight:'900',letterSpacing:1}}>OVERLY</Text>
+              <Text style={{color:scheme==='light'?'#3B2218':'#E1EDE3'}}>
+                {overlyDescription(profile.overly_trait) ? ' ' + overlyDescription(profile.overly_trait) : ''}
+              </Text>
+            </Text>
           )}
           <View style={styles.socialCounts}>
             <Pressable onPress={() => router.push({ pathname: '/follows', params: { userId, tab: 'followers', name: profile.display_name || 'Listener' } })} hitSlop={10}>
