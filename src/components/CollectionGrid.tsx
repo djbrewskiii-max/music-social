@@ -1,3 +1,6 @@
+import {useAppearance} from '../appearance';
+import {themedStyleSheet} from '../theme-style';
+import {useMemo} from 'react';
 import { useFonts } from 'expo-font';
 import { router } from 'expo-router';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -19,6 +22,8 @@ type Post = {
 };
 
 export default function CollectionGrid({ posts, username, emptyText }: { posts: Post[]; username: string; emptyText: string }) {
+  const {scheme}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const collections = posts.filter((p) => !!p.collection);
   const width = Math.floor((Dimensions.get('window').width - 40 - 12) / 2);
@@ -46,7 +51,7 @@ export default function CollectionGrid({ posts, username, emptyText }: { posts: 
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 20, paddingTop: 18 },
   thumb: { borderRadius: 10, overflow: 'hidden' },
   title: { color: '#ffffff', fontFamily: 'InstrumentSerif_400Regular_Italic', fontSize: 18, lineHeight: 21, marginTop: 8 },
