@@ -30,7 +30,7 @@ type Props = {
 
 export default function CollectionPreview({
  post, username, slideWidth = 190 }: Props) {
-  const {scheme}=useAppearance();
+  const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const { activeKey, loadingKey, toggle } = useSongPreview();
@@ -48,7 +48,7 @@ export default function CollectionPreview({
       <Text onPress={open} style={[styles.title, !fontsLoaded && { fontFamily: undefined }]} numberOfLines={3}>
         {post.collection.title}
       </Text>
-      {!!post.body && <Text onPress={open} style={{ color: '#D2D2D2', fontSize: 15, lineHeight: 21, marginBottom: 13 }}>{post.body}</Text>}
+      {!!post.body && <Text onPress={open} style={{ color: colors.secondary, fontSize: 15, lineHeight: 21, marginBottom: 13 }}>{post.body}</Text>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {slides.map((spec, i) => (
           <Pressable key={i} onPress={open} style={styles.slide}>
