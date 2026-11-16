@@ -26,7 +26,7 @@ _Date: November 15, 2026 · Read-only review of live Supabase metadata, deployed
 - Client validates DOB against 18+ cutoff.
 - `public.ovrlee_beta_adult_signup(jsonb)` is installed; `supabase_auth_admin` has EXECUTE permission.
 - Current connector does not expose Supabase Auth Hook project settings. Thus **whether Before User Created is enabled is unverified**. A function existing is NOT enforcement.
-- Before beta: check Authentication > Hooks > Before User Created points to the function, and test rejected underage, missing DOB, invalid DOB and adult signup against a disposable identity. Confirm existing-user/backward-compatibility policy.
+- Synthetic direct-function tests passed: adult allowed; underage, missing DOB and invalid date rejected. **This does not prove Auth Hook activation.** Before beta: check Authentication > Hooks > Before User Created points to the function, and test actual signup against disposable identities. Confirm existing-user/backward-compatibility policy.
 
 ## Public website and support — cannot verify online from this session
 - Earlier project setup included `ovrlee.com`, Cloudflare Pages and forwarding for `hello@ovrlee.com` / `support@ovrlee.com`.
@@ -45,7 +45,7 @@ _Date: November 15, 2026 · Read-only review of live Supabase metadata, deployed
 - Review App Privacy disclosures and Apple user-generated-content safety obligations with the actual data flows.
 
 ## Recommended next execution
-1. Review and apply the two missing FK CASCADE constraints in a controlled migration, then verify; do not delete any non-test member.
+1. **Completed:** Apply and verify both missing FK CASCADE constraints. Next test them only with a disposable user.
 2. Confirm/enable the 18+ Before User Created hook and safely test signup rejections.
 3. Use a disposable account to test deletion across profile, music_dna, photos, posts, chats, tokens, comments and private saves.
 4. Confirm Cloudflare site/domain and email deliverability; collect existing website source files and decide legal entity/contact language.
