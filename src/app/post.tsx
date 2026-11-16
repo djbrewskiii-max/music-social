@@ -26,7 +26,7 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
   : post.photo_url ? [post.photo_url] : [];
 
 export default function PostDetailScreen() {
-  const {scheme}=useAppearance();
+  const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string; sharedUrl?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
@@ -537,22 +537,22 @@ export default function PostDetailScreen() {
       </View>}
     </KeyboardAvoidingView>
     <Modal visible={collectionViewer !== null} onRequestClose={() => setCollectionViewer(null)} animationType="fade" statusBarTranslucent>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#080808', justifyContent: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
         <View style={{ paddingHorizontal: 18, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>{post?.collection?.title || 'Collection'}</Text>
-          <Pressable accessibilityLabel="Close collection viewer" onPress={() => setCollectionViewer(null)}><Text style={{ color: '#fff', fontSize: 30 }}>×</Text></Pressable>
+          <Text style={{ color: colors.text, fontWeight: '700' }}>{post?.collection?.title || 'Collection'}</Text>
+          <Pressable accessibilityLabel="Close collection viewer" onPress={() => setCollectionViewer(null)}><Text style={{ color: colors.text, fontSize: 30 }}>×</Text></Pressable>
         </View>
         {collectionViewer !== null && post?.collection && fontsLoaded && (() => {
           const slides = buildSlides(post.collection.template, { title: post.collection.title, caption: post.body || '', items: itemsFromPost(post), photos, coverArtId: post.collection.coverArtId, photoFocus: post.collection.photoFocus });
           const slideWidth = width - 32;
           return <>
-            <Text style={{ textAlign: 'center', color: '#aaa', marginBottom: 12 }}>{collectionViewer + 1} / {slides.length}</Text>
+            <Text style={{ textAlign: 'center', color: colors.secondary, marginBottom: 12 }}>{collectionViewer + 1} / {slides.length}</Text>
             <ScrollView key={`${post.id}-slides`} horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: width * collectionViewer, y: 0 }} onMomentumScrollEnd={(e) => setCollectionViewer(Math.max(0, Math.min(slides.length - 1, Math.round(e.nativeEvent.contentOffset.x / width))))}>
               {slides.map((spec, i) => <View key={i} style={{ width, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }}>
                 <Slide spec={spec} width={slideWidth} username={author.username} index={i} total={slides.length} theme={(post.collection?.theme as ThemeKey) || 'auto'} titleFont={post.collection?.titleFont || 'serif'} />
               </View>)}
             </ScrollView>
-            <Text style={{ textAlign: 'center', color: '#aaa', padding: 16 }}>Swipe to view each card · Tap a song below the collection to open it in your music app.</Text>
+            <Text style={{ textAlign: 'center', color: colors.secondary, padding: 16 }}>Swipe to view each card · Tap a song below the collection to open it in your music app.</Text>
           </>;
         })()}
       </SafeAreaView>
