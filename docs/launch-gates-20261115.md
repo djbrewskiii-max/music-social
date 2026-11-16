@@ -18,17 +18,20 @@ _Last reviewed: November 15, 2026 · Source: `claude-build`, repository handoff 
 | Apple Developer | Signing, bundle ID and internal previews previously worked | App Store Connect listing, privacy disclosure, screenshots, TestFlight review/demo account still to validate |
 
 ## Gate 1 — Stop unsafe releases (mandatory before non-owner beta)
-- [ ] **Deletion:** Use a disposable account only: create content, upload photos, join chats, register push, then delete. Check auth record, media, conversation/post records, tokens, sign-in rejection, and orphan cleanup.
+- [x] **Deletion FK gap:** Applied and verified `20261116012848_account_deletion_profiles_music_dna_cascade`; `profiles` and `music_dna` now delete with Auth users.
+- [ ] **Deletion end-to-end:** Use a disposable account only: create content, upload photos, join chats, register push, then delete. Check auth record, media, conversation/post records, tokens, sign-in rejection, and orphan cleanup.
 - [ ] **Reports:** Two accounts; report an abusive test post and received message; duplicate handling, private report queue, and inability to read other members' reports.
 - [ ] **Blocks/privacy:** Verify blocked users cannot DM or discover private data, private saves are private, likes visibility is intentional, and profile exposure is correct.
 - [ ] **Moderation operation:** Designate responsible reviewer and response windows; actual workflow to investigate reports, remove offending content and restrict users; establish filtering policy and support escalation.
-- [ ] **Age gate:** Confirm enforced 18+ signup server-side, not just a client DOB field; test underage and existing-account cases.
+- [x] **Age function behavior:** Direct synthetic tests passed for adult, underage, missing and invalid DOB.
+- [ ] **Age gate activation:** Confirm Before User Created hook is enabled in Supabase Auth; test underage and existing-account cases.
 - [ ] **Database:** Review 11 authenticated-callable SECURITY DEFINER RPCs individually; don't revoke client-required functions blindly. Inspect three no-policy tables (music_listening_events, ovrlee_migrations, push_tokens) to decide if intentional. Evaluate enabling leaked-password protection.
 - [ ] **Secrets/provider permissions:** Confirm no server secret is shipped as EXPO_PUBLIC; review Ticketmaster and Apple Music token exposure/restrictions, Spotify access and policies.
 
 ## Gate 2 — Public-facing compliance and domain
 - [ ] Verify `https://ovrlee.com` resolves with valid TLS and Pages serves the intended site.
 - [ ] Verify `support@ovrlee.com` and `hello@ovrlee.com` forwarding with real messages; forwarding alone is not outbound email service.
+- [x] Prepare non-publishable first draft: `docs/website-legal-pages-working-draft-20261115.md`.
 - [ ] Publish and manually review real privacy policy, terms, community guidelines, deletion instructions, contact/support URLs, and in-app links. Don't invent data practices; compare to actual Supabase schema, permissions and retention.
 - [ ] Validate HTTPS sharing domain, Apple universal links (AASA) and associated domains; preserve existing HTTPS fallback.
 - [ ] Prepare Apple App Privacy labels, permission explanations, age rating, content moderation disclosure, and demo account.
@@ -57,8 +60,8 @@ _Last reviewed: November 15, 2026 · Source: `claude-build`, repository handoff 
 - [ ] Release only after closed-beta issues stop blocking the core loop.
 
 ## Immediate work order
-1. **Website/legal verification** — real Cloudflare URLs and support email tests, then publish reviewed policies.
-2. **Security + account-deletion QA** — disposable accounts only; document evidence, don't alter live-member data.
+1. **Website/legal verification** — draft prepared. Verify real Cloudflare URLs and support email tests, resolve legal operator/data retention, then publish reviewed policies.
+2. **Security + account-deletion QA** — Auth cascades fixed; verify Auth 18+ hook activation and use disposable accounts only for destructive tests.
 3. **Two-phone app QA** — freeze the feature list; fix crashes, navigation, theme, and posting/conversation blockers.
 4. **Moderation operating plan** — report queue ownership and responses, content filtering and enforcement.
 5. **TestFlight submission** — only after gates pass.
