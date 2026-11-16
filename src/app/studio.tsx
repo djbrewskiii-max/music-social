@@ -535,7 +535,7 @@ export default function StudioScreen() {
             }}
             style={[styles.arrangeBtn, arranging && styles.arrangeOn]}
           >
-            <Text style={[styles.arrangeText, arranging && { color: arranging ? '#000' : '#fff' }]}>⇄ ARRANGE</Text>
+            <Text style={[styles.arrangeText, arranging && { color: scheme==='light' ? colors.text : '#000000' }]}>⇄ ARRANGE</Text>
           </Pressable>
         ) : null}
         <Pressable onPress={() => storeDraft(false)} disabled={savingDraft || !hasWork} style={[styles.arrangeBtn, (!hasWork || savingDraft) && { opacity: 0.4 }]}>
@@ -579,7 +579,7 @@ export default function StudioScreen() {
                     <View style={[styles.swatchFill, { backgroundColor: t.swatch, borderColor: t.ring || 'transparent', borderWidth: t.ring ? 1 : 0 }]} />
                   )}
                 </View>
-                <Text style={[styles.swatchName, theme === t.key && { color: '#ffffff' }]}>{t.name}</Text>
+                <Text style={[styles.swatchName, theme === t.key && { color: colors.text }]}>{t.name}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -592,7 +592,7 @@ export default function StudioScreen() {
 
       <View style={styles.finalRow}>
         <Pressable onPress={() => exportNow()} disabled={exporting} style={[styles.secondaryBtn, exporting && { opacity: 0.5 }]}>
-          {exporting ? <ActivityIndicator color="#fff" /> : <Text style={styles.secondaryText}>SAVE SLIDES</Text>}
+          {exporting ? <ActivityIndicator color={accent} /> : <Text style={styles.secondaryText}>SAVE SLIDES</Text>}
         </Pressable>
         <Pressable onPress={post} disabled={posting || !!postedId} style={[styles.primaryBtn, (posting || !!postedId) && { opacity: 0.5 }]}>
           {posting ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryText}>{postedId ? 'POSTED ✓' : 'POST'}</Text>}
@@ -624,39 +624,39 @@ export default function StudioScreen() {
       />
             <Modal visible={sheet === 'arrange'} animationType="slide" presentationStyle="pageSheet"
         onRequestClose={() => { setSheet(null); setArranging(false); setSelected(null); }}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#090909', paddingHorizontal: 18 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, paddingHorizontal: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 24, paddingBottom: 14 }}>
             <View>
-              <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900' }}>Arrange songs</Text>
-              <Text style={{ color: '#aaa', fontSize: 12, marginTop: 5 }}>Tap an entire row, then another to swap. Or use the arrows.</Text>
+              <Text style={{ color: colors.text, fontSize: 24, fontWeight: '900' }}>Arrange songs</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 5 }}>Tap an entire row, then another to swap. Or use the arrows.</Text>
             </View>
             <Pressable onPress={() => { setSheet(null); setArranging(false); setSelected(null); }}>
-              <Text style={{ color: GREEN, fontSize: 16, fontWeight: '900' }}>Done</Text>
+              <Text style={{ color: accent, fontSize: 16, fontWeight: '900' }}>Done</Text>
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 45 }}>
             {items.map((item, i) => (
               <View key={`${item.id}-${i}`}
                 style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 12,
-                  backgroundColor: selected === i ? '#183C21' : '#191919',
-                  borderWidth: 1, borderColor: selected === i ? GREEN : '#333', padding: 8 }}>
+                  backgroundColor: selected === i ? (scheme==='light'?'#EFE0D7':'#183C21') : colors.surface,
+                  borderWidth: 1, borderColor: selected === i ? accent : colors.border, padding: 8 }>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.song} for arrangement`}
                   onPress={() => tapInArrange(i)}
                   style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 7 }}>
-                  <Text style={{ color: GREEN, fontSize: 12, fontWeight: '900', width: 22 }}>{i + 1}</Text>
+                  <Text style={{ color: accent, fontSize: 12, fontWeight: '900', width: 22 }}>{i + 1}</Text>
                   {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={{ width: 46, height: 46, borderRadius: 5 }} /> :
                     <View style={{ width: 46, height: 46, backgroundColor: '#222', borderRadius: 5 }} />}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }} numberOfLines={1}>{item.song}</Text>
-                    <Text style={{ color: '#aaa', fontSize: 11, marginTop: 3 }} numberOfLines={1}>{item.artist}</Text>
+                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: '900' }} numberOfLines={1}>{item.song}</Text>
+                    <Text style={{ color: colors.secondary, fontSize: 11, marginTop: 3 }} numberOfLines={1}>{item.artist}</Text>
                   </View>
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Move ${item.song} up`}
                   disabled={i === 0} onPress={() => move(i, -1)}
-                  style={{ padding: 12, opacity: i === 0 ? 0.2 : 1 }}><Text style={{ color: GREEN, fontSize: 24 }}>↑</Text></Pressable>
+                  style={{ padding: 12, opacity: i === 0 ? 0.2 : 1 }}><Text style={{ color: accent, fontSize: 24 }}>↑</Text></Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Move ${item.song} down`}
                   disabled={i === items.length - 1} onPress={() => move(i, 1)}
-                  style={{ padding: 12, opacity: i === items.length - 1 ? 0.2 : 1 }}><Text style={{ color: GREEN, fontSize: 24 }}>↓</Text></Pressable>
+                  style={{ padding: 12, opacity: i === items.length - 1 ? 0.2 : 1 }}><Text style={{ color: accent, fontSize: 24 }}>↓</Text></Pressable>
               </View>
             ))}
           </ScrollView>
@@ -665,7 +665,7 @@ export default function StudioScreen() {
 
       {/* Songs: pick from your music, or search */}
       <Modal visible={sheet === 'songs'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet,{backgroundColor:colors.background}]}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Add songs</Text>
             <Pressable onPress={() => setSheet(null)} hitSlop={10}>
@@ -704,7 +704,7 @@ export default function StudioScreen() {
           </View>
           {source === 'search' && (
             <View style={styles.searchWrap}>
-              <TextInput value={query} onChangeText={setQuery} placeholder="Search songs and albums" placeholderTextColor="#666" autoFocus autoCorrect={false} style={styles.search} />
+              <TextInput value={query} onChangeText={setQuery} placeholder="Search songs and albums" placeholderTextColor={scheme==='light'?'#8A7A72':'#777'} autoFocus autoCorrect={false} style={styles.search} />
               {searching && <ActivityIndicator color={accent} />}
             </View>
           )}
@@ -735,7 +735,7 @@ export default function StudioScreen() {
                 return (
                   <Pressable accessibilityRole="button" accessibilityLabel={added ? `Remove ${item.song} from selection position ${position + 1}` : `Add ${item.song} to collection`}
                     accessibilityState={{selected: added}} onPress={() => toggleSong(item)}
-                    style={({ pressed }) => [styles.result, added && styles.resultSelected, pressed && { opacity: 0.6 }]}>
+                    style={({ pressed }) => [styles.result, added && (scheme==='light' ? {backgroundColor:'#F2EBE6'} : styles.resultSelected), pressed && { opacity: 0.6 }]}>
                     {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={styles.resultArt} /> : <View style={styles.resultArt} />}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.songTitle} numberOfLines={1}>
@@ -749,7 +749,7 @@ export default function StudioScreen() {
                     {adding === item.song + item.artist ? (
                       <ActivityIndicator color={accent} />
                     ) : (
-                      <View style={[styles.check, added && styles.checkOn]}>
+                      <View style={[styles.check, added && styles.checkOn, added && {backgroundColor:accent,borderColor:accent}]}>
                         <Text style={[styles.checkText, added && { color: scheme==='light' ? '#FFFFFF' : '#000000' }]}>{added ? String(position + 1) : '+'}</Text>
                       </View>
                     )}
@@ -763,7 +763,7 @@ export default function StudioScreen() {
 
       {/* Liner Notes cover: pick an album */}
       <Modal visible={sheet === 'cover'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet,{backgroundColor:colors.background}]}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Cover</Text>
             <Pressable onPress={() => setSheet(null)} hitSlop={10}>
@@ -790,7 +790,7 @@ export default function StudioScreen() {
 
       {/* Title + caption, live on the slide */}
       <Modal visible={sheet === 'text'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
-        <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={[styles.sheet,{backgroundColor:colors.background}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Title & caption</Text>
             <Pressable onPress={() => setSheet(null)} hitSlop={10}>
@@ -798,11 +798,11 @@ export default function StudioScreen() {
             </Pressable>
           </View>
           <View style={{ paddingHorizontal: 20 }}>
-            <TextInput key={titleFont} value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor="#555" maxLength={80} multiline autoFocus style={[styles.titleInput, titleFont === 'bold' && styles.titleInputBold]} />
+            <TextInput key={titleFont} value={title} onChangeText={setTitle} placeholder="songs i’d play you on a long drive" placeholderTextColor={scheme==='light'?'#8A7A72':'#777'} maxLength={80} multiline autoFocus style={[styles.titleInput, titleFont === 'bold' && styles.titleInputBold]} />
             <Text style={{ color: '#777', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 8 }}>LIVE FONT PREVIEW</Text>
             <Text numberOfLines={2} style={titleFont === 'serif'
-              ? { color: '#fff', fontFamily: SERIF, fontSize: 27, marginTop: 6 }
-              : { color: '#fff', fontFamily: 'System', fontWeight: '900', fontSize: 26, letterSpacing: -0.7, marginTop: 6 }}>
+              ? { color: colors.text, fontFamily: SERIF, fontSize: 27, marginTop: 6 }
+              : { color: colors.text, fontFamily: 'System', fontWeight: '900', fontSize: 26, letterSpacing: -0.7, marginTop: 6 }}>
               {title.trim() || 'Your collection title'}
             </Text>
             <View style={styles.fontRow}>
@@ -820,7 +820,7 @@ export default function StudioScreen() {
               value={caption}
               onChangeText={setCaption}
               placeholder={template === 'wall' ? 'A line under your title (optional)' : 'Say something about it (optional)'}
-              placeholderTextColor="#555"
+              placeholderTextColor={scheme==='light'?'#8A7A72':'#777'}
               maxLength={300}
               multiline
               style={styles.caption}
@@ -831,7 +831,7 @@ export default function StudioScreen() {
 
       {/* A song's note */}
       <Modal visible={noteIndex !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
-        <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={[styles.sheet,{backgroundColor:colors.background}]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle} numberOfLines={1}>
               {noteIndex !== null && items[noteIndex] ? items[noteIndex].song : 'Note'}
@@ -846,7 +846,7 @@ export default function StudioScreen() {
                 value={items[noteIndex].note}
                 onChangeText={(note) => setItems((prev) => prev.map((x, i) => (i === noteIndex ? { ...x, note } : x)))}
                 placeholder="windows down, the exact moment summer starts…"
-                placeholderTextColor="#555"
+                placeholderTextColor={scheme==='light'?'#8A7A72':'#777'}
                 maxLength={200}
                 multiline
                 autoFocus
