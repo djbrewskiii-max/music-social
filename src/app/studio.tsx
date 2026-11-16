@@ -1,4 +1,7 @@
 import { useFonts } from 'expo-font';
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
+import { isSameCollectionSong } from '../collection-selection';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -37,6 +40,9 @@ const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16)
 type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
 
 export default function StudioScreen() {
+  const { scheme, colors } = useAppearance();
+  const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
+  const accent = colors.accent;
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const [picking, setPicking] = useState(true); // template picker first
   const [template, setTemplate] = useState<Template>('liner');
@@ -214,12 +220,12 @@ export default function StudioScreen() {
     [template, title, caption, items, photos, coverArtId, photoFocus]
   );
 
-  const inCollection = (item: CollectionItem) =>
-    items.some((i) => (item.id && i.id === item.id) || (i.song.toLowerCase() === item.song.toLowerCase() && i.artist.toLowerCase() === item.artist.toLowerCase()));
+  const selectedPosition = (item: CollectionItem) => items.findIndex((i) => isSameCollectionSong(i,item));
+  const inCollection = (item: CollectionItem) => selectedPosition(item) >= 0;
 
   const toggleSong = async (item: CollectionItem) => {
     if (inCollection(item)) {
-      setItems((prev) => prev.filter((i) => !((item.id && i.id === item.id) || (i.song === item.song && i.artist === item.artist))));
+      setItems((prev) => prev.filter((i) => !isSameCollectionSong(i,item)));
       return;
     }
     const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
@@ -231,7 +237,7 @@ export default function StudioScreen() {
     setAdding(item.song + item.artist);
     const full = await completeItem(item);
     setAdding(null);
-    setItems((prev) => (prev.some((i) => i.id === full.id) ? prev : [...prev, full]));
+    setItems((prev) => (prev.some((i) => isSameCollectionSong(i,full)) ? prev : [...prev, full]));
   };
 
   // Arrange mode: tap one cover, then another, to swap them.
@@ -378,8 +384,8 @@ export default function StudioScreen() {
 
   if (!fontsLoaded) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <ActivityIndicator color={GREEN} style={{ marginTop: 80 }} />
+      <SafeAreaView style={[styles.screen, {backgroundColor:colors.background}]}>
+        <ActivityIndicator color={accent} style={{ marginTop: 80 }} />
       </SafeAreaView>
     );
   }
@@ -387,7 +393,7 @@ export default function StudioScreen() {
   /* ----------------------------- template picker ----------------------------- */
   if (picking) {
     return (
-      <SafeAreaView style={styles.screen}>
+      <SafeAreaView style={[styles.screen, {backgroundColor:colors.background}]}>
         <ScrollView contentContainerStyle={styles.content}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Text style={styles.back}>‹ Back</Text>
@@ -472,7 +478,7 @@ export default function StudioScreen() {
   const noteIndex = sheet && typeof sheet === 'object' ? sheet.note : null;
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, {backgroundColor:colors.background}]}>
       <View style={styles.canvasHeader}>
         <Pressable onPress={leave} hitSlop={12}>
           <Text style={styles.backSmall}>‹</Text>
@@ -699,11 +705,11 @@ export default function StudioScreen() {
           {source === 'search' && (
             <View style={styles.searchWrap}>
               <TextInput value={query} onChangeText={setQuery} placeholder="Search songs and albums" placeholderTextColor="#666" autoFocus autoCorrect={false} style={styles.search} />
-              {searching && <ActivityIndicator color={GREEN} />}
+              {searching && <ActivityIndicator color={accent} />}
             </View>
           )}
           {sourceItems === null ? (
-            <ActivityIndicator color={GREEN} style={{ marginTop: 30 }} />
+            <ActivityIndicator color={accent} style={{ marginTop: 30 }} />
           ) : (
             <FlatList
               data={sourceItems}
@@ -724,9 +730,12 @@ export default function StudioScreen() {
                 </Text>
               }
               renderItem={({ item }) => {
-                const added = inCollection(item);
+                const position = selectedPosition(item);
+                const added = position >= 0;
                 return (
-                  <Pressable onPress={() => toggleSong(item)} style={({ pressed }) => [styles.result, pressed && { opacity: 0.6 }]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={added ? `Remove ${item.song} from selection position ${position + 1}` : `Add ${item.song} to collection`}
+                    accessibilityState={{selected: added}} onPress={() => toggleSong(item)}
+                    style={({ pressed }) => [styles.result, added && styles.resultSelected, pressed && { opacity: 0.6 }]}>
                     {item.artworkUrl ? <Image source={{ uri: item.artworkUrl }} style={styles.resultArt} /> : <View style={styles.resultArt} />}
                     <View style={{ flex: 1 }}>
                       <Text style={styles.songTitle} numberOfLines={1}>
@@ -735,12 +744,13 @@ export default function StudioScreen() {
                       <Text style={styles.songArtist} numberOfLines={1}>
                         {item.kind === 'album' ? 'Album · ' : ''}{item.artist}
                       </Text>
+                      {added && <Text style={styles.selectedHint}>#{position + 1} IN COLLECTION</Text>}
                     </View>
                     {adding === item.song + item.artist ? (
-                      <ActivityIndicator color={GREEN} />
+                      <ActivityIndicator color={accent} />
                     ) : (
                       <View style={[styles.check, added && styles.checkOn]}>
-                        <Text style={[styles.checkText, added && { color: '#000' }]}>{added ? '✓' : '+'}</Text>
+                        <Text style={[styles.checkText, added && { color: scheme==='light' ? '#FFFFFF' : '#000000' }]}>{added ? String(position + 1) : '+'}</Text>
                       </View>
                     )}
                   </Pressable>
@@ -850,7 +860,7 @@ export default function StudioScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   content: { padding: 22, paddingBottom: 80 },
   back: { color: '#aaaaaa', fontSize: 16, marginTop: 6, marginBottom: 20 },
@@ -919,7 +929,9 @@ const styles = StyleSheet.create({
   done: { color: GREEN, fontSize: 16, fontWeight: '800' },
   searchWrap: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 8, backgroundColor: '#161616', borderRadius: 14, paddingHorizontal: 14 },
   search: { flex: 1, color: '#ffffff', fontSize: 15, height: 46 },
-  result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
+  result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, paddingHorizontal: 7, borderRadius: 12 },
+  resultSelected: { backgroundColor: '#122318' },
+  selectedHint: { color: GREEN, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
   resultArt: { width: 48, height: 48, borderRadius: 6, backgroundColor: '#1a1a1a' },
   songTitle: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   songArtist: { color: '#8a8a8a', fontSize: 12, marginTop: 2 },
