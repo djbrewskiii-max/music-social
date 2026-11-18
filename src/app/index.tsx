@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router';
+import { useAppearance } from '../appearance';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +10,7 @@ import {
 import { supabase } from '../supabase';
 
 export default function HomeScreen() {
+  const {colors}=useAppearance();
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
 
@@ -38,8 +40,8 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingScreen}>
-        <ActivityIndicator size="small" color="#FFFFFF" />
+      <SafeAreaView style={[styles.loadingScreen,{backgroundColor:colors.background}]}>
+        <ActivityIndicator size="small" color={colors.accent} />
       </SafeAreaView>
     );
   }
