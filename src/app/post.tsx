@@ -19,7 +19,7 @@ import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music
 import { resolveSharedMusic } from '../shared-music';
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
-type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
+type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; album_name: string | null; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
 type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null; parent_reply_id: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
@@ -170,7 +170,7 @@ export default function PostDetailScreen() {
     setLoading(true); setError('');
     try {
       const { data: found, error: postError } = await supabase.from('posts')
-        .select('id,user_id,created_at,body,song_title,artist_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
+        .select('id,user_id,created_at,body,song_title,artist_name,album_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
         .eq('id', postId).maybeSingle();
       if (postError) throw postError;
       if (!found) { setError('This post is unavailable.'); setPost(null); return; }
@@ -377,6 +377,8 @@ export default function PostDetailScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
                       <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
+                      {music.length===1 && !!post.album_name &&
+                        <Text style={styles.secondary} numberOfLines={1}>{post.album_name}</Text>}
                       {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
                     </View>
                   </Pressable>
