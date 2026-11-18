@@ -38,6 +38,7 @@ import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import PostMusicTrackCard from '../components/PostMusicTrackCard';
+import {firstPostTrack} from '../post-track';
 import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
@@ -1683,58 +1684,31 @@ export default function NowScreen() {
     }
   };
 
-  const openAppleMusic =
-    async (
-      post: FeedPost
-    ) => {
-      try {
-        if (post.music_items?.[0]?.kind === 'album') {
-          await openMusicCard({ kind: 'album', title: post.song_title, artist: post.artist_name,
-            appleId: post.apple_music_id, sourceUrl: post.music_items[0].sourceUrl || null });
-          return;
-        }
-        if (musicProvider === 'spotify') {
-          const original = post.music_items?.[0]?.sourceUrl || null;
-          await Linking.openURL(await resolveTrackLink('spotify', post.song_title, post.artist_name, post.apple_music_id,
-            original?.startsWith('https://open.spotify.com/') ? original : null));
-          return;
-        }
-        if (
-          post.apple_music_id
-        ) {
-          const songUrl =
-            `https://music.apple.com/us/song/${encodeURIComponent(
-              post.apple_music_id
-            )}`;
-
-          try {
-            await Linking.openURL(
-              songUrl
-            );
-            return;
-          } catch (error) {
-            console.log(
-              'Direct Apple Music URL failed:',
-              error
-            );
-          }
-        }
-
-        const searchTerm =
-          encodeURIComponent(
-            `${post.song_title} ${post.artist_name}`
-          );
-
-        await Linking.openURL(
-          `https://music.apple.com/us/search?term=${searchTerm}`
-        );
-      } catch (error) {
-        console.log(
-          'Apple Music open error:',
-          error
-        );
+  const openAppleMusic = async (post: FeedPost) => {
+    // The link must open the *same* item displayed by PostMusicTrackCard,
+    // even when a shared track differs from the legacy top-level post fields.
+    const track = firstPostTrack(post);
+    try {
+      if (track.kind === 'album') {
+        await openMusicCard({
+          kind: 'album', title: track.song, artist: track.artist,
+          appleId: track.id || null, sourceUrl: track.sourceUrl,
+        });
+        return;
       }
-    };
+      if (musicProvider === 'spotify' && track.sourceUrl &&
+          /^https:\/\/(open\.spotify\.com|spotify\.link|spotify\.app\.link)\//i.test(track.sourceUrl)) {
+        await Linking.openURL(track.sourceUrl);
+        return;
+      }
+      await Linking.openURL(await resolveTrackLink(
+        musicProvider, track.song, track.artist, track.id,
+      ));
+    } catch (error) {
+      console.log('Post music link error:', error);
+      Alert.alert('Music', 'Unable to open this track.');
+    }
+  };
 
   const formatPostTime =
     (
@@ -3061,13 +3035,7 @@ export default function NowScreen() {
                       </View>
                     ) : (
                       <PostMusicTrackCard
-                        track={{
-                          id:post.music_items?.[0]?.id || post.apple_music_id,
-                          song:post.music_items?.[0]?.song || post.song_title,
-                          artist:post.music_items?.[0]?.artist || post.artist_name,
-                          artworkUrl:post.music_items?.[0]?.artworkUrl || post.artwork_url,
-                          kind:post.music_items?.[0]?.kind==='album'?'album':'song',
-                        }}
+                        track={firstPostTrack(post)}
                         albumName={post.album_name}
                         onOpen={()=>openAppleMusic(post)}
                       />
