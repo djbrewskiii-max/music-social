@@ -1215,10 +1215,7 @@ export default function MyProfileScreen() {
               <View
                 style={[
                   styles.connectionDot,
-                  musicConnected && {
-                    backgroundColor:
-                      profileColor,
-                  },
+                  musicConnected && { backgroundColor: '#39E75F' },
                 ]}
               />
             </View>
