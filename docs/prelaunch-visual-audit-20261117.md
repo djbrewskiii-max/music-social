@@ -86,3 +86,17 @@ Repeated real-device screenshots revealed defects that should have been caught e
 - Do not add new P2 features until core QA, safety, support, and beta build gates are passed.
 
 **Next release gate:** Use the most recent validated branch in preview OTA, perform one complete light/dark pass on real devices, record failures in #8, then proceed to two-account end-to-end QA (#1) and safety (#2).
+
+## November 18 follow-up: save state, link identity and album actions
+**Code-level fix only; iPhone validation remains open.**
+- **Saved-state mismatch:** Post detail previously queried `collection_saves` only for collection posts, even though the feed's Save action supports any post. Post detail now loads owner-only saved state for every post, disables the action while loading/writing, and guards rapid repeated taps with a ref.
+- **Wrong-track handoff:** Feed cards displayed the first `music_items` track but the service-opening handler used older `song_title` / `artist_name` fields. New pure `firstPostTrack` selects one track identity for feed, detail, and provider handoff, including original Spotify share links.
+- **Album-only actions:** The shared music card no longer advertises an unavailable audio preview or song-only Rotation pin for albums; it offers Open Album.
+- **Regression guard:** `tools/post-track-parity.test.mjs` is included in GitHub quality checks. This is source-level/test coverage, **not** evidence of device parity.
+
+### Device retests still required
+- [ ] Save/unsave an ordinary song post in FYP, open its detail, go back, cold restart, and check the same state in Saved; repeat on a photo post and a collection.
+- [ ] Quickly double-tap Save on post detail with slow network; ensure no duplicate state, stuck spinner, or misleading success.
+- [ ] Open a Spotify-origin track post from the feed and detail as both a Spotify-preferring and Apple Music-preferring account. Confirm the same song opens in the intended service, even if `music_items[0]` differs from legacy top-level fields.
+- [ ] Open an album post in both appearances and both surfaces; confirm album navigation and no song preview / Rotation CTA.
+- [ ] Record the installed OTA update ID and screenshots before marking PASS.
