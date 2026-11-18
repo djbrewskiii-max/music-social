@@ -1,6 +1,6 @@
 import {useAppearance} from '../appearance';
 import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
-import {postArtistDiscovery} from '../post-artist-discovery';
+import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {openPostReportDialog} from '../post-reporting';
@@ -292,8 +292,6 @@ export default function PostDetailScreen() {
     setTimeout(()=>composeRef.current?.focus(),100);
   };
   const photos = post ? photoList(post) : [];
-  const discovery=post?postArtistDiscovery(post.artist_name||'',resolvedPrimaryArtist):null;
-  const openArtistDiscovery=(artist:string)=>router.push({pathname:'/music-discovery',params:{artist,song:post?.song_title||''}});
   const music = post ? (Array.isArray(post.music_items) && post.music_items.length
     ? post.music_items : [{ id: post.apple_music_id || undefined, song: post.song_title, artist: post.artist_name, artworkUrl: post.artwork_url || undefined }]) : [];
   return <SafeAreaView style={styles.screen}>
@@ -396,19 +394,11 @@ export default function PostDetailScreen() {
             })}
 
           </View>
-          {discovery && <Pressable accessibilityRole="button"
-            accessibilityLabel={discovery.target ? `Explore posts and listeners for ${discovery.target}` : 'Choose a credited artist to explore'}
-            onPress={()=>{
-              if(discovery.target){openArtistDiscovery(discovery.target);return;}
-              Alert.alert('Explore an artist','Choose a credited artist',[
-                ...discovery.candidates.slice(0,8).map(artist=>({text:artist,onPress:()=>openArtistDiscovery(artist)})),
-                {text:'Cancel',style:'cancel' as const}
-              ]);
-            }}
-            style={{alignSelf:'flex-start',borderRadius:18,paddingVertical:8,paddingHorizontal:12,
-              marginTop:9,marginBottom:14,backgroundColor:scheme==='light'?'#F2E6E0':'#112315'}}>
-            <Text style={{color:scheme==='light'?'#3B2218':green,fontSize:11,fontWeight:'900'}}>{discovery.label} →</Text>
-          </Pressable>}
+          {post && <PostArtistDiscoveryLink
+            credit={post.artist_name || ''}
+            primaryArtist={resolvedPrimaryArtist}
+            song={post.song_title}
+          />}
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:14}}>
             <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}
               accessibilityRole="button" accessibilityLabel={liked?'Unlike post':'Like post'}>
