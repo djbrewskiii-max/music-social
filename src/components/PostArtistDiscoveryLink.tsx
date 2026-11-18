@@ -7,18 +7,19 @@ import {postArtistDiscovery} from '../post-artist-discovery';
  * Never present a credited artist collective as one fictional artist.
  */
 export default function PostArtistDiscoveryLink({
-  credit,primaryArtist,song,
+  credit,primaryArtist,song,sourcePostId,
 }:{
   credit:string;
   primaryArtist?:string|null;
   song:string;
+  sourcePostId:string;
 }) {
   const {scheme}=useAppearance();
   const discovery=postArtistDiscovery(credit,primaryArtist);
   if(!discovery)return null;
   const go=(artist:string)=>router.push({
     pathname:'/music-discovery',
-    params:{artist,song},
+    params:{artist,song,sourcePostId},
   });
   const open=()=>{
     if(discovery.target){go(discovery.target);return;}
