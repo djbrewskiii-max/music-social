@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +24,8 @@ interface MutualUser {
 }
 
 export default function NewGroupScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [mutuals, setMutuals] = useState<MutualUser[]>([]);
@@ -181,7 +185,7 @@ export default function NewGroupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 16 },
   header: {
