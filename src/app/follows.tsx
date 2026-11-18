@@ -101,7 +101,7 @@ export default function FollowsScreen() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   header: { height: 78, paddingHorizontal: 23, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30 }, headerCenter: { alignItems: 'center' }, brand: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: -1 }, subtitle: { color: '#777', fontSize: 10, letterSpacing: 1.3, marginTop: 3 },
