@@ -1,11 +1,12 @@
 import { SymbolView } from 'expo-symbols';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Alert, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {useEffect,useState} from 'react';
+import {useCallback,useEffect,useState} from 'react';
 import {isOverlyIntroEnabled,setOverlyIntroEnabled} from '../overly-preferences';
 import { useAppearance, type AppearancePreference } from '../appearance';
 import { unregisterPushNotifications } from '../notifications';
 import { supabase } from '../supabase';
+import {getMusicProvider} from '../music-provider';
 
 type RowProps={
   icon:string;label:string;detail?:string;onPress:()=>void;first?:boolean;
@@ -13,6 +14,8 @@ type RowProps={
 export default function SettingsScreen(){
   const {colors,preference,setPreference}=useAppearance();
   const [introEnabled,setIntroEnabled]=useState(true);
+  const [service,setService]=useState<'spotify'|'apple_music'>('apple_music');
+  useFocusEffect(useCallback(()=>{let active=true;void getMusicProvider().then(value=>{if(active)setService(value);});return()=>{active=false;};},[]));
   useEffect(()=>{let active=true;isOverlyIntroEnabled().then(next=>{if(active)setIntroEnabled(next);}).catch(()=>{});return()=>{active=false;};},[]);
   const toggleIntro=async()=>{const next=!introEnabled;try{await setOverlyIntroEnabled(next);setIntroEnabled(next);}catch{Alert.alert('Could not update preference','Please try again.');}};
   const row=({icon,label,detail,onPress,first}:RowProps)=>(
@@ -91,8 +94,9 @@ export default function SettingsScreen(){
       </Pressable>
       <Text style={[styles.section,{color:colors.secondary}]}>MUSIC</Text>
       {group([
-        {icon:'music.note',label:'Music service',detail:'Spotify or Apple Music playback',onPress:()=>router.push('/music-settings'),first:true},
-        {icon:'music.note.list',label:'My Spotify playlists',detail:'Curate public playlists on your OVRLEE profile',onPress:()=>router.push('/spotify-showcase')},
+        {icon:'music.note',label:'Music service',detail:'Where songs open',onPress:()=>router.push('/music-settings'),first:true},
+        ...(service==='spotify' ? [{icon:'music.note.list',label:'My Spotify playlists',
+          detail:'Your public playlist showcase',onPress:()=>router.push('/spotify-showcase')}] : []),
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>ACTIVITY</Text>
       {group([
