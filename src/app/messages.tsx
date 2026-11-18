@@ -358,8 +358,10 @@ export default function MessagesScreen() {
                     pressed && styles.conversationPressed,
                   ]}
                 >
-                  <ProfileAvatar uri={conversation.avatarUrl} name={conversation.displayName}
-                    group={conversation.isGroup} size={49} />
+                  <View style={styles.conversationAvatar}>
+                    <ProfileAvatar uri={conversation.avatarUrl} name={conversation.displayName}
+                      group={conversation.isGroup} size={52} />
+                  </View>
 
                   <View style={styles.conversationInfo}>
                     <View style={styles.nameRow}>
@@ -459,11 +461,12 @@ const baseStyles=StyleSheet.create({
     borderColor: '#1d4824',
   },
   avatarText: { color: '#ffffff', fontSize: 18, fontWeight: '800' },
-  conversationInfo: { flex: 1 },
+  conversationAvatar: { width: 52, marginRight: 16, alignItems: 'center', justifyContent: 'center' },
+  conversationInfo: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { flex: 1, color: '#ffffff', fontSize: 16, fontWeight: '700' },
   time: { color: '#555555', fontSize: 10, marginLeft: 10 },
-  username: { color: '#666666', fontSize: 11, marginTop: 3 },
+  username: { color: '#666666', fontSize: 12, marginTop: 3 },
   preview: { color: '#8a8a8a', fontSize: 13, marginTop: 6, paddingRight: 5 },
   nameUnread: { fontWeight: '900' },
   previewUnread: { color: '#ffffff', fontWeight: '700' },
