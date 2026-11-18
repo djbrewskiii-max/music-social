@@ -67,8 +67,10 @@ export default function MessagesScreen() {
   const [unreadById, setUnreadById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const loadInbox = useCallback(async () => {
+    setLoadError('');
     try {
       const {
         data: { user },
@@ -83,26 +85,29 @@ export default function MessagesScreen() {
       setCurrentUserId(user.id);
 
       // 1. Fetch 1-on-1 conversations
-      const { data: directData } = await supabase
+      const { data: directData, error: directError } = await supabase
         .from('conversations')
         .select('id, created_at, user_one, user_two, is_group, title, created_by')
         .or(`user_one.eq.${user.id},user_two.eq.${user.id}`);
 
       // 2. Fetch group memberships
-      const { data: memberRows } = await supabase
+      const { data: memberRows, error: memberError } = await supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', user.id);
+      if (directError) throw directError;
+      if (memberError) throw memberError;
 
       const groupConvIds = (memberRows || []).map((m) => m.conversation_id);
 
       let groupConvs: ConversationRow[] = [];
       if (groupConvIds.length > 0) {
-        const { data: groupsData } = await supabase
+        const { data: groupsData, error: groupsError } = await supabase
           .from('conversations')
           .select('id, created_at, user_one, user_two, is_group, title, created_by')
           .in('id', groupConvIds)
           .eq('is_group', true);
+        if (groupsError) throw groupsError;
 
         groupConvs = (groupsData as ConversationRow[]) || [];
       }
@@ -117,7 +122,7 @@ export default function MessagesScreen() {
 
       if (uniqueConvs.length === 0) {
         setConversations([]);
-        setLoading(false);
+        setUnreadById({});
         return;
       }
 
@@ -132,17 +137,21 @@ export default function MessagesScreen() {
       const convIds = uniqueConvs.map((c) => c.id);
 
       // Fetch profiles for 1-on-1s and all recent messages
-      const [{ data: profileData }, { data: messageData }] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('user_id, display_name, username, avatar_url')
-          .in('user_id', otherUserIds),
-        supabase
-          .from('messages')
+      const [profileResult, messageResult] = await Promise.all([
+        otherUserIds.length
+          ? supabase.from('profiles')
+              .select('user_id, display_name, username, avatar_url')
+              .in('user_id', otherUserIds)
+          : Promise.resolve({data: [] as ProfileRow[], error: null}),
+        supabase.from('messages')
           .select('id, conversation_id, sender_id, body, created_at')
           .in('conversation_id', convIds)
           .order('created_at', { ascending: false }),
       ]);
+      if (profileResult.error) throw profileResult.error;
+      if (messageResult.error) throw messageResult.error;
+      const profileData = profileResult.data;
+      const messageData = messageResult.data;
 
       const profiles = (profileData as ProfileRow[]) || [];
       const messages = (messageData as MessageRow[]) || [];
@@ -189,7 +198,8 @@ export default function MessagesScreen() {
       setConversations(inboxRows);
 
       // Unread counts
-      const { data: unreadData } = await supabase.rpc('conversation_unread');
+      const { data: unreadData, error: unreadError } = await supabase.rpc('conversation_unread');
+      if (unreadError) console.log('Unread counts unavailable:', unreadError.message);
       if (unreadData) {
         const map: Record<string, number> = {};
         for (const row of (unreadData as { conversation_id: string; unread: number }[]) || []) {
@@ -200,6 +210,7 @@ export default function MessagesScreen() {
       refreshUnreadCounts();
     } catch (error) {
       console.log('Inbox error:', error);
+      setLoadError('Messages could not be refreshed. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -213,13 +224,6 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     let mounted = true;
-    const start = async () => {
-      setLoading(true);
-      await loadInbox();
-      if (mounted) setLoading(false);
-    };
-    start();
-
     const channelName = `messages-inbox-${Date.now()}`;
     const channel = supabase.channel(channelName);
     channel.on(
@@ -300,6 +304,16 @@ export default function MessagesScreen() {
           <Text style={styles.title}>Messages</Text>
 
         </View>
+
+        {!!loadError && (
+          <View style={{paddingHorizontal:22,paddingBottom:12,flexDirection:'row',alignItems:'center',gap:10}}>
+            <Text style={{flex:1,color:scheme==='light'?'#6D342D':'#F4ACA4',fontSize:12}}>{loadError}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retry loading messages"
+              onPress={()=>void loadInbox()} hitSlop={10}>
+              <Text style={{color:scheme==='light'?'#3B2218':'#39E75F',fontWeight:'800'}}>RETRY</Text>
+            </Pressable>
+          </View>
+        )}
 
         <ScrollView
           style={styles.scroll}
