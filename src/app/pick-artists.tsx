@@ -93,7 +93,7 @@ export default function PickArtistsScreen(){
     finally{setSaving(false);}
   };
   const canContinue=favorites.length>=MIN && !loading&&!saving;
-  return <SafeAreaView style={s.root}>
+  return <SafeAreaView style={[s.root,{backgroundColor:colors.background}]}>
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <Text style={s.kicker}>OVRLEE · YOUR MUSIC</Text>
