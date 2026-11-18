@@ -23,8 +23,10 @@ Repeated real-device screenshots revealed defects that should have been caught e
 | P1 | Spotify OAuth callback | Dark-only error/diagnostics page | Added appearance-aware styles and theme background |
 | P2 | Initial authenticated/loading route | Can flash dark in light system mode | Loading surface and spinner now reflect app appearance |
 | P1 | Home ActivityBell | Static white heart could disappear on light background | Icon uses current theme text color; green unread badge remains |
+| P1 | Group creation avatar list | Missing avatars requested an unreliable remote placeholder URL | Local, themed initials fallback replaces dummy image service |
+| P0 prevention | App and component press targets | No CI check for obvious inert `onPress` stubs or dummy avatar URLs | Added `tools/prelaunch-interaction-audit.test.mjs` as CI gate |
 | P2 | OverlyIntro | Temporary dev-review logic played intro on **every** feed entry | Restore preference + 24-hour limit using existing storage helpers |
-| P0 prevention | All styled app routes | No automatic check for missing appearance hookup | New `tools/prelaunch-appearance-audit.test.mjs` and CI step |
+| P0 prevention | All styled app routes | No automatic check for missing appearance hookup | New `tools/prelaunch-appearance-audit.test.mjs` and CI step; new prelaunch interaction CI guard |
 
 ### Additional code areas inspected
 - User-visible main routes: Home/FYP, Radar concerts, release calendar and First Listen, posts, Studio/collections, profiles and edit profile, Nearby/listeners, messages, activity/settings, login/signup.
