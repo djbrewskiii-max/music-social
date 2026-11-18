@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '../supabase';
+import {getOnboardingStage} from '../onboarding-progress';
 
 export default function LoginScreen() {
   const {scheme}=useAppearance();
@@ -92,11 +93,15 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!existingProfile) {
+    const stage=await getOnboardingStage(user.id);
+    if(stage==='setup-profile'||(!existingProfile&&!stage)){
       router.replace('/setup-profile');
       return;
     }
-
+    if(stage==='pick-artists'){router.replace('/pick-artists');return;}
+    if(stage==='core-four'){router.replace({pathname:'/core-four',params:{onboarding:'1'}});return;}
+    if(stage==='rotation-setup'){router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});return;}
+    if(stage==='connect-music'){router.replace('/connect-music');return;}
     router.replace('/now');
   };
 
