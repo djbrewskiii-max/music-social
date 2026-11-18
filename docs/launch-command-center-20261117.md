@@ -30,18 +30,22 @@
 | EAS preview OTA | Confirmed previously published to preview; source changes after latest observed OTA are not automatically installed | Must verify current installed update ID | Does not replace store-signed beta | [#4](https://github.com/djbrewskiii-max/music-social/issues/4) |
 | TestFlight store binary and external cohort | Not established by preview OTA | NOT VERIFIED | **P0 BLOCKER** | [#4](https://github.com/djbrewskiii-max/music-social/issues/4) |
 | Content seeded by @ovrlee, activation/retention signals | Product direction agreed, not release-verified | NOT VERIFIED | Start only after safety and TestFlight gates | [#6](https://github.com/djbrewskiii-max/music-social/issues/6) |
+| Worldwide city search | Offline fallback expanded to Canada and major cities; light-mode picker corrected | NOT VERIFIED on device, especially Ontario/Ottawa and CT | Licensed comprehensive search service required before public launch | [#7](https://github.com/djbrewskiii-max/music-social/issues/7) |
 
 ## Phase 0 — Lock visuals, publish to preview, validate exact screenshot fixes
 **Status:** code implemented; NOT YET verified on iPhone.  
 **Exit criteria:** latest `claude-build` CI green, OTA published explicitly to `preview`, installed update ID confirmed on iPhone, zero regressions.
 - [ ] Own and viewed profiles: **OVERLY** green in both appearances and left-aligned with bio/content, no duplicate word
 - [ ] Own profile: green default OVRLEE brand dot in light mode; green *connected* In Rotation status dot
+- [ ] Edit Profile → City in light mode: existing city visibly readable; country/region/city picker uses the correct appearance, controls fit within screen; Connecticut suggestions and Ottawa, Ontario search return selectable results
 - [ ] Inbox: visible 16-point gap between avatar and conversation name/username, no collisions with date/arrow on narrow screens
 - [ ] DMs: own messages chocolate with readable cream/white text; received messages warm cream with chocolate text; composer/input clear in light; unchanged dark
 - [ ] Radar release shelves: green LIVE badge for open rooms, green SOON/date badge for upcoming rooms, never label an unreleased album LIVE
 - [ ] Collections: selected songs correspond to numbered strip; Studio, modals, photo framing, feed, grid and viewer readable in System/Light/Dark
 - [ ] Followed/conversation profile, Post, Messages and Settings contrast / tappable controls verified on physical iPhone
 **Code files:** `src/app/my-profile.tsx`, `profile.tsx`, `chat.tsx`, `messages.tsx`, `src/components/FirstListenShowcase.tsx`, recent collection changes.
+
+**New global-city dependency:** [#7](https://github.com/djbrewskiii-max/music-social/issues/7) tracks the commercially licensed worldwide provider. Offline fallback is a beta convenience, not proof of comprehensive international coverage.
 
 ## Phase 1 — End-to-end core beta acceptance
 **Tracking:** [#1](https://github.com/djbrewskiii-max/music-social/issues/1), [#5](https://github.com/djbrewskiii-max/music-social/issues/5)  
