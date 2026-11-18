@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { launchSafeImports } from '../music-launch-sources';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,6 +12,8 @@ type Saved={id:string;song:string;artist:string;album:string;source_label:string
 const EXAMPLE='title,artist,album\nBirds of a Feather,Billie Eilish,HIT ME HARD AND SOFT\nPink + White,Frank Ocean,Blonde\nGood Luck Babe!,Chappell Roan,The Rise and Fall of a Midwest Princess';
 
 export default function PlaylistImport() {
+  const {scheme,colors}=useAppearance();
+  const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
  const [paste,setPaste]=useState('');
  const [source,setSource]=useState('My playlist');
  const [selected,setSelected]=useState<string[]>([]);
@@ -101,7 +105,7 @@ export default function PlaylistImport() {
   </ScrollView>
  </SafeAreaView>;
 }
-const s=StyleSheet.create({
+const baseStyles=StyleSheet.create({
  screen:{flex:1,backgroundColor:'#090909'},header:{height:60,borderBottomWidth:1,borderColor:'#242424',paddingHorizontal:20,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},
  back:{color:'#fff',fontSize:30},headerTitle:{color:'#fff',fontWeight:'900',letterSpacing:1.4,fontSize:12},
  page:{padding:21,paddingBottom:120},kicker:{color:GREEN,letterSpacing:1.5,fontSize:10,fontWeight:'900'},title:{color:'#fff',fontSize:28,fontWeight:'900',lineHeight:36,marginTop:10},
