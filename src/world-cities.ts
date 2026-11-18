@@ -79,7 +79,7 @@ export async function searchWorldwideCities(term:string,signal?:AbortSignal,coun
         country:String(x.country),region:x.admin1?String(x.admin1):undefined,
         population:Number(x.population||0),source:'open-meteo' as const,
       }))
-      .sort((a,b)=>rankCityName(a,query)-rankCityName(b,query)||(b.population||0)-(a.population||0));
+      .sort((a:WorldCity,b:WorldCity)=>rankCityName(a,query)-rankCityName(b,query)||(b.population||0)-(a.population||0));
     return uniqueCities([...remote,...local]).slice(0,30);
   }catch(error){
     if(signal?.aborted)throw error;
