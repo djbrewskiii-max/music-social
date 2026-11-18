@@ -200,7 +200,7 @@ export default function NearbyScreen() {
         </View>
         <Text style={styles.eyebrow}>DISCOVER NEARBY</Text>
         <Text style={styles.title}>What's being shared around you?</Text>
-        <Text style={styles.subtitle}>{city || 'Your city'} · Songs, artists and conversations from people in your area.</Text>
+        <Text style={styles.subtitle}>{city || 'Your city'}</Text>
         <Text style={styles.notice}>Approximate 35-mile (56 km) vicinity around your selected city, including other nearby towns. Based on opt-in profile cities and posted music—not GPS or live listening.</Text>
         <View style={styles.tabs}>
           <Pressable onPress={() => router.push('/now')} style={styles.tab}><Text style={styles.tabOff}>FOR YOU</Text></Pressable>
@@ -223,7 +223,6 @@ export default function NearbyScreen() {
         {!busy && !error && (!!city || tab === 'following') && <>
           {tab === 'nearby' && forYouPosts.length>0 && <>
             <Text style={styles.section}>FOR YOUR EARS</Text>
-            <Text style={styles.helper}>Music conversations you might enjoy, inspired by artists you've picked or connected. These are suggestions, not listening-history claims.</Text>
             {forYouPosts.map(item=>(
               <Pressable key={item.post.id} style={styles.post} accessibilityRole="button"
                 accessibilityLabel={'Explore '+item.matchingArtist+' music post'}
@@ -240,7 +239,6 @@ export default function NearbyScreen() {
           </>}
           {tab === 'nearby' && <>
             <Text style={styles.section}>SHARED AROUND {city.toUpperCase()}</Text>
-            <Text style={styles.helper}>Artists in recent posts and collections within about 35 miles.</Text>
             {trends.length ? trends.map((trend, index) => (
               <Pressable key={trend.artist} style={styles.trend} onPress={() => router.push({ pathname: '/music-discovery', params: { artist: trend.artist } })}>
                 <Text style={styles.rank}>{String(index + 1).padStart(2,'0')}</Text>
@@ -268,7 +266,6 @@ export default function NearbyScreen() {
           </>}
           {tab === 'nearby' && <>
             <Text style={styles.section}>SONGS BEING SHARED</Text>
-            <Text style={styles.helper}>Ranked by recent local posts, not inferred playback.</Text>
             {songTrends.map((item, index) => (
               <Pressable key={item.artist + item.song} style={styles.trend}
                 onPress={() => router.push({ pathname: '/music-discovery', params: { artist: item.artist, song: item.song } })}>
@@ -283,7 +280,6 @@ export default function NearbyScreen() {
             {!songTrends.length && <Text style={styles.emptyText}>Songs will appear as people share music in your city.</Text>}
           </>}
           <Text style={styles.section}>{tab === 'following' ? 'PEOPLE YOU FOLLOW IN YOUR CITY' : 'MUSIC PEOPLE NEAR YOU'}</Text>
-          <Text style={styles.helper}>Shared artists are shown by name, never as a compatibility percentage.</Text>
           {shown.map(person => (
             <View key={person.user_id} style={styles.personCard}>
               <Pressable style={styles.personInfo} onPress={() => openProfile(person)}>
