@@ -25,10 +25,12 @@ export default function ShowChatScreen(){
   sendInFlight.current=true;
   setBusy(true);
   setError('');
+  let confirmedSent=false;
   try{
     const {error:e}=await supabase.from('concert_chat_messages')
       .insert({external_id:externalId,user_id:myId,body});
     if(e)throw e;
+    confirmedSent=true;
     setDraft('');
     const {data,error:reloadError}=await supabase.from('concert_chat_messages')
       .select('id,external_id,user_id,body,created_at')
@@ -38,9 +40,11 @@ export default function ShowChatScreen(){
       setError('Sent, but the conversation could not refresh. Reopen this show to see the latest messages.');
     }else if(data)setMessages(data);
   }catch(e){
-    console.log('Show-chat send failed:',e);
-    setError('Message not sent. Check your connection and try again.');
-    // Keep the draft so the member can retry without losing their words.
+    console.log('Show-chat send or refresh failed:',e);
+    setError(confirmedSent
+      ? 'Sent, but the conversation could not refresh. Reopen this show to see the latest messages.'
+      : 'Message not sent. Check your connection and try again.');
+    // A failed insert retains the draft. A successful insert never prompts re-send.
   }finally{
     sendInFlight.current=false;
     setBusy(false);
