@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 /**
  * Spotify-safe release experience.
  *
@@ -9,7 +11,7 @@
  * builds only; a provider-approved integration can replace this later.
  */
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, Linking, Pressable, SafeAreaView,
   ScrollView, StyleSheet, Text, TextInput, View,
@@ -21,6 +23,8 @@ import { supabase } from '../supabase';
 const GREEN = '#39E75F';
 
 export default function SpotifyConnectScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const { profile } = useLocalSearchParams<{ profile?: string }>();
   const [url, setUrl] = useState('');
   const [saving, setSaving] = useState(false);
@@ -144,7 +148,7 @@ export default function SpotifyConnectScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   screen:{flex:1,backgroundColor:'#090909'},
   content:{paddingHorizontal:24,paddingTop:48,paddingBottom:70},
   kicker:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:2},
