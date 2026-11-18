@@ -94,17 +94,15 @@ export default function SpotifyConnectScreen() {
   return (
     <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.kicker}>LISTEN WITH SPOTIFY</Text>
-        <Text style={styles.title}>Keep listening on Spotify.</Text>
+        <Text style={styles.kicker}>SPOTIFY</Text>
+        <Text style={styles.title}>Open songs in Spotify.</Text>
         <Text style={styles.copy}>
-          OVRLEE opens songs in Spotify. Your favorite artists, posts and the
-          music you share in OVRLEE shape your recommendations.
+          Share music and find your people. Spotify stays your listening app.
         </Text>
         <View style={styles.panel}>
-          <Text style={styles.panelTitle}>YOUR SPOTIFY PROFILE · OPTIONAL</Text>
+          <Text style={styles.panelTitle}>PROFILE LINK · OPTIONAL</Text>
           <Text style={styles.note}>
-            You can save your profile link for reference. OVRLEE will not read
-            its playlists or refresh its activity automatically.
+            Save your public profile link if you want. This does not sync your listens.
           </Text>
           <TextInput
             accessibilityLabel="Optional Spotify profile URL"
@@ -122,27 +120,16 @@ export default function SpotifyConnectScreen() {
             <Text style={styles.linkText}>OPEN SPOTIFY ↗</Text>
           </Pressable>
         </View>
-        <View style={styles.info}>
-          <Text style={styles.infoTitle}>How music discovery works</Text>
-          <Text style={styles.note}>
-            Your chosen artists and the music you interact with inside OVRLEE
-            help us find relevant posts, songs and people. Spotify stays your
-            listening app—no second account or Premium subscription needed.
-          </Text>
-        </View>
         <Pressable accessibilityRole="button" disabled={saving}
           onPress={() => void finish()} style={[styles.button,saving&&{opacity:0.5}]}>
           {saving ? <ActivityIndicator color="#000" /> :
-            <Text style={styles.buttonText}>USE SPOTIFY · ENTER OVRLEE →</Text>}
+            <Text style={styles.buttonText}>CONTINUE WITH SPOTIFY →</Text>}
         </Pressable>
         <Pressable accessibilityRole="button" disabled={saving}
-          onPress={() => router.replace('/now')} style={styles.skip}>
-          <Text style={styles.skipText}>Not now</Text>
+          onPress={() => router.replace('/connect-music')} style={styles.skip}>
+          <Text style={styles.skipText}>Back to music services</Text>
         </Pressable>
-        <Text style={styles.disclosure}>
-          This is a Spotify playback preference and an optional profile link,
-          not an official Spotify account connection or playlist sync.
-        </Text>
+
       </ScrollView>
     </SafeAreaView>
   );
