@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Keyboard, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAppearance } from '../appearance';
 import { canSearchLiveCities, searchWorldwideCities, suggestedCities, type WorldCity } from '../world-cities';
@@ -88,6 +89,7 @@ export default function WorldCityPicker({visible,onClose,onPick}:{
     :stage==='region'?'Search states or regions':`Search cities in ${region||country?.name}`;
   return (
     <Modal visible={visible} presentationStyle="fullScreen" animationType="slide" onRequestClose={moveBack}>
+      <StatusBar style={scheme==='light'?'dark':'light'} />
       <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
         <View style={styles.inner}>
           <View style={styles.top}>
