@@ -77,12 +77,11 @@ export default function SetupProfileScreen() {
   const saveProfile = async () => {
     if (
       !displayName.trim() ||
-      !username.trim() ||
-      !city.trim()
+      !username.trim()
     ) {
       Alert.alert(
         'Almost there',
-        'Fill out all three fields.'
+        'Enter a name and username.'
       );
       return;
     }
@@ -172,14 +171,13 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    const hadCompletedProfile=!!(existingProfile?.display_name && existingProfile?.username && existingProfile?.city);
+    const hadCompletedProfile=!!(existingProfile?.display_name && existingProfile?.username);
     router.replace(hadCompletedProfile ? '/now' : '/pick-artists');
   };
 
   const canContinue =
     displayName.trim().length > 0 &&
     username.trim().length > 0 &&
-    city.trim().length > 0 &&
     !loading;
 
   if (checkingProfile) {
@@ -241,14 +239,14 @@ export default function SetupProfileScreen() {
               />
 
               <Text style={styles.label}>
-                CITY
+                CITY (OPTIONAL)
               </Text>
 
               <Pressable onPress={() => setCityPickerVisible(true)} accessibilityRole="button"
                 accessibilityLabel="Choose a city"
                 style={[styles.input, { justifyContent: 'center' }]}>
                 <Text style={{ color: city ? colors.text : colors.secondary, fontSize: 16 }}>
-                  {city || 'Choose your city'}
+                  {city || 'Search for your city'}
                 </Text>
               </Pressable>
             </View>
@@ -279,9 +277,7 @@ export default function SetupProfileScreen() {
               </Text>
             </Pressable>
 
-            <Text style={styles.footer}>
-              For the overly obsessed.
-            </Text>
+
           </View>
         </View>
       </KeyboardAvoidingView>
