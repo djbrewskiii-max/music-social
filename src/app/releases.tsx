@@ -269,8 +269,7 @@ export default function ReleasesScreen() {
         <Text style={styles.eyebrow}>ALBUM RELEASES</Text>
         <Text style={styles.title}>First Listen.</Text>
         <Text style={styles.sub}>
-          Count down to the drop, hear it with everyone the night it lands, and give your first impression. You can
-          always change your mind later.
+          Follow upcoming albums, join the release conversation and rate what you hear.
         </Text>
 
         <View style={styles.searchWrap}>
@@ -341,7 +340,6 @@ export default function ReleasesScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.archiveEyebrow}>THE ARCHIVE</Text>
                 <Text style={styles.archiveTitle}>Day One records</Text>
-                <Text style={styles.archiveSub}>How every album was received on release night, and where it stands now.</Text>
               </View>
               <Text style={styles.archiveArrow}>→</Text>
             </Pressable>
@@ -359,9 +357,6 @@ export default function ReleasesScreen() {
                 ))}
               </View>
             </View>
-            <Text style={styles.hint}>
-              {calSort === 'popular' ? 'Every upcoming album on OVRLEE, biggest artists first.' : 'Every upcoming album on OVRLEE, soonest first.'}
-            </Text>
             {feed.calendar.length === 0 ? (
               <Text style={styles.empty}>Search an upcoming album above to start its countdown.</Text>
             ) : calSort === 'popular' ? (
@@ -387,7 +382,6 @@ export default function ReleasesScreen() {
             {live.length > 0 && (
               <>
                 <Text style={[styles.section, styles.sectionGap]}>Out this week</Text>
-                <Text style={styles.hint}>Rooms that are open right now.</Text>
                 {live.map((room) => (
                   <RoomRow key={`live-${room.id}`} room={room} />
                 ))}
@@ -397,7 +391,6 @@ export default function ReleasesScreen() {
             {mine.length > 0 && (
               <>
                 <Text style={[styles.section, styles.sectionGap]}>Your rooms</Text>
-                <Text style={styles.hint}>Releases you're waiting for or have rated.</Text>
                 {mine.map((room) => (
                   <RoomRow key={`mine-${room.id}`} room={room} />
                 ))}
