@@ -124,8 +124,8 @@ export default function CoreFourScreen() {
     if (error) { Alert.alert('Could not save Core Four', error.message); return; }
     setChanged(false); router.back();
   }
-  if (loading) return <SafeAreaView style={s.screen}><ActivityIndicator color={GREEN} style={{ marginTop: 90 }} /></SafeAreaView>;
-  return <SafeAreaView style={s.screen}>
+  if (loading) return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}><ActivityIndicator color={GREEN} style={{ marginTop: 90 }} /></SafeAreaView>;
+  return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}>
     <View style={s.header}><Pressable onPress={() => { if (changed) Alert.alert('Discard changes?', 'Your new selection has not been saved.', [{ text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: () => router.back() }]); else router.back(); }}><Text style={s.back}>‹</Text></Pressable><Text style={s.logo}>OVRLEE</Text><View style={{ width: 30 }} /></View>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
       <Text style={s.eyebrow}>YOUR MUSIC IDENTITY</Text><Text style={s.title}>Core Four.</Text>
