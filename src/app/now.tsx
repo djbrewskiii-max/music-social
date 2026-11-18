@@ -2105,14 +2105,7 @@ export default function NowScreen() {
               For You
             </Text>
 
-            <Text
-              style={
-                styles.feedHeadingSubtext
-              }
-            >
-              Music, people and conversations
-              worth jumping into.
-            </Text>
+
           </View>
 
           {!!feedError && (
