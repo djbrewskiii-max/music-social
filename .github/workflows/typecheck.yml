@@ -26,6 +26,7 @@ jobs:
       - run: node tools/prelaunch-interaction-audit.test.mjs
       - run: node tools/prelaunch-reporting-policy.test.mjs
       - run: node tools/post-discovery-parity.test.mjs
+      - run: node tools/post-track-parity.test.mjs
       - run: node tools/beta-release-config.test.mjs
       - run: node tools/beta-ui-brand.test.mjs
       - run: node --experimental-strip-types tools/spotify-oembed.test.mjs
