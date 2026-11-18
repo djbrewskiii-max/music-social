@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { launchSafeImports } from '../music-launch-sources';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -22,6 +24,8 @@ const norm = (s: string) => (s || '').normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 export default function ImportedMusic() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [tracks, setTracks] = useState<ImportedTrack[]>([]);
   const [savedArtists, setSavedArtists] = useState<string[]>([]);
   const [query, setQuery] = useState('');
@@ -145,7 +149,7 @@ export default function ImportedMusic() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   page:{flex:1,backgroundColor:'#090909'},
   header:{height:60,flexDirection:'row',alignItems:'center',justifyContent:'space-between',
     paddingHorizontal:20,borderBottomWidth:1,borderBottomColor:'#242424'},
