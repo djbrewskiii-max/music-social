@@ -94,7 +94,7 @@ export default function ImportedMusic() {
   });
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView style={[styles.page,{backgroundColor:colors.background}]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} accessibilityLabel="Back" hitSlop={12}>
           <Text style={styles.back}>‹</Text>
