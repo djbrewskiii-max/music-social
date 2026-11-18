@@ -32,6 +32,10 @@
 | Content seeded by @ovrlee, activation/retention signals | Product direction agreed, not release-verified | NOT VERIFIED | Start only after safety and TestFlight gates | [#6](https://github.com/djbrewskiii-max/music-social/issues/6) |
 | Worldwide city search | Offline fallback expanded to Canada and major cities; light-mode picker corrected | NOT VERIFIED on device, especially Ontario/Ottawa and CT | Licensed comprehensive search service required before public launch | [#7](https://github.com/djbrewskiii-max/music-social/issues/7) |
 
+## Proactive visual audit (prelaunch gate)
+**Systematic source sweep:** [App-wide visual audit](prelaunch-visual-audit-20261117.md) · [#8 Full visual regression](https://github.com/djbrewskiii-max/music-social/issues/8).
+The first pass fixed nine dark-only active screens plus the Home activity bell, launch loading transition and repeating welcome animation; automated appearance coverage is now checked in CI. **No device-level PASS is inferred from the code sweep.** This must be verified across Light/Dark/System before the limited external beta.
+
 ## Phase 0 — Lock visuals, publish to preview, validate exact screenshot fixes
 **Status:** code implemented; NOT YET verified on iPhone.  
 **Exit criteria:** latest `claude-build` CI green, OTA published explicitly to `preview`, installed update ID confirmed on iPhone, zero regressions.
