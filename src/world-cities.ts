@@ -13,9 +13,7 @@ export type WorldCity = {
   source: 'open-meteo' | 'curated';
 };
 
-/** Global city lookup for prototype use. Production/commercial distribution
- * requires licensing or replacing the Open-Meteo public endpoint:
- * https://open-me// A modest offline directory is always available in installed builds.
+// A modest offline directory is always available in installed builds.
 // These centers are fallback selections, not GPS or a complete city index.
 const CURATED_US_CITIES: WorldCity[] = CITY_LOCATIONS.map(c=>({
   id: `curated:US:${c.state}:${c.name}`,
