@@ -1,63 +1,47 @@
 import { Redirect } from 'expo-router';
 import { useAppearance } from '../appearance';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  SafeAreaView,
-  StyleSheet,
-} from 'react-native';
-
+import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native';
 import { supabase } from '../supabase';
+import {getOnboardingStage,type OnboardingStage} from '../onboarding-progress';
 
-export default function HomeScreen() {
+type Destination='signup'|'now'|OnboardingStage;
+
+export default function HomeScreen(){
   const {colors}=useAppearance();
-  const [loading, setLoading] = useState(true);
-  const [signedIn, setSignedIn] = useState(false);
+  const [destination,setDestination]=useState<Destination|null>(null);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      setSignedIn(!!session);
-      setLoading(false);
+  useEffect(()=>{
+    let active=true;
+    let request=0;
+    const route=async(userId?:string)=>{
+      const current=++request;
+      const next:Destination=userId
+        ? (await getOnboardingStage(userId))||'now'
+        : 'signup';
+      if(active&&request===current)setDestination(next);
     };
-
-    checkSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(!!session);
-      setLoading(false);
+    void supabase.auth.getSession()
+      .then(({data:{session}})=>route(session?.user?.id))
+      .catch(()=>{if(active)setDestination('signup');});
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      void route(session?.user?.id);
     });
+    return()=>{active=false;subscription.unsubscribe();};
+  },[]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.loadingScreen,{backgroundColor:colors.background}]}>
-        <ActivityIndicator size="small" color={colors.accent} />
-      </SafeAreaView>
-    );
-  }
-
-  if (signedIn) {
-    return <Redirect href="/now" />;
-  }
-
-  return <Redirect href="/signup" />;
+  if(!destination)return <SafeAreaView style={[styles.loadingScreen,{backgroundColor:colors.background}]}>
+    <ActivityIndicator size="small" color={colors.accent}/>
+  </SafeAreaView>;
+  if(destination==='setup-profile')return <Redirect href="/setup-profile"/>;
+  if(destination==='pick-artists')return <Redirect href="/pick-artists"/>;
+  if(destination==='core-four')return <Redirect href={{pathname:'/core-four',params:{onboarding:'1'}}}/>;
+  if(destination==='rotation-setup')return <Redirect href={{pathname:'/rotation-setup',params:{onboarding:'1'}}}/>;
+  if(destination==='connect-music')return <Redirect href="/connect-music"/>;
+  if(destination==='now')return <Redirect href="/now"/>;
+  return <Redirect href="/signup"/>;
 }
 
-const styles = StyleSheet.create({
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: '#090909',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+const styles=StyleSheet.create({
+  loadingScreen:{flex:1,backgroundColor:'#090909',justifyContent:'center',alignItems:'center'}
 });
