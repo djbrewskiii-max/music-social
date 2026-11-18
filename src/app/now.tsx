@@ -3062,10 +3062,10 @@ export default function NowScreen() {
                     ) : (
                       <PostMusicTrackCard
                         track={{
-                          id:post.apple_music_id,
-                          song:post.song_title,
-                          artist:post.artist_name,
-                          artworkUrl:post.artwork_url,
+                          id:post.music_items?.[0]?.id || post.apple_music_id,
+                          song:post.music_items?.[0]?.song || post.song_title,
+                          artist:post.music_items?.[0]?.artist || post.artist_name,
+                          artworkUrl:post.music_items?.[0]?.artworkUrl || post.artwork_url,
                           kind:post.music_items?.[0]?.kind==='album'?'album':'song',
                         }}
                         albumName={post.album_name}
