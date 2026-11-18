@@ -1,7 +1,7 @@
 # OVRLEE — Prelaunch app-wide visual and interaction audit
 **Code sweep:** November 17, 2026 · branch `claude-build`  
 **Tracking:** [#8 End-to-end visual regression](https://github.com/djbrewskiii-max/music-social/issues/8)  
-**Scope:** all 48 app TSX route entries, priority shared components, appearance modes, navigational states, auth, music and social workflows.
+**Scope:** all 50 app TSX route entries, priority shared components, appearance modes, navigational states, auth, music and social workflows.
 
 > Code-level findings and fixes below are verified in the repository and automated checks. **No physical iPhone rendering or end-to-end acceptance is claimed**. CI passes do not establish iOS layout quality.
 
