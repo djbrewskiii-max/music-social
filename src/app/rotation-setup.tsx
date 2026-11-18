@@ -5,6 +5,7 @@ import {router} from 'expo-router';
 import {useEffect,useMemo,useState} from 'react';
 import {ActivityIndicator,Alert,Image,KeyboardAvoidingView,Platform,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {supabase} from '../supabase';
+import {setOnboardingStage} from '../onboarding-progress';
 import {searchSongs,type CollectionItem} from '../collection';
 
 const GREEN='#39E75F';
@@ -96,6 +97,7 @@ export default function RotationSetupScreen(){
         const {error}=await supabase.from('profile_rotation_pins').insert(rows);
         if(error)throw error;
       }
+      await setOnboardingStage(user.id,'connect-music');
       router.replace('/connect-music');
     }catch(error){
       Alert.alert('Could not save rotation',error instanceof Error?error.message:'Please try again.');
@@ -156,7 +158,11 @@ export default function RotationSetupScreen(){
           <Text style={[styles.buttonText,{color:scheme==='light'?'#FFF':'#080808'}]}>{saving?'SAVING…':'NEXT: MUSIC SERVICE →'}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" disabled={saving}
-          onPress={()=>router.replace('/connect-music')} style={{padding:14,alignItems:'center'}}>
+          onPress={()=>void (async()=>{
+            const {data:{user}}=await supabase.auth.getUser();
+            if(user)await setOnboardingStage(user.id,'connect-music');
+            router.replace('/connect-music');
+          })()} style={{padding:14,alignItems:'center'}}>
           <Text style={{color:colors.secondary,fontWeight:'700'}}>Add songs later</Text>
         </Pressable>
       </View>
