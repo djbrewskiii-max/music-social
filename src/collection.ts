@@ -119,7 +119,32 @@ export async function searchMusic(term: string, signal?: AbortSignal): Promise<C
 
 /** Kept for older callers: songs only. */
 export async function searchSongs(term: string, signal?: AbortSignal): Promise<CollectionItem[]> {
-  return (await searchMusic(term, signal)).filter((i) => i.kind !== 'album');
+  try {
+    return (await searchMusic(term, signal)).filter((i) => i.kind !== 'album');
+  } catch (error) {
+    // Apple Music user authorization is not a signup requirement. If the
+    // developer catalog search is unavailable, use public iTunes song metadata
+    // for member-directed picks, never as proof of listening activity.
+    if (signal?.aborted) throw error;
+    const response = await fetch(
+      'https://itunes.apple.com/search?media=music&entity=song&country=us&limit=25&term=' +
+        encodeURIComponent(term.trim()), {signal}
+    );
+    if (!response.ok) throw new Error('Song search unavailable. Try again.');
+    const json = await response.json();
+    return (json?.results || []).filter((row: any) =>
+      row.trackId && row.trackName && row.artistName
+    ).map((row: any): CollectionItem => ({
+      kind: 'song',
+      id: String(row.trackId),
+      song: String(row.trackName),
+      artist: String(row.artistName),
+      album: String(row.collectionName || ''),
+      artworkUrl: String(row.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+      ...slideColors(),
+      note: '',
+    }));
+  }
 }
 
 /* ------------------------------ publishing ----------------------------- */
