@@ -3,6 +3,8 @@ import { themedStyleSheet } from '../theme-style';
 import { Auth, AuthStatus } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
 import { setMusicProvider } from '../music-provider';
+import {finishOnboarding} from '../onboarding-progress';
+import {supabase} from '../supabase';
 import { useMemo, useState } from 'react';
 import {
     Alert,
@@ -17,6 +19,11 @@ export default function ConnectMusicScreen() {
   const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [connecting, setConnecting] = useState(false);
+  const completeSetup=async()=>{
+    const {data:{user}}=await supabase.auth.getUser();
+    if(user)await finishOnboarding(user.id);
+    router.replace('/now');
+  };
   const connectSpotify = async () => {
     if(connecting)return;
     setConnecting(true);
@@ -24,7 +31,7 @@ export default function ConnectMusicScreen() {
       // Only a music-opening preference. Spotify authorization is NOT required
       // to open a Spotify link or participate in OVRLEE conversations.
       await setMusicProvider('spotify');
-      router.replace('/now');
+      await completeSetup();
     }catch(error){
       Alert.alert('Could not select Spotify',error instanceof Error?error.message:'Try again.');
     }finally{setConnecting(false);}
@@ -40,20 +47,20 @@ export default function ConnectMusicScreen() {
       console.log('Apple Music authorization:', result);
 
       if (result.status === AuthStatus.AUTHORIZED) {
-        router.replace('/now');
+        await completeSetup();
         return;
       }
 
       Alert.alert('Apple Music access not granted',
         'You can still use OVRLEE and open songs in Apple Music.',[
-          {text:'Continue',onPress:()=>router.replace('/now')},
+          {text:'Continue',onPress:()=>void completeSetup()},
         ]);
     } catch (error) {
       console.error('Apple Music connection error:', error);
 
       Alert.alert('Apple Music access unavailable',
         'You can choose music manually and connect later.',[
-          {text:'Continue',onPress:()=>router.replace('/now')},
+          {text:'Continue',onPress:()=>void completeSetup()},
         ]);
     } finally {
       setConnecting(false);
