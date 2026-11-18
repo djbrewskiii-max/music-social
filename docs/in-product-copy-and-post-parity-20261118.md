@@ -38,7 +38,7 @@ The feed and opened post now **render the same shared `PostArtistDiscoveryLink` 
 1. opens the canonical primary artist returned by the catalog, or
 2. asks which credited collaborator to explore when no trustworthy primary is known.
 
-It does not construct a made-up combined artist profile. Canonical band names containing commas/ampersands are allowed (e.g. Simon & Garfunkel). The selected credited artist goes to the same discovery route with `sourcePostId`, and the RLS-filtered original post can appear in the results rather than a misleading blank page. Post detail now fetches the album subtitle shown in the feed.
+It does not construct a made-up combined artist profile. Canonical band names containing commas/ampersands are allowed (e.g. Simon & Garfunkel). The selected credited artist goes to the same discovery route with `sourcePostId`, and the RLS-filtered original post can appear in the results rather than a misleading blank page. Post detail now fetches the album subtitle shown in the feed. Feed and post detail also now render the same `PostMusicTrackCard` for a single song (artwork, artist, album subtitle, preview and `+ ROTATION`). Multi-track collections intentionally use a separate presentation.
 
 ## Screenshot acceptance checks (must run on iPhone)
 - [ ] Open the same collaboration post in the feed and post detail, in light and dark. The title, artist credit, artwork, album subtitle and Explore action agree.
@@ -52,5 +52,5 @@ It does not construct a made-up combined artist profile. Canonical band names co
 
 ## Regression protection
 - `tools/post-discovery-parity.test.mjs` exercises the real pure artist-discovery module with solo, collaboration, and punctuated canonical-name cases.
-- CI statically asserts feed and post detail both render `PostArtistDiscoveryLink` and that the old `DISCOVER MORE FROM` banner stays absent.
+- CI asserts feed and post detail both use `PostArtistDiscoveryLink` **and** `PostMusicTrackCard`, with no return of the old `DISCOVER MORE FROM` banner.
 - This is not pixel-level screenshot comparison. Real-device acceptance remains open in [#8](https://github.com/djbrewskiii-max/music-social/issues/8).
