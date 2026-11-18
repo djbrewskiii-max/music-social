@@ -11,7 +11,7 @@ import { supabase } from '../supabase';
 import { tasteKey } from '../music-taste-evidence';
 
 const GREEN='#39E75F';
-const MIN=3;
+const MIN=5;
 const MAX=20;
 export default function PickArtistsScreen(){
   const {scheme,colors}=useAppearance();
@@ -88,7 +88,8 @@ export default function PickArtistsScreen(){
         onConflict:'user_id,artist_key,source'
       });
       if(error)throw error;
-      router.replace(editing?'/music-settings':'/connect-music');
+      if(editing)router.replace('/music-settings');
+      else router.replace({pathname:'/core-four',params:{onboarding:'1'}});
     }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
     finally{setSaving(false);}
   };
@@ -97,8 +98,8 @@ export default function PickArtistsScreen(){
     <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
         <Text style={s.kicker}>OVRLEE · YOUR MUSIC</Text>
-        <Text style={s.title}>{editing?'Your favorite artists.':'Make your music yours.'}</Text>
-        <Text style={s.description}>Start with three artists you love. Add more anytime. OVRLEE can help you find music and conversations even before your first post.</Text>
+        <Text style={s.title}>{editing?'Your artists.':'Pick five artists.'}</Text>
+        <Text style={s.description}>Who do you love listening to? We’ll use your picks to find music and people.</Text>
         <View style={s.countRow}><Text style={s.count}>{favorites.length}/{MIN} MINIMUM</Text>
           <Text style={s.hint}>Up to {MAX} artists</Text></View>
         <View style={s.entry}>
@@ -129,17 +130,17 @@ export default function PickArtistsScreen(){
           onPress={()=>setShare(v=>!v)} style={s.shareRow}>
           <View style={[s.check,share&&s.checkActive]}><Text style={s.checkText}>{share?'✓':''}</Text></View>
           <View style={{flex:1}}>
-            <Text style={s.shareTitle}>Show artists we have in common</Text>
-            <Text style={s.shareDesc}>Let other OVRLEE members see artist names you share. Your full music library and listening history remain private. You can change this later.</Text>
+            <Text style={s.shareTitle}>Show shared artists to others</Text>
+            <Text style={s.shareDesc}>Only shared artist names are visible. Change this anytime.</Text>
           </View>
         </Pressable>
         <Pressable accessibilityRole="button" disabled={!canContinue}
           onPress={()=>void save()} style={[s.button,!canContinue&&{opacity:.45}]}>
           {saving?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>
-            {editing?'SAVE MY ARTISTS':'CONTINUE'} →
+            {editing?'SAVE ARTISTS':'NEXT: YOUR ALBUMS'} →
           </Text>}
         </Pressable>
-        {favorites.length<MIN&&<Text style={s.footer}>Choose {MIN-favorites.length} more artist{MIN-favorites.length===1?'':'s'} to continue.</Text>}
+
       </ScrollView>
     </KeyboardAvoidingView>
   </SafeAreaView>;
