@@ -152,11 +152,12 @@ export default function SignupScreen() {
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.button,
+                  {backgroundColor:scheme==='light'?'#3B2218':'#FFFFFF'},
                   pressed && styles.buttonPressed,
                   loading && styles.buttonDisabled,
                 ]}
               >
-                <Text style={styles.buttonText}>
+                <Text style={[styles.buttonText,{color:scheme==='light'?'#FFFFFF':'#000000'}]}>
                   {loading
                     ? 'Creating account...'
                     : 'Create account'}
