@@ -19,6 +19,7 @@ assert.deepEqual(postArtistDiscovery(credit,null),{
 });
 assert.equal(postArtistDiscovery(credit,'LE SSERAFIM')?.label,'EXPLORE LE SSERAFIM');
 assert.equal(postArtistDiscovery('Snoh Aalegra',null)?.label,'EXPLORE SNOH AALEGRA');
+assert.equal(postArtistDiscovery('Simon & Garfunkel','Simon & Garfunkel')?.label,'EXPLORE SIMON & GARFUNKEL');
 assert.equal(postArtistDiscovery('',null),null);
 for(const name of ['LE SSERAFIM','ILLIT','KATSEYE'])assert.equal(postCreditsArtist(credit,name),true);
 assert.equal(postCreditsArtist(credit,'IVE'),false);
