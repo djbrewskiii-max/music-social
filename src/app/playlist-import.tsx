@@ -62,7 +62,7 @@ export default function PlaylistImport() {
    if(error)Alert.alert('Could not remove',error.message);else await load();
   }}
  ]);
- return <SafeAreaView style={s.screen}>
+ return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}>
   <View style={s.header}><Pressable onPress={()=>router.back()}><Text style={s.back}>‹</Text></Pressable><Text style={s.headerTitle}>MUSIC IMPORT</Text><View style={{width:24}}/></View>
   <ScrollView contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
    <Text style={s.kicker}>OVRLEE MUSIC IDENTITY</Text>
