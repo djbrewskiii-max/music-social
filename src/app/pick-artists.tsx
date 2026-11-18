@@ -1,3 +1,5 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { launchSafeImports } from '../music-launch-sources';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -12,6 +14,8 @@ const GREEN='#39E75F';
 const MIN=3;
 const MAX=20;
 export default function PickArtistsScreen(){
+  const {scheme,colors}=useAppearance();
+  const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const {edit}=useLocalSearchParams<{edit?:string}>();
   const editing=edit==='1';
   const [text,setText]=useState('');
@@ -140,7 +144,7 @@ export default function PickArtistsScreen(){
     </KeyboardAvoidingView>
   </SafeAreaView>;
 }
-const s=StyleSheet.create({
+const baseStyles=StyleSheet.create({
  root:{flex:1,backgroundColor:'#080808'},content:{padding:24,paddingTop:46,paddingBottom:72},
  kicker:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:1.7},
  title:{color:'#fff',fontSize:36,lineHeight:41,fontWeight:'900',marginTop:20},
