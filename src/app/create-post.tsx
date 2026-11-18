@@ -292,12 +292,11 @@ export default function CreatePostScreen() {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
           {step === 'compose' ? <>
             <Text style={styles.heading}>Post through music.</Text>
-            <Text style={styles.muted}>Choose music to make a post your own.</Text>
             <Pressable onPress={() => router.push('/studio')} style={({ pressed }) => [styles.studioCard, pressed && { opacity: 0.8 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.studioEyebrow}>OVRLEE STUDIO</Text>
                 <Text style={styles.studioTitle}>Make a collection</Text>
-                <Text style={styles.studioSub}>Liner notes, album walls, moodboards. Post it here, share it anywhere.</Text>
+                <Text style={styles.studioSub}>Create a multi-song story.</Text>
               </View>
               <Text style={styles.studioArrow}>→</Text>
             </Pressable>
@@ -342,14 +341,14 @@ export default function CreatePostScreen() {
               disabled={!selected || posting} onPress={publish}>
               {posting ? <ActivityIndicator color="#000" /> : <Text style={styles.publishText}>Post to OVRLEE</Text>}
             </Pressable>
-            <Text style={styles.hint}>At least one song is required. Up to 10 combined media items per post. Captions are optional and don't count.</Text>
+            <Text style={styles.hint}>At least 1 song · Up to 10 music and photo items</Text>
           </> : <>
             <Text style={styles.heading}>Add music.</Text>
             {musicProvider === 'spotify' && <Text style={styles.muted}>Search OVRLEE's song catalog. Spotify listeners will open songs in Spotify. Spotify account syncing isn't available yet.</Text>}
-            <Text style={styles.muted}>{itemCount}/{MAX_ITEMS} · album artwork appears beside each track</Text>
+            <Text style={styles.muted}>{itemCount}/{MAX_ITEMS} items</Text>
             <View style={styles.linkCard}>
               <Text style={styles.linkHeading}>ADD FROM A LINK</Text>
-              <Text style={styles.linkDescription}>Paste a Spotify or Apple Music link. No account connection required.</Text>
+              <Text style={styles.linkDescription}>Spotify or Apple Music links</Text>
               <TextInput value={linkInput} onChangeText={setLinkInput} autoCapitalize="none" autoCorrect={false}
                 keyboardType="url" placeholder="Paste a song or album link" placeholderTextColor="#777"
                 style={styles.linkInput} />
