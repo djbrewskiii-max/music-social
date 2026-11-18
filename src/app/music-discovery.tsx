@@ -27,9 +27,10 @@ const green = '#39E75F';
 export default function MusicDiscoveryScreen() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
-  const params = useLocalSearchParams<{ artist?: string; song?: string }>();
+  const params = useLocalSearchParams<{ artist?: string; song?: string; sourcePostId?: string }>();
   const artist = typeof params.artist === 'string' ? params.artist.trim().slice(0, 120) : '';
   const song = typeof params.song === 'string' ? params.song.trim().slice(0, 120) : '';
+  const sourcePostId = typeof params.sourcePostId === 'string' ? params.sourcePostId.trim() : '';
   const [posts, setPosts] = useState<Post[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [artistIdeas,setArtistIdeas] = useState<string[]>([]);
@@ -93,7 +94,7 @@ export default function MusicDiscoveryScreen() {
       const safeArtist = artist.replace(/[%_\\]/g, '').trim();
       if (!safeArtist) { setPosts([]); setPeople([]); return; }
       const fields = 'id,user_id,body,song_title,artist_name,artwork_url,created_at,collection';
-      const [leadResult, includedResult] = await Promise.all([
+      const [leadResult, includedResult, originResult] = await Promise.all([
         supabase.from('posts').select(fields)
           .ilike('artist_name', `%${safeArtist}%`)
           .order('created_at', { ascending: false }).limit(60),
@@ -101,6 +102,11 @@ export default function MusicDiscoveryScreen() {
         supabase.from('posts').select(fields)
           .contains('music_items', [{ artist: safeArtist }])
           .order('created_at', { ascending: false }).limit(60),
+        // Preserve the post that actually led here. This is subject to the
+        // same RLS as any other post, and never fabricates a matching result.
+        sourcePostId
+          ? supabase.from('posts').select(fields).eq('id',sourcePostId).maybeSingle()
+          : Promise.resolve({data:null,error:null}),
       ]);
       if (leadResult.error) throw leadResult.error;
       if (includedResult.error) console.log('Artist collection discovery:', includedResult.error.message);
@@ -108,6 +114,8 @@ export default function MusicDiscoveryScreen() {
       for (const item of [
         ...((leadResult.data || []) as Post[]).filter(p=>postCreditsArtist(p.artist_name,artist)),
         ...((includedResult.data || []) as Post[]),
+        ...(originResult.data && postCreditsArtist((originResult.data as Post).artist_name,artist)
+          ? [originResult.data as Post] : []),
       ]) merged.set(item.id, item);
       const visible = [...merged.values()]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -122,7 +130,7 @@ export default function MusicDiscoveryScreen() {
       console.log('Artist discovery:', e);
       setError('Could not load music conversations. Pull down or reopen this page to retry.');
     } finally { setBusy(false); }
-  }, [artist]);
+  }, [artist,sourcePostId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
