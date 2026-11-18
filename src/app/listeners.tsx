@@ -862,7 +862,7 @@ export default function ListenersScreen() {
             </View>
           )}
 
-          </>
+          </>}
         </ScrollView>
       </View>
 
