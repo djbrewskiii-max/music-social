@@ -33,6 +33,8 @@ for(const [place,source] of [['feed',feed],['post detail',detail]])
   assert.match(source,/<PostArtistDiscoveryLink\b/,`${place} must render the same artist-discovery component`);
 assert.match(link,/postArtistDiscovery\(/, 'The shared UI must delegate collaboration handling to the shared pure helper');
 assert.match(link,/sourcePostId/, 'Discovery must retain a link back to the source post');
+assert.match(discover,/sourcePostId/, 'Artist results must receive source-post context');
+assert.match(discover,/originResult\.data && postCreditsArtist/, 'Only matching authorized origin posts may be included');
 for(const [place,source] of [['feed',feed],['post detail',detail]])
   assert.match(source,/<PostMusicTrackCard\b/,`${place} must render the same single-track music card`);
 assert.doesNotMatch(detail,/DISCOVER MORE FROM/, 'Post detail must not use a gigantic combined-credits banner');
