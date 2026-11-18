@@ -806,7 +806,7 @@ export default function ListenersScreen() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#050505',
