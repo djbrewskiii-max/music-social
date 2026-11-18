@@ -47,6 +47,7 @@ function OVRLEERoot() {
         <Stack.Screen name="setup-profile" />
         <Stack.Screen name="connect-music" />
         <Stack.Screen name="pick-artists" />
+        <Stack.Screen name="rotation-setup" />
         <Stack.Screen name="callback" />
         <Stack.Screen name="now" />
         <Stack.Screen name="listeners" />
