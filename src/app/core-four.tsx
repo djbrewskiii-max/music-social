@@ -1,6 +1,8 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { Catalog } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../supabase';
 
@@ -25,6 +27,8 @@ const GREEN = '#39E75F';
 const upscale = (url?: string | null) => (url || '').replace(/100x100(?:bb)?/, '600x600bb').replace(/^http:/, 'https:');
 
 export default function CoreFourScreen() {
+  const {scheme,colors}=useAppearance();
+  const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [userId, setUserId] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Album[]>([]);
   const [query, setQuery] = useState('');
@@ -155,6 +159,6 @@ export default function CoreFourScreen() {
     <View style={s.footer}><Pressable style={[s.save, (chosen.length !== 4 || saving) && s.disabled]} onPress={save} disabled={saving || chosen.length !== 4}><Text style={s.saveText}>{saving ? 'SAVING…' : 'SAVE CORE FOUR'}</Text></Pressable></View>
   </SafeAreaView>;
 }
-const s = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 15 }, back: { fontSize: 40, color: '#fff', lineHeight: 44 }, logo: { color: '#fff', fontSize: 23, fontWeight: '900' }, content: { paddingHorizontal: 24, paddingBottom: 55 }, eyebrow: { color: GREEN, fontSize: 11, fontWeight: '900', letterSpacing: 3, marginTop: 20 }, title: { color: 'white', fontSize: 46, fontWeight: '900', marginTop: 12 }, subtitle: { color: '#aaa', fontSize: 16, lineHeight: 24, marginTop: 12, marginBottom: 26 }, grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }, slot: { width: '48%', marginBottom: 12 }, cover: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#171717' }, empty: { aspectRatio: 1, borderRadius: 12, borderWidth: 1, borderColor: '#444', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }, emptyNumber: { color: '#555', fontSize: 44, fontWeight: '800' }, emptyText: { color: '#777', fontSize: 10, letterSpacing: 2, fontWeight: '800' }, slotControls: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6 }, smallButton: { borderWidth: 1, borderColor: '#333', borderRadius: 8, paddingHorizontal: 15, paddingVertical: 4 }, smallButtonText: { color: '#ddd', fontSize: 16 }, slotTitle: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 7 }, slotArtist: { color: '#888', fontSize: 11, marginTop: 3 }, count: { color: GREEN, fontWeight: '900', letterSpacing: 2, fontSize: 11, marginTop: 5, marginBottom: 25 }, searchLabel: { color: '#888', fontSize: 11, letterSpacing: 2, fontWeight: '900', marginBottom: 12 }, search: { color: '#fff', backgroundColor: '#191919', borderWidth: 1, borderColor: '#333', borderRadius: 14, fontSize: 16, paddingHorizontal: 18, paddingVertical: 15, marginBottom: 12 }, result: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12, borderBottomColor: '#252525', borderBottomWidth: 1 }, resultImage: { width: 60, height: 60, borderRadius: 7 }, resultTitle: { color: '#fff', fontSize: 15, fontWeight: '800' }, resultArtist: { color: '#888', marginTop: 5, fontSize: 13 }, add: { color: '#fff', fontSize: 30, paddingHorizontal: 8 }, hint: { color: '#888', paddingVertical: 20 }, note: { color: '#777', fontSize: 12, lineHeight: 18, marginTop: 25 }, footer: { borderTopWidth: 1, borderTopColor: '#222', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 10 }, save: { backgroundColor: GREEN, paddingVertical: 19, alignItems: 'center', borderRadius: 30 }, disabled: { opacity: .4 }, saveText: { color: '#000', fontWeight: '900', letterSpacing: 2, fontSize: 13 }
 });
