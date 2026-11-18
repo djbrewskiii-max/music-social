@@ -1,7 +1,9 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { Auth, AuthStatus } from '@wwdrew/expo-apple-music';
 import { router } from 'expo-router';
 import { setMusicProvider } from '../music-provider';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Alert,
     Pressable,
@@ -12,6 +14,8 @@ import {
 } from 'react-native';
 
 export default function ConnectMusicScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [connecting, setConnecting] = useState(false);
   // Spotify playback preference is separate from experimental public-profile research.
   const connectSpotify = () => {
@@ -134,7 +138,7 @@ export default function ConnectMusicScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090909',
