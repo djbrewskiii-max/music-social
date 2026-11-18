@@ -2,6 +2,7 @@ import {useAppearance} from '../appearance';
 import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import PostMusicTrackCard from '../components/PostMusicTrackCard';
+import {firstPostTrack} from '../post-track';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {openPostReportDialog} from '../post-reporting';
@@ -100,6 +101,8 @@ export default function PostDetailScreen() {
   const [musicProvider, setMusicProviderState] = useState<MusicProvider>('apple_music');
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
   const [saved, setSaved] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const saveRequestInFlight = useRef(false);
   const [exporting, setExporting] = useState(false);
   const exportRefs = useRef<(View | null)[]>([]);
 
@@ -125,21 +128,34 @@ export default function PostDetailScreen() {
 
   const loadSaves = useCallback(async (id: string, me: string | null) => {
     if (!me) { setSaved(false); return; }
-    // Never read another member's saves. The database enforces owner-only access.
-    const { data } = await supabase.from('collection_saves')
+    // All post types use private owner-only saves, not just collections.
+    const { data, error: saveError } = await supabase.from('collection_saves')
       .select('post_id').eq('post_id', id).eq('user_id', me).limit(1);
+    if (saveError) {
+      console.log('Post saved-status lookup:', saveError.message);
+      return;
+    }
     setSaved(!!data?.length);
   }, []);
 
   const toggleSave = async () => {
-    if (!post || !myUserId) return;
+    if (!post || !myUserId || saveBusy || saveRequestInFlight.current) return;
+    saveRequestInFlight.current = true;
+    setSaveBusy(true);
     const next = !saved;
     setSaved(next);
-    const result = next
-      ? await supabase.from('collection_saves').insert({ user_id: myUserId, post_id: post.id })
-      : await supabase.from('collection_saves').delete().eq('user_id', myUserId).eq('post_id', post.id);
-    if (result.error && result.error.code !== '23505') {
+    try {
+      const result = next
+        ? await supabase.from('collection_saves').insert({ user_id: myUserId, post_id: post.id })
+        : await supabase.from('collection_saves').delete().eq('user_id', myUserId).eq('post_id', post.id);
+      if (result.error && result.error.code !== '23505') throw result.error;
+    } catch (error) {
       setSaved(!next);
+      console.log('Post save failed:', error);
+      Alert.alert('Could not save post', 'Please try again.');
+    } finally {
+      saveRequestInFlight.current = false;
+      setSaveBusy(false);
     }
   };
 
@@ -168,7 +184,7 @@ export default function PostDetailScreen() {
 
   const load = useCallback(async () => {
     if (!postId) { setError('Missing post ID.'); setLoading(false); return; }
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setSaved(false); setSaveBusy(true);
     try {
       const { data: found, error: postError } = await supabase.from('posts')
         .select('id,user_id,created_at,body,song_title,artist_name,album_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
@@ -186,7 +202,7 @@ export default function PostDetailScreen() {
       if (replyResult.error) throw replyResult.error;
       if (likeResult.error) console.log('Post likes:', likeResult.error.message);
       setMyUserId(userResult.data.user?.id || null);
-      if (item.collection) loadSaves(item.id, userResult.data.user?.id || null);
+      await loadSaves(item.id, userResult.data.user?.id || null);
       const p = profileResult.data;
       setAuthor({ name: p?.display_name || 'Listener', username: p?.username || '', avatar: p?.avatar_url || null });
       const rows = replyResult.data || [];
@@ -200,8 +216,8 @@ export default function PostDetailScreen() {
       setLikes(likeResult.data?.length || 0);
       setLiked(!!likeResult.data?.some(l => l.user_id === userResult.data.user?.id));
     } catch (e: any) { setError(e?.message || 'Could not load this post.'); }
-    finally { setLoading(false); }
-  }, [postId]);
+    finally { setLoading(false); setSaveBusy(false); }
+  }, [postId, loadSaves]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const openProfile = (userId: string) => {
@@ -295,6 +311,7 @@ export default function PostDetailScreen() {
   const photos = post ? photoList(post) : [];
   const music = post ? (Array.isArray(post.music_items) && post.music_items.length
     ? post.music_items : [{ id: post.apple_music_id || undefined, song: post.song_title, artist: post.artist_name, artworkUrl: post.artwork_url || undefined }]) : [];
+  const singleTrack = post ? firstPostTrack(post) : null;
   return <SafeAreaView style={styles.screen}>
     <View style={styles.header}>
       <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.back}>‹</Text></Pressable>
@@ -364,15 +381,9 @@ export default function PostDetailScreen() {
           </View>}
           {music.length === 1 ? (
             <PostMusicTrackCard
-              track={{
-                id:music[0].id || post.apple_music_id,
-                song:music[0].song || post.song_title,
-                artist:music[0].artist || post.artist_name,
-                artworkUrl:music[0].artworkUrl || post.artwork_url,
-                kind:music[0].kind,
-              }}
+              track={singleTrack!}
               albumName={!post.collection ? post.album_name : null}
-              onOpen={()=>openMusic(music[0])}
+              onOpen={()=>openMusic(singleTrack!)}
             />
           ) : (
             <View style={styles.musicCard}>
@@ -420,6 +431,7 @@ export default function PostDetailScreen() {
               <Text style={styles.secondary}>{likes} {likes === 1 ? 'like' : 'likes'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'Remove from private saved posts' : 'Save post privately'}
+              disabled={saveBusy || !myUserId}
               onPress={toggleSave} style={{paddingHorizontal:8,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:6}}>
               <Text style={{fontSize:20,color:saved?green:(scheme==='light'?'#3B2218':'#FFFFFF')}}>{saved ? '▣' : '▢'}</Text>
               <Text style={[styles.secondary,{fontWeight:'800',letterSpacing:0.6}]}>{saved ? 'SAVED' : 'SAVE'}</Text>
