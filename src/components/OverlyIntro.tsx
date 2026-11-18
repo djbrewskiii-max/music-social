@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { isOverlyIntroEnabled } from '../overly-preferences';
+import { markOverlyIntroShown, shouldShowOverlyIntro } from '../overly-preferences';
 
 const WORDS = ['OVERLY CURIOUS', 'OVERLY LOUD', 'OVERLY IN LOVE', 'OVERLY YOURSELF'];
 const HOLD_MS = 650;
@@ -20,9 +20,10 @@ export default function OverlyIntro({ active }: { active: boolean }) {
 
     (async () => {
       try {
-        // Temporary design-review mode: play on every entry to the main feed,
-        // not merely once every 24 hours. Do not rewrite the stored timestamp.
-        if (!(await isOverlyIntroEnabled()) || !mounted) return;
+        // Launch behavior: respect the user's setting and avoid showing the
+        // intro on every feed visit. One welcome animation per 24 hours at most.
+        if (!(await shouldShowOverlyIntro()) || !mounted) return;
+        await markOverlyIntroShown();
         const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
         if (!mounted) return;
         setVisible(true);
