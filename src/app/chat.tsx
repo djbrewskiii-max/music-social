@@ -45,7 +45,12 @@ type GroupMember = {
 
 export default function ChatScreen() {
   const {scheme}=useAppearance();
-  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
+  const styles=useMemo(()=>{
+    const defaults=themedStyleSheet(baseStyles,scheme);
+    // Message bubbles are intentional two-sided surfaces, not generic
+    // dark-mode colors auto-translated against a white chat background.
+    return scheme==='light' ? {...defaults,...lightChatOverrides} : defaults;
+  },[scheme]);
   const params = useLocalSearchParams<{
     id?: string;
     userId?: string;
@@ -481,8 +486,8 @@ export default function ChatScreen() {
                     ]}
                   >
                     {!isMine && (
-                      <ProfileAvatar size={28} name={isGroup?senderDisplay:chatName}
-                        uri={isGroup ? (groupMembers.find(m=>m.user_id===item.sender_id)?.avatar_url||null) : partnerAvatar}/>
+                      <View style={{marginRight:8}}><ProfileAvatar size={28} name={isGroup?senderDisplay:chatName}
+                        uri={isGroup ? (groupMembers.find(m=>m.user_id===item.sender_id)?.avatar_url||null) : partnerAvatar}/></View>
                     )}
 
                     <View style={{ maxWidth: '78%' }}>
@@ -583,7 +588,7 @@ export default function ChatScreen() {
           <TextInput
             style={styles.input}
             placeholder={staged ? 'Add a thought, or just send it…' : `Message...`}
-            placeholderTextColor="#666666"
+            placeholderTextColor={scheme==='light'?'#927F74':'#666666'}
             value={message}
             onChangeText={setMessage}
             returnKeyType="send"
@@ -734,4 +739,26 @@ const baseStyles=StyleSheet.create({
   sendButtonDisabled: { opacity: 0.25 },
   sendPressed: { opacity: 0.65 },
   sendText: { color: '#000000', fontSize: 23, fontWeight: '800' },
+});
+
+/** Explicit light-mode palette keeps DM bubbles visually distinct.
+ * The rest of the page retains OVRLEE's shared cream/chocolate appearance. */
+const lightChatOverrides=StyleSheet.create({
+  container:{flex:1,backgroundColor:'#FAF8F6'},
+  loadingScreen:{flex:1,backgroundColor:'#FAF8F6',alignItems:'center',justifyContent:'center'},
+  header:{minHeight:78,borderBottomWidth:1,borderBottomColor:'#DFC9BC',flexDirection:'row',alignItems:'center',paddingHorizontal:20},
+  myMessage:{backgroundColor:'#3B2218',borderRadius:20,borderBottomRightRadius:6},
+  theirMessage:{backgroundColor:'#F0E5DF',borderWidth:1,borderColor:'#E5D1C5',borderRadius:20,borderBottomLeftRadius:6},
+  myMessageText:{color:'#FFFFFF'},
+  theirMessageText:{color:'#3B2218'},
+  composer:{borderTopWidth:1,borderTopColor:'#DFC9BC',paddingHorizontal:16,paddingTop:11,paddingBottom:10,flexDirection:'row',alignItems:'center',backgroundColor:'#FAF8F6'},
+  input:{flex:1,backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#DCC7BB',borderRadius:24,color:'#3B2218',fontSize:15,paddingHorizontal:18,paddingVertical:12},
+  sendButton:{width:44,height:44,borderRadius:22,backgroundColor:'#3B2218',justifyContent:'center',alignItems:'center',marginLeft:9},
+  sendText:{color:'#FFFFFF',fontSize:23,fontWeight:'800'},
+  card:{flexDirection:'row',gap:10,alignItems:'center',backgroundColor:'rgba(59,34,24,0.07)',borderRadius:14,padding:8,minWidth:220},
+  cardTitle:{color:'#3B2218',fontSize:15,fontWeight:'800',marginTop:2},
+  cardArtist:{color:'#79665D',fontSize:12,marginTop:2},
+  cardDetail:{color:'#79665D',fontSize:11,marginTop:3},
+  staged:{flexDirection:'row',alignItems:'center',gap:10,marginHorizontal:14,marginBottom:6,padding:8,borderRadius:14,backgroundColor:'#F0E5DF',borderWidth:1,borderColor:'#DCC7BB'},
+  stagedTitle:{color:'#3B2218',fontSize:14,fontWeight:'700',marginTop:2},
 });
