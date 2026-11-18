@@ -23,6 +23,27 @@ const extractAlbums = (response: any): Album[] => {
   }
   return Array.from(unique.values());
 };
+// Public catalog fallback: Spotify members can choose albums without Apple Music authorization.
+async function searchCoreAlbums(term:string):Promise<Album[]> {
+  let native:Album[]=[];
+  try {
+    const response=await Catalog.search(term,['albums']);
+    native=extractAlbums(response);
+    if(native.length)return native;
+  } catch (error) { console.log('Album catalog fallback:',error); }
+  const url='https://itunes.apple.com/search?media=music&entity=album&country=us&limit=30&term='+encodeURIComponent(term);
+  const response=await fetch(url);
+  if(!response.ok)throw new Error('Album search unavailable.');
+  const json=await response.json();
+  return (json?.results||[]).filter((row:any)=>row.collectionId&&row.collectionName&&row.artistName)
+    .map((row:any)=>({
+      apple_music_id:String(row.collectionId),
+      album_title:String(row.collectionName),
+      artist_name:String(row.artistName),
+      artwork_url:String(row.artworkUrl100||'').replace('100x100bb','600x600bb')||null,
+    }));
+}
+
 const GREEN = '#39E75F';
 const upscale = (url?: string | null) => (url || '').replace(/100x100(?:bb)?/, '600x600bb').replace(/^http:/, 'https:');
 
@@ -88,9 +109,8 @@ export default function CoreFourScreen() {
     const timeout = setTimeout(async () => {
       setSearching(true); setSearchError(null);
       try {
-        const response = await Catalog.search(term, ['albums']);
+        const albums = await searchCoreAlbums(term);
         if (cancelled) return;
-        const albums = extractAlbums(response);
         const lower = term.toLowerCase();
         const words = lower.split(/\s+/).filter(Boolean);
         const score = (a: Album) => {
@@ -99,7 +119,7 @@ export default function CoreFourScreen() {
         };
         albums.sort((a, b) => score(b) - score(a));
         setResults(albums);
-        if (!albums.length) console.log('Core Four catalog response shape:', JSON.stringify(response).slice(0, 2000));
+
       } catch (e: any) { if (!cancelled) { setResults([]); setSearchError(e?.message || String(e)); } }
       finally { if (!cancelled) setSearching(false); }
     }, 350);
