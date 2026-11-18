@@ -37,6 +37,7 @@ import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
+import PostMusicTrackCard from '../components/PostMusicTrackCard';
 import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
@@ -3059,25 +3060,17 @@ export default function NowScreen() {
                         })}
                       </View>
                     ) : (
-                      <View style={styles.musicCard}>
-                        <Pressable accessibilityRole="button" accessibilityLabel={`Open ${post.song_title} in your music service`}
-                          style={({ pressed }) => [{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, pressed && styles.musicCardPressed]}
-                          onPress={() => openAppleMusic(post)}>
-                          {post.artwork_url ? (
-                            <Image source={{ uri: post.artwork_url }} style={styles.artwork} />
-                          ) : (
-                            <View style={styles.artworkPlaceholder}>
-                              <Text style={styles.musicNote}>♪</Text>
-                            </View>
-                          )}
-                          <View style={styles.musicInfo}>
-                            <Text style={styles.song} numberOfLines={1}>{post.song_title}</Text>
-                            <Text style={styles.artist} numberOfLines={1}>{post.artist_name}</Text>
-                            {!!post.album_name && <Text style={styles.album} numberOfLines={1}>{post.album_name}</Text>}
-                          </View>
-                        </Pressable>
-                        <SongPreviewButton id={post.apple_music_id} song={post.song_title} artist={post.artist_name} kind={post.music_items?.[0]?.kind === 'album'?'album':'song'}/>
-                      </View>
+                      <PostMusicTrackCard
+                        track={{
+                          id:post.apple_music_id,
+                          song:post.song_title,
+                          artist:post.artist_name,
+                          artworkUrl:post.artwork_url,
+                          kind:post.music_items?.[0]?.kind==='album'?'album':'song',
+                        }}
+                        albumName={post.album_name}
+                        onOpen={()=>openAppleMusic(post)}
+                      />
                     )}
 
                     <PostArtistDiscoveryLink
