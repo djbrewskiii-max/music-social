@@ -213,8 +213,9 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
                     ) : (
                       <View style={[styles.cardArt, styles.artFallback]} />
                     )}
-                    <View style={styles.datePill}>
-                      <Text style={styles.datePillText}>{shortDate(room)}</Text>
+                    <View style={[styles.datePill, { backgroundColor: GREEN }]} accessibilityLabel={`Coming soon on ${shortDate(room)}`}>
+                      <View style={styles.liveDotSmall} />
+                      <Text style={[styles.datePillText, { color: '#061107' }]}>SOON · {shortDate(room)}</Text>
                     </View>
                     {!!parties[room.id] && (
                       <View style={styles.hostedPill}>
@@ -262,8 +263,9 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
                     ) : (
                       <View style={[styles.cardArt, styles.artFallback]} />
                     )}
-                    <View style={styles.datePill}>
-                      <Text style={styles.datePillText}>{shortDate(room)}</Text>
+                    <View style={[styles.datePill, { backgroundColor: GREEN }]} accessibilityLabel={`Coming soon on ${shortDate(room)}`}>
+                      <View style={styles.liveDotSmall} />
+                      <Text style={[styles.datePillText, { color: '#061107' }]}>SOON · {shortDate(room)}</Text>
                     </View>
                     {!!parties[room.id] && (
                       <View style={styles.hostedPill}>
@@ -311,7 +313,7 @@ export default function FirstListenShowcase({ feed, showSeeAll = true }: Props) 
                     ) : (
                       <View style={[styles.cardArt, styles.artFallback]} />
                     )}
-                    <View style={[styles.datePill, styles.livePill]}>
+                    <View style={[styles.datePill, styles.livePill, { backgroundColor: GREEN }]}>
                       <View style={styles.liveDotSmall} />
                       <Text style={[styles.datePillText, { color: '#000' }]}>LIVE</Text>
                     </View>
