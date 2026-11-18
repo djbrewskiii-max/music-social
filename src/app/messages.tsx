@@ -298,7 +298,7 @@ export default function MessagesScreen() {
         <View style={styles.titleArea}>
           <Text style={styles.eyebrow}>YOUR PEOPLE</Text>
           <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtitle}>Keep the conversation going.</Text>
+
         </View>
 
         <ScrollView
