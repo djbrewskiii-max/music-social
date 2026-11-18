@@ -36,6 +36,7 @@ import CollectionPreview from '../components/CollectionPreview';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
+import {postArtistDiscovery} from '../post-artist-discovery';
 import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
@@ -3087,17 +3088,10 @@ export default function NowScreen() {
                     )}
 
                     {(() => {
-                      const combined=isCombinedArtistCredit(post.artist_name||'');
                       const songId=String(post.apple_music_id||post.music_items?.[0]?.id||'');
-                      const resolved=primaryArtists[songId];
-                      const primary=resolved?.name;
-                      const target=combined ? (primary && !isCombinedArtistCredit(primary) ? primary : null) : post.artist_name;
-                      // For multi-artist releases with no unambiguous primary
-                      // catalog artist, let the member choose the credited page.
-                      const candidates=post.artist_name.split(/\s*(?:,|&|\+|\/|×|\s+x\s+|\s+feat\.?\s+|\s+ft\.?\s+)\s*/i)
-                        .map(value=>value.trim()).filter(Boolean);
-                      if(!target && candidates.length<2)return null;
-                      const label=target ? 'EXPLORE '+target.toUpperCase() : 'EXPLORE ARTISTS';
+                      const discovery=postArtistDiscovery(post.artist_name||'',primaryArtists[songId]?.name);
+                      if(!discovery)return null;
+                      const {target,candidates,label}=discovery;
                       const go=(artist:string)=>router.push({pathname:'/music-discovery',params:{artist,song:post.song_title}});
                       return <Pressable accessibilityRole="button"
                         accessibilityLabel={target ? `Discover listeners and posts for ${target}` : 'Choose a credited artist to explore'}
