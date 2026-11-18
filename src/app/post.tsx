@@ -371,7 +371,7 @@ export default function PostDetailScreen() {
                 artworkUrl:music[0].artworkUrl,
                 kind:music[0].kind,
               }}
-              albumName={!post.collection ? null : undefined}
+              albumName={!post.collection ? post.album_name : null}
               onOpen={()=>openMusic(music[0])}
             />
           ) : (
