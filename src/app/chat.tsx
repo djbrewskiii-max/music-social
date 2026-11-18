@@ -454,22 +454,14 @@ export default function ChatScreen() {
                 <View style={styles.musicInfo}>
                   <Text style={styles.song}>{song}</Text>
                   {!!artist && <Text style={styles.artist}>{artist}</Text>}
-                  <Text style={styles.sharedMusic}>MUSIC WORTH TALKING ABOUT</Text>
                 </View>
               </View>
-              <Text style={styles.intro}>You already have something to talk about.</Text>
             </>
           )}
 
           {messages.length === 0 ? (
             <View style={styles.emptyConversation}>
-              <Text style={styles.emptyEyebrow}>START THE CONVERSATION</Text>
               <Text style={styles.emptyTitle}>Say something.</Text>
-              <Text style={styles.emptyText}>
-                {isGroup
-                  ? 'Your group chat messages will appear here.'
-                  : `Your messages with ${chatName} will appear here.`}
-              </Text>
             </View>
           ) : (
             <View style={styles.messages}>
