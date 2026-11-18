@@ -1,6 +1,7 @@
 import {useAppearance} from '../appearance';
 import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
+import PostMusicTrackCard from '../components/PostMusicTrackCard';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {openPostReportDialog} from '../post-reporting';
@@ -361,39 +362,53 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
-          <View style={styles.musicCard}>
-            {music.length > 1 && <Text style={styles.musicLabel}>COLLECTION · {music.length} TRACKS</Text>}
-            {music.map((track, i) => {
-              const key = previewKey(track);
-              const playing = previewActiveKey === key;
-              const loadingPreview = previewLoadingKey === key;
-              return (
-                <View key={`${track.id || track.song}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Open ${track.song} in your music service`}
-                    onPress={() => openMusic(track)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.cover} /> : <View style={styles.cover}><Text style={{ color: '#fff' }}>♪</Text></View>}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
-                      <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
-                      {music.length===1 && !!post.album_name &&
-                        <Text style={styles.secondary} numberOfLines={1}>{post.album_name}</Text>}
-                      {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
-                    </View>
-                  </Pressable>
-                  <View style={{ alignItems: 'center', gap: 7 }}>
-                    <SongPreviewButton size="compact" id={track.id}
-                      song={track.song} artist={track.artist}
-                      kind={track.kind==='album'?'album':'song'}/>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Add ${track.song} to rotation`}
-                      onPress={() => pin(track)} hitSlop={5}>
-                      <Text style={[styles.rotationLink, { fontSize: 9 }]}>+ ROTATION</Text>
+          {music.length === 1 ? (
+            <PostMusicTrackCard
+              track={{
+                id:music[0].id || post.apple_music_id,
+                song:music[0].song,
+                artist:music[0].artist,
+                artworkUrl:music[0].artworkUrl,
+                kind:music[0].kind,
+              }}
+              albumName={!post.collection ? null : undefined}
+              onOpen={()=>openMusic(music[0])}
+            />
+          ) : (
+            <View style={styles.musicCard}>
+              {music.length > 1 && <Text style={styles.musicLabel}>COLLECTION · {music.length} TRACKS</Text>}
+              {music.map((track, i) => {
+                const key = previewKey(track);
+                const playing = previewActiveKey === key;
+                const loadingPreview = previewLoadingKey === key;
+                return (
+                  <View key={`${track.id || track.song}-${i}`} style={[styles.track, i > 0 && styles.trackDivider]}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${track.song} in your music service`}
+                      onPress={() => openMusic(track)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.cover} /> : <View style={styles.cover}><Text style={{ color: '#fff' }}>♪</Text></View>}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
+                        <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
+                        {music.length===1 && !!post.album_name &&
+                          <Text style={styles.secondary} numberOfLines={1}>{post.album_name}</Text>}
+                        {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
+                      </View>
                     </Pressable>
+                    <View style={{ alignItems: 'center', gap: 7 }}>
+                      <SongPreviewButton size="compact" id={track.id}
+                        song={track.song} artist={track.artist}
+                        kind={track.kind==='album'?'album':'song'}/>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Add ${track.song} to rotation`}
+                        onPress={() => pin(track)} hitSlop={5}>
+                        <Text style={[styles.rotationLink, { fontSize: 9 }]}>+ ROTATION</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
-
-          </View>
+                );
+              })}
+  
+            </View>
+          )}
           {post && <PostArtistDiscoveryLink
             credit={post.artist_name || ''}
             primaryArtist={resolvedPrimaryArtist}
