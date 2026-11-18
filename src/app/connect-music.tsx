@@ -17,53 +17,47 @@ export default function ConnectMusicScreen() {
   const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [connecting, setConnecting] = useState(false);
-  // Spotify playback preference is separate from experimental public-profile research.
-  const connectSpotify = () => {
-    // The public-page reader is experimental; release builds never invoke it.
-    router.push('/spotify-connect');
+  const connectSpotify = async () => {
+    if(connecting)return;
+    setConnecting(true);
+    try{
+      // Only a music-opening preference. Spotify authorization is NOT required
+      // to open a Spotify link or participate in OVRLEE conversations.
+      await setMusicProvider('spotify');
+      router.replace('/now');
+    }catch(error){
+      Alert.alert('Could not select Spotify',error instanceof Error?error.message:'Try again.');
+    }finally{setConnecting(false);}
   };
 
   const connectAppleMusic = async () => {
     try {
       setConnecting(true);
 
+      await setMusicProvider('apple_music');
       const result = await Auth.authorize();
 
       console.log('Apple Music authorization:', result);
 
       if (result.status === AuthStatus.AUTHORIZED) {
-        await setMusicProvider('apple_music');
-        Alert.alert(
-          'Apple Music connected',
-          'OVRLEE can now access your Apple Music data.',
-          [
-            {
-              text: 'Continue',
-              onPress: () => router.replace('/now'),
-            },
-          ]
-        );
+        router.replace('/now');
         return;
       }
 
-      Alert.alert(
-        'Apple Music not connected',
-        'Apple Music access was not granted. You can still enjoy OVRLEE and choose music manually.'
-      );
+      Alert.alert('Apple Music access not granted',
+        'You can still use OVRLEE and open songs in Apple Music.',[
+          {text:'Continue',onPress:()=>router.replace('/now')},
+        ]);
     } catch (error) {
       console.error('Apple Music connection error:', error);
 
-      Alert.alert(
-        'Could not connect Apple Music',
-        'Something went wrong while requesting Apple Music access.'
-      );
+      Alert.alert('Apple Music access unavailable',
+        'You can choose music manually and connect later.',[
+          {text:'Continue',onPress:()=>router.replace('/now')},
+        ]);
     } finally {
       setConnecting(false);
     }
-  };
-
-  const continueForNow = () => {
-    router.replace('/now');
   };
 
   return (
@@ -73,10 +67,10 @@ export default function ConnectMusicScreen() {
           <Text style={styles.logo}>OVRLEE</Text>
 
           <View style={styles.header}>
-            <Text style={styles.heading}>Bring your music with you.</Text>
+            <Text style={styles.heading}>Where do you listen?</Text>
 
             <Text style={styles.subheading}>
-              Choose how you want to open music. You can still share songs, discover people and join conversations without connecting a service.
+              We’ll open music in your favorite app.
             </Text>
           </View>
 
@@ -92,7 +86,7 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.appleLabel}>APPLE MUSIC</Text>
                 <Text style={styles.appleText}>
-                  {connecting ? 'Connecting...' : 'Connect Apple Music'}
+                  {connecting ? 'Opening...' : 'Apple Music'}
                 </Text>
               </View>
 
@@ -110,7 +104,7 @@ export default function ConnectMusicScreen() {
               <View>
                 <Text style={styles.spotifyLabel}>SPOTIFY</Text>
                 <Text style={styles.spotifyText}>
-                  {connecting ? 'Connecting...' : 'Listen with Spotify'}
+                  {connecting ? 'Opening...' : 'Spotify'}
                 </Text>
               </View>
               <Text style={styles.soon}>→</Text>
@@ -118,21 +112,7 @@ export default function ConnectMusicScreen() {
           </View>
         </View>
 
-        <View>
-          <Pressable
-            onPress={continueForNow}
-            style={({ pressed }) => [
-              styles.skipButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.skipText}>I'll connect later</Text>
-          </Pressable>
-
-          <Text style={styles.footer}>
-            Music and conversation are at the center of OVRLEE.
-          </Text>
-        </View>
+        <View><Text style={styles.footer}>You can change this in Settings.</Text></View>
       </View>
     </SafeAreaView>
   );
@@ -216,9 +196,9 @@ const baseStyles = StyleSheet.create({
 
   spotifyButton: {
     minHeight: 82,
-    backgroundColor: '#151515',
+    backgroundColor: '#F0E2D9',
     borderWidth: 1,
-    borderColor: '#242424',
+    borderColor: '#E1CFC4',
     borderRadius: 18,
     paddingHorizontal: 20,
     paddingVertical: 17,
@@ -228,7 +208,7 @@ const baseStyles = StyleSheet.create({
   },
 
   spotifyLabel: {
-    color: '#555555',
+    color: '#6A4B3C',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 2,
@@ -236,17 +216,12 @@ const baseStyles = StyleSheet.create({
   },
 
   spotifyText: {
-    color: '#777777',
+    color: '#3B2218',
     fontSize: 17,
     fontWeight: '600',
   },
 
-  soon: {
-    color: '#555555',
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 2,
-  },
+  soon: {color:'#3B2218',fontSize:26,fontWeight:'800'},
 
   automaticUpdates: {
     paddingVertical: 10,
