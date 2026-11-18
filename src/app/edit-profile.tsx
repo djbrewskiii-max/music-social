@@ -48,7 +48,7 @@ type MediaType = 'avatar' | 'header';
 const NOW_GREEN = '#39E75F';
 
 export default function EditProfileScreen() {
-  const {scheme}=useAppearance();
+  const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -974,7 +974,7 @@ export default function EditProfileScreen() {
                   setDisplayName
                 }
                 placeholder="Your name"
-                placeholderTextColor="#444444"
+                placeholderTextColor={colors.secondary}
                 style={
                   styles.input
                 }
@@ -1023,7 +1023,7 @@ export default function EditProfileScreen() {
                     )
                   }
                   placeholder="username"
-                  placeholderTextColor="#444444"
+                  placeholderTextColor={colors.secondary}
                   autoCapitalize="none"
                   autoCorrect={
                     false
@@ -1069,7 +1069,7 @@ export default function EditProfileScreen() {
                   setBio
                 }
                 placeholder="Say something about yourself."
-                placeholderTextColor="#444444"
+                placeholderTextColor={colors.secondary}
                 style={[
                   styles.input,
                   styles.bioInput,
@@ -1082,7 +1082,7 @@ export default function EditProfileScreen() {
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>YOUR OVERLY</Text>
-              <Text style={{ color: '#999', fontSize: 13, marginTop: 8, marginBottom: 14 }}>
+              <Text style={{ color: colors.secondary, fontSize: 13, marginTop: 8, marginBottom: 14 }}>
                 Choose a word that feels like you. It appears beneath your name.
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -1090,29 +1090,34 @@ export default function EditProfileScreen() {
                   <Pressable key={trait} accessibilityRole="radio"
                     accessibilityState={{ selected: overlyTrait === trait }}
                     onPress={() => { setCustomOverly(false); setOverlyTrait(overlyTrait === trait ? null : trait); }}
-                    style={{ borderRadius: 20, borderWidth: 1, borderColor: overlyTrait === trait ? NOW_GREEN : '#3b3b3b', backgroundColor: overlyTrait === trait ? '#16351d' : '#151515', paddingVertical: 10, paddingHorizontal: 13 }}>
-                    <Text style={{ color: overlyTrait === trait ? '#fff' : '#bbb', fontSize: 12, fontWeight: '700' }}>{trait}</Text>
+                    style={{ borderRadius: 20, borderWidth: 1,
+                      borderColor: overlyTrait === trait ? (scheme==='light'?'#3B2218':NOW_GREEN) : colors.border,
+                      backgroundColor: overlyTrait === trait ? (scheme==='light'?'#3B2218':'#16351d') : colors.raised,
+                      paddingVertical: 10, paddingHorizontal: 13 }}>
+                    <Text style={{ color: overlyTrait === trait ? '#FFFFFF' : colors.text, fontSize: 12, fontWeight: '700' }}>{trait}</Text>
                   </Pressable>
                 ))}
                 <Pressable accessibilityRole="radio" accessibilityState={{ selected: customOverly }}
                   onPress={() => { setCustomOverly(true); if (OVERLY_TRAITS.some(t => t === overlyTrait)) setOverlyTrait(null); }}
-                  style={{ borderRadius: 20, borderWidth: 1, borderColor: customOverly ? NOW_GREEN : '#3b3b3b',
-                    backgroundColor: customOverly ? '#16351d' : '#151515', paddingVertical: 10, paddingHorizontal: 13 }}>
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Custom +</Text>
+                  style={{ borderRadius: 20, borderWidth: 1,
+                    borderColor: customOverly ? (scheme==='light'?'#3B2218':NOW_GREEN) : colors.border,
+                    backgroundColor: customOverly ? (scheme==='light'?'#3B2218':'#16351d') : colors.raised,
+                    paddingVertical: 10, paddingHorizontal: 13 }}>
+                  <Text style={{ color: customOverly ? '#FFFFFF' : colors.text, fontSize: 12, fontWeight: '800' }}>Custom +</Text>
                 </Pressable>
               </View>
               {customOverly && <View style={{ marginTop: 14 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center',
-                  borderRadius: 12, borderWidth: 1, borderColor: '#3d573f', backgroundColor: '#151515',
+                  borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface,
                   paddingHorizontal: 14, paddingVertical: 5 }}>
-                  <Text style={{ color: NOW_GREEN, fontWeight: '900', fontSize: 16 }}>Overly </Text>
+                  <Text style={{ color: scheme==='light'?'#3B2218':NOW_GREEN, fontWeight: '900', fontSize: 16 }}>Overly </Text>
                   <TextInput accessibilityLabel="Your custom Overly description" maxLength={33}
                     value={overlyTrait?.replace(/^Overly\s+/i, '') || ''}
-                    placeholder="whatever feels like you" placeholderTextColor="#777"
+                    placeholder="whatever feels like you" placeholderTextColor={colors.secondary}
                     onChangeText={next => setOverlyTrait(next.trim() ? 'Overly ' + next.slice(0,33) : null)}
-                    style={{ flex: 1, color: '#fff', fontSize: 16, minHeight: 44 }} />
+                    style={{ flex: 1, color: colors.text, fontSize: 16, minHeight: 44 }} />
                 </View>
-                <Text style={{ color: '#888', fontSize: 11, marginTop: 7 }}>Your phrase appears underneath your name. Up to 33 characters after Overly.</Text>
+                <Text style={{ color: colors.secondary, fontSize: 11, marginTop: 7 }}>Your phrase appears underneath your name. Up to 33 characters after Overly.</Text>
               </View>}
             </View>
 
@@ -1132,23 +1137,24 @@ export default function EditProfileScreen() {
               <Pressable onPress={() => setChoosingCity(true)}
                 accessibilityRole="button" accessibilityLabel="Choose a city from the OVRLEE directory"
                 style={[styles.input, { justifyContent: 'center' }]}>
-                <Text style={{ color: city ? '#ffffff' : '#777', fontSize: 16 }}>{city || 'Select your city'}</Text>
+                <Text style={{ color: city ? colors.text : colors.secondary, fontSize: 16 }}>{city || 'Select your city'}</Text>
               </Pressable>
-              <Text style={{ color: '#888', fontSize: 12, lineHeight: 18, marginTop: 8 }}>
+              <Text style={{ color: colors.secondary, fontSize: 12, lineHeight: 18, marginTop: 8 }}>
                 Your selected city helps OVRLEE find people in the surrounding area. No GPS required.
               </Text>
               <Pressable accessibilityRole="switch" accessibilityState={{ checked: nearbyVisible }}
                 accessibilityLabel="Allow my profile and music posts to appear in Nearby"
                 onPress={() => setNearbyVisible(v => !v)}
                 style={{ flexDirection: 'row', alignItems: 'center', marginTop: 18, padding: 14,
-                  backgroundColor: '#161616', borderWidth: 1, borderColor: nearbyVisible ? NOW_GREEN : '#333', borderRadius: 12 }}>
+                  backgroundColor: colors.raised, borderWidth: 1,
+                  borderColor: nearbyVisible ? (scheme==='light'?'#3B2218':NOW_GREEN) : colors.border, borderRadius: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>Show me in Nearby</Text>
-                  <Text style={{ color: '#aaa', fontSize: 12, lineHeight: 18, marginTop: 4 }}>
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800' }}>Show me in Nearby</Text>
+                  <Text style={{ color: colors.secondary, fontSize: 12, lineHeight: 18, marginTop: 4 }}>
                     Let people in the surrounding area discover your profile and music shares. Off by default; your public profile and posts remain visible elsewhere.
                   </Text>
                 </View>
-                <Text style={{ color: nearbyVisible ? NOW_GREEN : '#888', fontWeight: '900', marginLeft: 12 }}>
+                <Text style={{ color: nearbyVisible ? (scheme==='light'?'#16843E':NOW_GREEN) : colors.secondary, fontWeight: '900', marginLeft: 12 }}>
                   {nearbyVisible ? 'ON' : 'OFF'}
                 </Text>
               </Pressable>
