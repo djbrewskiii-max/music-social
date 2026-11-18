@@ -1135,8 +1135,8 @@ export default function MyProfileScreen() {
               )}
 
               {!!profile?.overly_trait && (
-                <Text style={{alignSelf:'center',textAlign:'center',marginTop:12,marginBottom:6,fontSize:13,fontWeight:'700'}}>
-                  <Text style={{color:brandAccent,fontWeight:'900',letterSpacing:1}}>OVERLY</Text>
+                <Text style={{alignSelf:'flex-start',textAlign:'left',marginTop:12,marginBottom:6,fontSize:13,fontWeight:'700'}}>
+                  <Text style={{color:'#39E75F',fontWeight:'900',letterSpacing:1}}>OVERLY</Text>
                   <Text style={{color:scheme==='light'?'#3B2218':'#E1EDE3'}}>
                     {overlyDescription(profile.overly_trait) ? ' ' + overlyDescription(profile.overly_trait) : ''}
                   </Text>
