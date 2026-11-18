@@ -36,7 +36,9 @@ assert.match(inbox,/Retry loading messages/);
 
 // Concert chat: repeated send taps are gated; draft only clears after insert.
 assert.match(show,/sendInFlight\.current\|\|!myId/);
-assert.match(show,/if\(e\)throw e;\s*setDraft\(''\)/);
+assert.match(show,/if\(e\)throw e;\s*confirmedSent=true;\s*setDraft\(''\)/);
+assert.match(show,/setError\(confirmedSent/,
+  'A successful insert followed by a failed refresh must not be called a failed send');
 assert.match(show,/finally\{\s*sendInFlight\.current=false;/);
 assert.match(show,/Sent, but the conversation could not refresh/,
   'Avoid prompting a second send after a successful insert followed by a failed refresh');
