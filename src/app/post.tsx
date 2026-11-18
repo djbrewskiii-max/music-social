@@ -389,8 +389,6 @@ export default function PostDetailScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.trackName} numberOfLines={1}>{track.song}</Text>
                         <Text style={styles.secondary} numberOfLines={1}>{track.artist}</Text>
-                        {music.length===1 && !!post.album_name &&
-                          <Text style={styles.secondary} numberOfLines={1}>{post.album_name}</Text>}
                         {!!post.collection?.notes?.[track.id || ''] && <Text style={styles.trackNote} numberOfLines={2}>“{post.collection.notes[track.id || '']}”</Text>}
                       </View>
                     </Pressable>
