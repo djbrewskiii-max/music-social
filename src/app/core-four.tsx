@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../supabase';
+import {setOnboardingStage} from '../onboarding-progress';
 
 type Album = { apple_music_id: string; album_title: string; artist_name: string; artwork_url: string | null };
 type CatalogAlbum = { id?: string | number; title?: string; name?: string; artistName?: string; artworkUrl?: string; artwork?: { url?: string }; attributes?: { name?: string; artistName?: string; artwork?: { url?: string }; isSingle?: boolean } };
@@ -150,8 +151,10 @@ export default function CoreFourScreen() {
     setSaving(false);
     if (error) { Alert.alert('Could not save Core Four', error.message); return; }
     setChanged(false);
-    if(isOnboarding)router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
-    else router.back();
+    if(isOnboarding){
+      await setOnboardingStage(userId,'rotation-setup');
+      router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+    } else router.back();
   }
   if (loading) return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}><ActivityIndicator color={GREEN} style={{ marginTop: 90 }} /></SafeAreaView>;
   return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}>
@@ -202,7 +205,10 @@ export default function CoreFourScreen() {
         <Text style={s.saveText}>{saving ? 'SAVING…' : isOnboarding?'NEXT: IN ROTATION →':'SAVE CORE FOUR'}</Text>
       </Pressable>
       {isOnboarding&&<Pressable accessibilityRole="button" disabled={saving}
-        onPress={()=>router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}})}
+        onPress={()=>void (async()=>{
+          if(userId)await setOnboardingStage(userId,'rotation-setup');
+          router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+        })()}
         style={{alignItems:'center',paddingVertical:14}}>
         <Text style={{color:colors.secondary,fontWeight:'700'}}>Choose albums later</Text>
       </Pressable>}
