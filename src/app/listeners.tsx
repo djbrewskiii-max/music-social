@@ -364,7 +364,7 @@ export default function ListenersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
       <View style={styles.page}>
         <ScrollView
           style={styles.scroll}
