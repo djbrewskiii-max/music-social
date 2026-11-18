@@ -67,4 +67,19 @@ assert.match(settings,/service==='spotify'/,'Spotify settings should appear only
 assert.match(showcase,/if \(!loaded \|\| !links\.length\) return null;/,
   'Empty Spotify showcases should not clutter a profile');
 
+const progress=read('onboarding-progress.ts');
+const index=read('app/index.tsx');
+const login=read('app/login.tsx');
+assert.match(progress,/ovrlee:first-run-stage:/,'A stage must be scoped to the signed-in account');
+assert.match(progress,/AsyncStorage\.setItem/,'First-run checkpoint must persist across restarts');
+assert.match(progress,/AsyncStorage\.removeItem/,'Completed signup must clear checkpoint');
+assert.match(signup,/setOnboardingStage\(data\.user\.id,'setup-profile'\)/);
+assert.match(setup,/setOnboardingStage\(user\.id,'pick-artists'\)/);
+assert.match(artists,/setOnboardingStage\(user\.id,'core-four'\)/);
+assert.match(albums,/setOnboardingStage\(userId,'rotation-setup'\)/);
+assert.match(rotation,/setOnboardingStage\(user\.id,'connect-music'\)/);
+assert.match(service,/finishOnboarding\(user\.id\)/);
+assert.match(index,/getOnboardingStage\(userId\)/);
+assert.match(login,/getOnboardingStage\(user\.id\)/);
+
 console.log('First-run onboarding, location, member lookup and provider-specific UI checks passed');
