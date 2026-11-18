@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { supabase } from '../supabase';
+import {setOnboardingStage} from '../onboarding-progress';
 
 export default function SignupScreen() {
   const {scheme}=useAppearance();
@@ -82,6 +83,7 @@ export default function SignupScreen() {
       return;
     }
 
+    if (data.user) await setOnboardingStage(data.user.id,'setup-profile');
     if (data.session) {
       router.replace('/setup-profile');
       return;
