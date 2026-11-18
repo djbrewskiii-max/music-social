@@ -138,7 +138,7 @@ export default function ConnectMusicScreen() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090909',
