@@ -148,7 +148,7 @@ export default function SpotifyConnectScreen() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen:{flex:1,backgroundColor:'#090909'},
   content:{paddingHorizontal:24,paddingTop:48,paddingBottom:70},
   kicker:{color:GREEN,fontSize:11,fontWeight:'900',letterSpacing:2},
