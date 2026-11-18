@@ -185,7 +185,7 @@ export default function NewGroupScreen() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000000' },
   container: { flex: 1, paddingHorizontal: 16 },
   header: {
