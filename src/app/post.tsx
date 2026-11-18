@@ -433,7 +433,7 @@ export default function PostDetailScreen() {
             </Pressable>
           </View>
           <Text style={styles.section}>CONVERSATION · {replies.length}</Text>
-          {replies.length === 0 && <Text style={styles.secondary}>No replies yet. Start the conversation.</Text>}
+          {replies.length === 0 && <Text style={styles.secondary}>No replies yet.</Text>}
           {threadedReplies.map(({item:r,depth}) => <View key={r.id}
             onLayout={event=>{
               if(params.focusReplyId!==r.id||focusedRef.current)return;
