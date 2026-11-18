@@ -149,9 +149,6 @@ export default function RotationSetupScreen(){
             <Text style={{color:colors.accent,fontSize:22}}>{selected||already?'✓':'+'}</Text>
           </Pressable>;
         })}
-        <Text style={[styles.note,{color:colors.secondary}]}>
-          These are your picks, not verified listening history. You can change them anytime.
-        </Text>
       </ScrollView>
       <View style={[styles.footer,{borderColor:colors.border,backgroundColor:colors.background}]}>
         <Pressable accessibilityRole="button" disabled={saving||chosen.length===0}
