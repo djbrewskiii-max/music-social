@@ -90,10 +90,6 @@ export async function searchWorldwideCities(term:string,signal?:AbortSignal,coun
   }
 }
 
-('Global city lookup unavailable, showing saved directory:', error);
-    return local;
-  }
-}
 
 export function distanceMiles(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const toRadians = Math.PI / 180;
