@@ -59,10 +59,10 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       Alert.alert(
         'Password too short',
-        'Your password needs to be at least 6 characters.'
+        'Use at least 8 characters.'
       );
       return;
     }
@@ -108,12 +108,11 @@ export default function SignupScreen() {
             </Text>
 
             <Text style={styles.subheading}>
-              Create your account to start discovering who&apos;s listening.
+              Share your sound. Find your people.
             </Text>
 
             <View style={styles.form}>
               <Text style={styles.label}>DATE OF BIRTH</Text>
-              <Text style={styles.ageDescription}>Enter your birth date to check eligibility for the closed beta.</Text>
               <View style={styles.birthRow}>
                 <TextInput style={[styles.input, styles.birthField]} placeholder="MM" placeholderTextColor="#746459"
                   value={birthMonth} onChangeText={setBirthMonth} keyboardType="number-pad" maxLength={2} accessibilityLabel="Birth month" />
@@ -122,7 +121,7 @@ export default function SignupScreen() {
                 <TextInput style={[styles.input, styles.birthYear]} placeholder="YYYY" placeholderTextColor="#746459"
                   value={birthYear} onChangeText={setBirthYear} keyboardType="number-pad" maxLength={4} accessibilityLabel="Birth year" />
               </View>
-              <Text style={styles.ageDescription}>OVRLEE&apos;s initial closed beta is limited to adults 18 and older.</Text>
+              <Text style={styles.ageDescription}>18+ only</Text>
               <Text style={styles.label}>EMAIL</Text>
 
               <TextInput
@@ -140,7 +139,7 @@ export default function SignupScreen() {
 
               <TextInput
                 style={styles.input}
-                placeholder="At least 6 characters"
+                placeholder="8+ characters"
                 placeholderTextColor="#555555"
                 value={password}
                 onChangeText={setPassword}
@@ -178,9 +177,7 @@ export default function SignupScreen() {
             </View>
           </View>
 
-          <Text style={styles.footer}>
-            For the overly obsessed.
-          </Text>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -215,7 +212,7 @@ const baseStyles=StyleSheet.create({
     lineHeight: 44,
     fontWeight: '700',
     marginTop: 30,
-    maxWidth: 330,
+    maxWidth: 360,
   },
 
   subheading: {
