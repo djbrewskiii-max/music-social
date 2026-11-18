@@ -46,6 +46,7 @@ type Profile = {
   overly_trait: string | null;
   avatar_url: string | null;
   header_url: string | null;
+  preferred_music_service?: 'spotify' | 'apple_music' | null;
 };
 
 type TopArtist = {
@@ -287,7 +288,7 @@ export default function ProfileScreen() {
             supabase
               .from('profiles')
               .select(
-                'user_id, display_name, username, city, bio, overly_trait, avatar_url, header_url'
+                'user_id, display_name, username, city, bio, overly_trait, avatar_url, header_url, preferred_music_service'
               )
               .eq(
                 'user_id',
@@ -1322,7 +1323,7 @@ export default function ProfileScreen() {
         
         {<CoreFourSection userId={typeof userId === 'string' ? userId : null} />}
         {typeof userId === 'string' && <FirstListenShelf userId={userId} />}
-        {typeof userId === 'string' && <SpotifyShowcaseSection userId={userId} />}
+        {typeof userId === 'string' && profile?.preferred_music_service==='spotify' && <SpotifyShowcaseSection userId={userId} />}
         <View
           style={
             styles.section
