@@ -1,5 +1,7 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { supabase } from '../supabase';
 
@@ -8,6 +10,8 @@ type Tab = 'followers' | 'following';
 const GREEN = '#39E75F';
 
 export default function FollowsScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams<{ userId?: string; tab?: string; name?: string }>();
   const userId = typeof params.userId === 'string' ? params.userId : '';
   const [tab, setTab] = useState<Tab>(params.tab === 'following' ? 'following' : 'followers');
@@ -97,7 +101,7 @@ export default function FollowsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#050505' },
   header: { height: 78, paddingHorizontal: 23, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#fff', fontSize: 30 }, headerCenter: { alignItems: 'center' }, brand: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: -1 }, subtitle: { color: '#777', fontSize: 10, letterSpacing: 1.3, marginTop: 3 },
