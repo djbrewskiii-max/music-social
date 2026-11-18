@@ -12,14 +12,40 @@ export default function ShowChatScreen(){
   const { scheme } = useAppearance();
   const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
  const p=useLocalSearchParams();const externalId=param(p.externalId);const artist=param(p.artist);const city=param(p.city);const date=param(p.date);const venue=param(p.venue);
- const [messages,setMessages]=useState<ChatMessage[]>([]);const [profiles,setProfiles]=useState<Record<string,Profile>>({});const [myId,setMyId]=useState('');const [draft,setDraft]=useState('');const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [blocked,setBlocked]=useState<string[]>([]);const list=useRef<FlatList<ChatMessage>>(null);
+ const [messages,setMessages]=useState<ChatMessage[]>([]);const [profiles,setProfiles]=useState<Record<string,Profile>>({});const [myId,setMyId]=useState('');const [draft,setDraft]=useState('');const [busy,setBusy]=useState(false);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [blocked,setBlocked]=useState<string[]>([]);const list=useRef<FlatList<ChatMessage>>(null);const sendInFlight=useRef(false);
  useEffect(()=>{let active=true;let channel:any;async function init(){const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace('/login');return;}if(!active)return;setMyId(user.id);
  const [mine,theirs]=await Promise.all([supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id),supabase.from('user_blocks').select('blocker_id').eq('blocked_id',user.id)]);
  if(active)setBlocked([...new Set([...(mine.data||[]).map((r:any)=>r.blocked_id),...(theirs.data||[]).map((r:any)=>r.blocker_id)])]);
  await load();channel=supabase.channel(`show-chat-${externalId}`).on('postgres_changes',{event:'INSERT',schema:'public',table:'concert_chat_messages',filter:`external_id=eq.${externalId}`},()=>{load();}).subscribe();}
  async function load(){const {data,error:e}=await supabase.from('concert_chat_messages').select('id,external_id,user_id,body,created_at').eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);if(!active)return;if(e){setError('Could not load this concert chat. Go back and reopen the show to retry.');setLoading(false);return;}setMessages(data||[]);const ids=[...new Set((data||[]).map(x=>x.user_id))];if(ids.length){const {data:people}=await supabase.from('profiles').select('user_id,display_name,username,avatar_url').in('user_id',ids);if(active)setProfiles(Object.fromEntries((people||[]).map(x=>[x.user_id,x])));}setLoading(false);}
  if(externalId)init();else{setError('Missing concert ID.');setLoading(false);}return()=>{active=false;if(channel)supabase.removeChannel(channel);};},[externalId]);
- async function send(){const body=draft.trim();if(!body||busy||!myId)return;setBusy(true);setError('');const {error:e}=await supabase.from('concert_chat_messages').insert({external_id:externalId,user_id:myId,body});if(e){setError(e.message);}else{setDraft('');const {data}=await supabase.from('concert_chat_messages').select('id,external_id,user_id,body,created_at').eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);if(data)setMessages(data);}setBusy(false);}
+ async function send(){
+  const body=draft.trim();
+  if(!body||busy||sendInFlight.current||!myId||!externalId)return;
+  sendInFlight.current=true;
+  setBusy(true);
+  setError('');
+  try{
+    const {error:e}=await supabase.from('concert_chat_messages')
+      .insert({external_id:externalId,user_id:myId,body});
+    if(e)throw e;
+    setDraft('');
+    const {data,error:reloadError}=await supabase.from('concert_chat_messages')
+      .select('id,external_id,user_id,body,created_at')
+      .eq('external_id',externalId).order('created_at',{ascending:true}).limit(200);
+    if(reloadError){
+      // The message has been sent. Don't restore the draft or risk re-sending.
+      setError('Sent, but the conversation could not refresh. Reopen this show to see the latest messages.');
+    }else if(data)setMessages(data);
+  }catch(e){
+    console.log('Show-chat send failed:',e);
+    setError('Message not sent. Check your connection and try again.');
+    // Keep the draft so the member can retry without losing their words.
+  }finally{
+    sendInFlight.current=false;
+    setBusy(false);
+  }
+ }
  function showDetails(){router.push({pathname:'/concert-detail',params:{externalId,name:param(p.name),artist,city,region:param(p.region),venue,date,time:param(p.time),dateTime:param(p.dateTime),artworkUrl:param(p.artworkUrl),ticketUrl:param(p.ticketUrl)}});}
  const visible=messages.filter(m=>!blocked.includes(m.user_id));
  return <SafeAreaView style={styles.screen}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={0}>
