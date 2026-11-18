@@ -1,7 +1,7 @@
 import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -61,6 +62,13 @@ const songKey = (track: MusicTrack) =>
 
 export default function ListenersScreen() {
   const {scheme,colors}=useAppearance();
+  const params=useLocalSearchParams<{search?:string}>();
+  const initialSearch=typeof params.search==='string'?params.search:'';
+  const [search,setSearch]=useState(initialSearch);
+  const [searchUsers,setSearchUsers]=useState<Profile[]>([]);
+  const [searchBusy,setSearchBusy]=useState(false);
+  const [searchError,setSearchError]=useState('');
+  const searchActive=search.trim().replace(/^@/,'').length>=2;
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [listeners, setListeners] =
     useState<Listener[]>([]);
@@ -74,6 +82,42 @@ export default function ListenersScreen() {
   useEffect(() => {
     loadListeners();
   }, []);
+
+  // Search the member directory directly instead of only filtering ranked matches.
+  useEffect(()=>{
+    const term=search.trim().replace(/^@/,'').replace(/[%_,()]/g,'').slice(0,40);
+    if(term.length<2){setSearchUsers([]);setSearchBusy(false);setSearchError('');return;}
+    let active=true;
+    const timeout=setTimeout(async()=>{
+      setSearchBusy(true);setSearchError('');
+      try{
+        const {data:{user}}=await supabase.auth.getUser();
+        if(!user)throw new Error('Sign in to search members.');
+        const [byHandle,byName,blockedMine,blockedTheirs]=await Promise.all([
+          supabase.from('profiles').select('id,user_id,username,display_name,city')
+            .ilike('username',term+'%').limit(30),
+          supabase.from('profiles').select('id,user_id,username,display_name,city')
+            .ilike('display_name','%'+term+'%').limit(30),
+          supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id),
+          supabase.from('user_blocks').select('blocker_id').eq('blocked_id',user.id),
+        ]);
+        for(const result of [byHandle,byName,blockedMine,blockedTheirs])
+          if(result.error)throw result.error;
+        const excluded=new Set([user.id,
+          ...(blockedMine.data||[]).map(row=>row.blocked_id),
+          ...(blockedTheirs.data||[]).map(row=>row.blocker_id)]);
+        const unique=new Map<string,Profile>();
+        for(const member of [...(byHandle.data||[]),...(byName.data||[])])
+          if(member.user_id&&!excluded.has(member.user_id))
+            unique.set(member.user_id,member);
+        if(active)setSearchUsers([...unique.values()].sort((a,b)=>
+          (a.username||'').localeCompare(b.username||'')));
+      }catch(error){
+        if(active){setSearchUsers([]);setSearchError('Could not search members. Try again.');}
+      }finally{if(active)setSearchBusy(false);}
+    },250);
+    return()=>{active=false;clearTimeout(timeout);};
+  },[search]);
 
   const compareMusicDNA = (
     myDNA: MusicDNA | null,
@@ -216,10 +260,18 @@ export default function ListenersScreen() {
         throw profilesError;
       }
 
+      const [blockedMine,blockedTheirs]=await Promise.all([
+        supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id),
+        supabase.from('user_blocks').select('blocker_id').eq('blocked_id',user.id),
+      ]);
+      if(blockedMine.error)throw blockedMine.error;
+      if(blockedTheirs.error)throw blockedTheirs.error;
+      const excluded=new Set([
+        ...(blockedMine.data||[]).map(row=>row.blocked_id),
+        ...(blockedTheirs.data||[]).map(row=>row.blocker_id),
+      ]);
       const otherProfiles =
-        (profiles || []).filter(
-          (profile) => !!profile.user_id
-        );
+        (profiles || []).filter(profile=>!!profile.user_id&&!excluded.has(profile.user_id));
 
       if (otherProfiles.length === 0) {
         setListeners([]);
@@ -393,19 +445,14 @@ export default function ListenersScreen() {
             </Text>
           </View>
 
-          <Text style={styles.eyebrow}>
-            FIND YOUR PEOPLE
-          </Text>
-
-          <Text style={styles.title}>
-            Discover.
-          </Text>
-
-          <Text style={styles.subtitle}>
-            Find people who sound like
-            you — and the shows bringing
-            everyone together.
-          </Text>
+          <Text style={styles.title}>Discover.</Text>
+          <TextInput value={search} onChangeText={setSearch}
+            accessibilityLabel="Search OVRLEE members"
+            autoCapitalize="none" autoCorrect={false}
+            placeholder="Search people by name or @username"
+            placeholderTextColor={colors.secondary}
+            style={[styles.memberSearch,{color:colors.text,backgroundColor:colors.surface,borderColor:colors.border}]}
+          />
 
           <View style={styles.tabs}>
             <View
@@ -447,6 +494,29 @@ export default function ListenersScreen() {
             </Pressable>
           </View>
 
+          {searchActive && <View style={{marginTop:22,marginBottom:22}}>
+            <Text style={[styles.sectionEyebrow,{marginBottom:12}]}>MEMBERS</Text>
+            {searchBusy&&<ActivityIndicator color={colors.accent}/>}
+            {!!searchError&&<Text style={{color:colors.secondary}}>{searchError}</Text>}
+            {!searchBusy&&!searchError&&searchUsers.length===0&&
+              <Text style={{color:colors.secondary}}>No members found.</Text>}
+            {searchUsers.map(member=><Pressable key={member.user_id}
+              accessibilityRole="button" accessibilityLabel={`Open @${member.username}'s profile`}
+              onPress={()=>router.push({pathname:'/profile',params:{userId:member.user_id||''}})}
+              style={[styles.searchRow,{borderColor:colors.border}]}>
+              <View style={[styles.searchAvatar,{backgroundColor:colors.raised}]}>
+                <Text style={{color:colors.text,fontWeight:'900',fontSize:18}}>
+                  {(member.display_name||member.username||'?').slice(0,1).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{flex:1}}>
+                <Text style={{fontWeight:'800',color:colors.text}}>{member.display_name||'Listener'}</Text>
+                <Text style={{color:colors.secondary}}>@{member.username}</Text>
+              </View>
+              <Text style={{color:colors.accent,fontSize:19}}>→</Text>
+            </Pressable>)}
+          </View>}
+          {!searchActive && <>
           <View
             style={
               styles.sectionHeading
@@ -473,8 +543,7 @@ export default function ListenersScreen() {
                 styles.sectionSubtitle
               }
             >
-              Ranked by the music you
-              have in common.
+              Based on the artists you choose.
             </Text>
           </View>
 
@@ -775,8 +844,7 @@ export default function ListenersScreen() {
                             styles.noOverlap
                           }
                         >
-                          Different rotations
-                          right now.
+                          No shared artists yet.
                         </Text>
                       ) : (
                         <Text
@@ -784,8 +852,7 @@ export default function ListenersScreen() {
                             styles.noOverlap
                           }
                         >
-                          Waiting for their
-                          Music DNA.
+                          Explore their profile.
                         </Text>
                       )}
                     </Pressable>
@@ -795,9 +862,7 @@ export default function ListenersScreen() {
             </View>
           )}
 
-          <Text style={styles.footer}>
-            FOR THE OVERLY OBSESSED.
-          </Text>
+          </>
         </ScrollView>
       </View>
 
@@ -820,6 +885,9 @@ const baseStyles = StyleSheet.create({
     flex: 1,
   },
 
+  memberSearch:{borderRadius:14,borderWidth:1,paddingHorizontal:17,paddingVertical:15,fontSize:15,marginTop:24,marginBottom:12},
+  searchRow:{flexDirection:'row',alignItems:'center',gap:12,borderBottomWidth:1,paddingVertical:14},
+  searchAvatar:{height:45,width:45,borderRadius:23,alignItems:'center',justifyContent:'center'},
   content: {
     paddingHorizontal: 22,
     paddingTop: 10,
