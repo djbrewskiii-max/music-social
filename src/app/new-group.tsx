@@ -28,6 +28,7 @@ export default function NewGroupScreen() {
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const router = useRouter();
   const [title, setTitle] = useState('');
+  const [search, setSearch] = useState('');
   const [mutuals, setMutuals] = useState<MutualUser[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,9 @@ export default function NewGroupScreen() {
     }
   }
 
+  const needle=search.trim().replace(/^@/,'').toLocaleLowerCase();
+  const matchedMutuals=needle ? mutuals.filter(person=>person.username.toLocaleLowerCase().includes(needle)) : mutuals;
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -139,11 +143,23 @@ export default function NewGroupScreen() {
         {!!error && <Text style={{ color: '#ff9494', marginBottom: 12 }}>{error}</Text>}
         <TextInput
           style={styles.nameInput}
+          placeholder="Search mutuals by @username"
+          placeholderTextColor={colors.secondary}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel="Search people to add to group"
+        />
+        <TextInput
+          style={styles.nameInput}
           placeholder="Group name (optional)"
-          placeholderTextColor="#666"
+          placeholderTextColor={colors.secondary}
           value={title}
           onChangeText={setTitle}
           autoCorrect={false}
+          maxLength={60}
+          accessibilityLabel="Group name"
         />
 
         <View style={styles.sectionHeader}>
@@ -155,8 +171,16 @@ export default function NewGroupScreen() {
           <ActivityIndicator color="#00E575" style={{ marginTop: 40 }} />
         ) : (
           <FlatList
-            data={mutuals}
-            ListEmptyComponent={<Text style={{ color: '#999', marginTop: 28, textAlign: 'center' }}>Follow each other to start a group together.</Text>}
+            data={matchedMutuals}
+            ListEmptyComponent={<View style={{alignItems:'center',paddingVertical:24,paddingHorizontal:14}}>
+              <Text style={[styles.emptyText,{color:colors.secondary}]}>
+                {needle ? 'No matching mutuals.' : 'Group chats are for people who follow each other.'}
+              </Text>
+              <TouchableOpacity onPress={()=>router.push({pathname:'/listeners',params:needle?{search:needle}:{}})}
+                accessibilityRole="button" accessibilityLabel="Find members in Discover">
+                <Text style={[styles.findPeople,{color:colors.accent}]}>FIND PEOPLE →</Text>
+              </TouchableOpacity>
+            </View>}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
@@ -245,4 +269,6 @@ const baseStyles = StyleSheet.create({
   },
   checkboxActive: { backgroundColor: '#00E575', borderColor: '#00E575' },
   checkmark: { color: '#000000', fontSize: 13, fontWeight: '900' },
+  emptyText:{fontSize:14,textAlign:'center'},
+  findPeople:{fontSize:12,fontWeight:'900',marginTop:18,letterSpacing:0.8},
 });
