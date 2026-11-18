@@ -75,6 +75,12 @@ The first pass fixed nine dark-only active screens plus the Home activity bell, 
 
 **Pass standard:** All A01–A15 documented PASS, or non-critical defect explicitly accepted for the limited beta. Zero account/data loss, zero privacy bypass, zero crash in the core journey, no stuck login/feed/chat/compose route. Each defect gets a screenshot, steps, build ID, and issue.
 
+## November 17–18 backend audit update
+- **Live hosted policy corrected:** `message_reports` previously had an ambiguous `conversation_id` comparison; migration `20261118022425_harden_message_report_conversation_membership` now explicitly matches the reporting row and requires direct/group membership. Hosted definition verified after applying.
+- The existing `messages` SELECT RLS already enforced conversation access; this change adds defense in depth and correct report classification, not proof of an observed data breach.
+- Supabase advisors still flag 11 authenticated `SECURITY DEFINER` RPCs and three RLS/no-policy tables (internal/locked down); definitions and grants were inspected. Keep real account abuse-testing open.
+- **Still open:** two-account report tests, live 18+ signup hook activation, deletion/media cleanup, leaked-password protection setting, human moderation and legal/support publication. [Track in Safety #2](https://github.com/djbrewskiii-max/music-social/issues/2).
+
 ## Phase 2 — Trust, data privacy and operations
 **Tracking:** [#2](https://github.com/djbrewskiii-max/music-social/issues/2), [#3](https://github.com/djbrewskiii-max/music-social/issues/3)
 - [ ] Activate/confirm beta age-auth hook; test rejected account under 18
