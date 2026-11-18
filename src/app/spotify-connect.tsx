@@ -92,7 +92,7 @@ export default function SpotifyConnectScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.kicker}>LISTEN WITH SPOTIFY</Text>
         <Text style={styles.title}>Keep listening on Spotify.</Text>
