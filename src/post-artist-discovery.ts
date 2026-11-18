@@ -17,9 +17,9 @@ export function postArtistDiscovery(credit:string, resolvedPrimary?:string|null)
   if(!original)return null;
   const combined=isCombinedArtistCredit(original);
   const primary=(resolvedPrimary||'').trim();
-  const target=combined
-    ? primary && !isCombinedArtistCredit(primary) ? primary : null
-    : original;
+  // The catalog's canonical artist is trustworthy even when its *name*
+  // contains an ampersand or comma (e.g. Simon & Garfunkel).
+  const target=combined ? (primary||null) : original;
   const candidates=combined?Array.from(new Set(splitArtists(original))):[original];
   if(!target && candidates.length<2)return null;
   return {target,candidates,label:target?'EXPLORE '+target.toUpperCase():'EXPLORE ARTISTS'};
