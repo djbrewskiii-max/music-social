@@ -281,21 +281,6 @@ export default function NowScreen() {
 
   const [savingPostIds, setSavingPostIds] = useState<string[]>([]);
 
-  const [
-    replyingPostId,
-    setReplyingPostId,
-  ] = useState<string | null>(null);
-
-  const [
-    replyBody,
-    setReplyBody,
-  ] = useState('');
-
-  const [
-    sendingReply,
-    setSendingReply,
-  ] = useState(false);
-
   const compareMusicDNA = (
     myDNA: MusicDNA | null,
     theirDNA: MusicDNA | null
@@ -1420,161 +1405,6 @@ export default function NowScreen() {
       setSavingPostIds(current => current.filter(id => id !== postId));
     }
   };
-
-  const startQuickReply =
-    (postId: string) => {
-      if (
-        replyingPostId ===
-        postId
-      ) {
-        setReplyingPostId(null);
-        setReplyBody('');
-        return;
-      }
-
-      setReplyingPostId(postId);
-      setReplyBody('');
-    };
-
-  const sendQuickReply =
-    async (
-      postId: string
-    ) => {
-      const trimmed =
-        replyBody.trim();
-
-      if (
-        !trimmed ||
-        sendingReply
-      ) {
-        return;
-      }
-
-      setSendingReply(true);
-
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } =
-          await supabase.auth.getUser();
-
-        if (
-          userError ||
-          !user
-        ) {
-          router.replace('/login');
-          return;
-        }
-
-        const {
-          data: insertedReply,
-          error,
-        } = await supabase
-          .from('post_replies')
-          .insert({
-            post_id: postId,
-            user_id: user.id,
-            body: trimmed,
-          })
-          .select(
-            'id, created_at, post_id, user_id, body'
-          )
-          .single();
-
-        if (error) {
-          console.log(
-            'Quick reply error:',
-            error.message
-          );
-          return;
-        }
-
-        const {
-          data: profileData,
-          error: profileError,
-        } = await supabase
-          .from('profiles')
-          .select(
-            'user_id, display_name, username, avatar_url'
-          )
-          .eq(
-            'user_id',
-            user.id
-          )
-          .maybeSingle();
-
-        if (
-          profileError
-        ) {
-          console.log(
-            'Quick reply profile error:',
-            profileError.message
-          );
-        }
-
-        const reply =
-          insertedReply as ReplyRow;
-
-        const newReply:
-          FeedReply = {
-          id: reply.id,
-
-          userId:
-            user.id,
-
-          displayName:
-            profileData?.display_name ||
-            'Listener',
-
-          username:
-            profileData?.username ||
-            'nowuser',
-
-          avatarUrl: profileData?.avatar_url || null,
-
-          body: trimmed,
-
-          createdAt:
-            reply.created_at,
-        };
-
-        setPosts(
-          (currentPosts) =>
-            currentPosts.map(
-              (post) =>
-                post.id ===
-                postId
-                  ? {
-                      ...post,
-
-                      replyCount:
-                        post.replyCount +
-                        1,
-
-                      replies: [
-                        ...post.replies,
-                        newReply,
-                      ],
-
-                      latestReply:
-                        newReply,
-                    }
-                  : post
-            )
-        );
-
-        setReplyBody('');
-        setReplyingPostId(null);
-      } catch (error) {
-        console.log(
-          'Quick reply error:',
-          error
-        );
-      } finally {
-        setSendingReply(false);
-      }
-    };
 
   const openProfile = async (userId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -2849,10 +2679,6 @@ export default function NowScreen() {
                   likingPostIds.includes(
                     post.id
                   );
-
-                const quickReplyOpen =
-                  replyingPostId ===
-                  post.id;
 
                 return (
                   <Pressable accessibilityRole="button"
