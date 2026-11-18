@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { sameCityRegion, isMatchingCity, OFFLINE_WORLD_CITIES } from '../src/world-city-fallback.ts';
+
+assert.equal(sameCityRegion('CT','Connecticut','US'),true,'CT matches full state');
+assert.equal(sameCityRegion('Connecticut','CT','US'),true,'Full state matches CT');
+assert.equal(sameCityRegion('CA','California','US'),true);
+assert.equal(sameCityRegion('Ontario','Ontario','CA'),true);
+assert.equal(sameCityRegion('Quebec','Ontario','CA'),false);
+assert.equal(sameCityRegion('California','Connecticut','US'),false);
+const ontario=OFFLINE_WORLD_CITIES.filter(x=>isMatchingCity(x,'', 'CA','Ontario'));
+assert.ok(ontario.length>=8,'Ontario has useful offline suggestions');
+const ottawa=OFFLINE_WORLD_CITIES.filter(x=>isMatchingCity(x,'Otta','CA','Ontario'));
+assert.equal(ottawa.length,1,'Ottawa is found offline when typing Otta');
+assert.equal(ottawa[0].label,'Ottawa, Ontario, Canada');
+assert.ok(Number.isFinite(ottawa[0].lat)&&Number.isFinite(ottawa[0].lon));
+assert.ok(OFFLINE_WORLD_CITIES.some(x=>isMatchingCity(x,'Toronto','CA','Ontario')));
+assert.ok(!OFFLINE_WORLD_CITIES.some(x=>isMatchingCity(x,'Ottawa','US','Connecticut')));
+assert.ok(OFFLINE_WORLD_CITIES.some(x=>isMatchingCity(x,'Manchester','GB','England')));
+assert.ok(OFFLINE_WORLD_CITIES.some(x=>isMatchingCity(x,'São Paulo','BR','São Paulo')));
+console.log('Country/region matching and offline city search regression checks passed');
