@@ -36,7 +36,7 @@ import CollectionPreview from '../components/CollectionPreview';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
-import {postArtistDiscovery} from '../post-artist-discovery';
+import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import {openPostReportDialog} from '../post-reporting';
 import { previewKey, useSongPreview } from '../preview-player';
 import type { CollectionMeta } from '../collection';
@@ -3080,25 +3080,11 @@ export default function NowScreen() {
                       </View>
                     )}
 
-                    {(() => {
-                      const songId=String(post.apple_music_id||post.music_items?.[0]?.id||'');
-                      const discovery=postArtistDiscovery(post.artist_name||'',primaryArtists[songId]?.name);
-                      if(!discovery)return null;
-                      const {target,candidates,label}=discovery;
-                      const go=(artist:string)=>router.push({pathname:'/music-discovery',params:{artist,song:post.song_title}});
-                      return <Pressable accessibilityRole="button"
-                        accessibilityLabel={target ? `Discover listeners and posts for ${target}` : 'Choose a credited artist to explore'}
-                        onPress={() => {
-                          if(target){go(target);return;}
-                          Alert.alert('Explore an artist','Choose a credited artist',[
-                            ...candidates.slice(0,8).map(artist=>({text:artist,onPress:()=>go(artist)})),
-                            {text:'Cancel',style:'cancel' as const},
-                          ]);
-                        }}
-                        style={{ alignSelf: 'flex-start', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, marginTop: 9, backgroundColor: scheme==='light'?'#F2E6E0':'#112315' }}>
-                        <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '900' }}>{label} →</Text>
-                      </Pressable>;
-                    })()}
+                    <PostArtistDiscoveryLink
+                      credit={post.artist_name || ''}
+                      primaryArtist={primaryArtists[String(post.apple_music_id||post.music_items?.[0]?.id||'')]?.name}
+                      song={post.song_title}
+                    />
                     <View
                       style={
                         styles.actions
