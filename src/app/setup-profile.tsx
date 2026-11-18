@@ -211,9 +211,6 @@ export default function SetupProfileScreen() {
               Make it yours.
             </Text>
 
-            <Text style={styles.subheading}>
-              This is how people will know you on OVRLEE.
-            </Text>
 
             <View style={styles.form}>
               <Text style={styles.label}>
