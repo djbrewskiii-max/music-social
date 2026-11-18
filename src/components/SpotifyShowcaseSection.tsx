@@ -52,7 +52,8 @@ export default function SpotifyShowcaseSection({ userId, owner = false }: { user
   }, [owner, userId]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  if (!owner && (!loaded || !links.length)) return null;
+  // Empty Spotify showcases belong in Settings, not as onboarding-like profile clutter.
+  if (!loaded || !links.length) return null;
 
   const open = async (link: SpotifyShowcaseLink) => {
     if (link.kind === 'playlist') {
