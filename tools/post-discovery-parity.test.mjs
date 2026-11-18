@@ -28,8 +28,11 @@ assert.equal(postCreditsArtist('Tyler, The Creator','Tyler, The Creator'),true);
 const feed=read('app/now.tsx');
 const detail=read('app/post.tsx');
 const discover=read('app/music-discovery.tsx');
+const link=read('components/PostArtistDiscoveryLink.tsx');
 for(const [place,source] of [['feed',feed],['post detail',detail]])
-  assert.match(source,/postArtistDiscovery\(/,`${place} must use the shared discovery rule`);
+  assert.match(source,/<PostArtistDiscoveryLink\b/,`${place} must render the same artist-discovery component`);
+assert.match(link,/postArtistDiscovery\(/, 'The shared UI must delegate collaboration handling to the shared pure helper');
+assert.match(link,/sourcePostId/, 'Discovery must retain a link back to the source post');
 assert.doesNotMatch(detail,/DISCOVER MORE FROM/, 'Post detail must not use a gigantic combined-credits banner');
 assert.match(detail,/isCombinedArtistCredit/);
 assert.match(discover,/postCreditsArtist\(/);
