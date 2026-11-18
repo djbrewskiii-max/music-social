@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { supabase } from '../supabase';
 import { tasteKey } from '../music-taste-evidence';
+import {setOnboardingStage} from '../onboarding-progress';
 
 const GREEN='#39E75F';
 const MIN=5;
@@ -115,7 +116,10 @@ export default function PickArtistsScreen(){
       });
       if(error)throw error;
       if(editing)router.replace('/music-settings');
-      else router.replace({pathname:'/core-four',params:{onboarding:'1'}});
+      else {
+        await setOnboardingStage(user.id,'core-four');
+        router.replace({pathname:'/core-four',params:{onboarding:'1'}});
+      }
     }catch(e){Alert.alert('Could not save artists',e instanceof Error?e.message:'Try again.');}
     finally{setSaving(false);}
   };
