@@ -324,14 +324,14 @@ export default function YouTwoCard({ viewerId, userId, theirName }: Props) {
         )}
       </View>
       {showWhy && showSparks && <Text style={styles.why}>{why}</Text>}
-      {glow === 'dim' && !showWhy && <Text style={styles.why}>It’s been quiet. Say something to relight it.</Text>}
+
 
       {loading ? (
         <ActivityIndicator color={GREEN} style={{ marginVertical: 18 }} />
       ) : (
         <>
           {!hasAnything && (
-            <Text style={styles.subtle}>Different taste is how you find new music. Their Core Four is a good place to start.</Text>
+            <Text style={styles.subtle}>No shared music yet.</Text>
           )}
 
           {reasons.length > 0 && (
