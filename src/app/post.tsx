@@ -1,4 +1,6 @@
 import {useAppearance} from '../appearance';
+import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
+import {postArtistDiscovery} from '../post-artist-discovery';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {openPostReportDialog} from '../post-reporting';
@@ -31,6 +33,19 @@ export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string; sharedUrl?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
+  const [resolvedPrimaryArtist,setResolvedPrimaryArtist]=useState<string|null>(null);
+  useEffect(()=>{
+    let active=true;
+    setResolvedPrimaryArtist(null);
+    const credit=post?.artist_name||'';
+    const songId=String(post?.apple_music_id||post?.music_items?.[0]?.id||'');
+    if(!credit||!isCombinedArtistCredit(credit)||!songId)return;
+    void applePrimaryArtist(songId).then(found=>{
+      if(active)setResolvedPrimaryArtist(found?.name||null);
+    });
+    return ()=>{active=false;};
+  },[post?.id,post?.artist_name,post?.apple_music_id]);
+
   const { activeKey: previewActiveKey, loadingKey: previewLoadingKey, toggle: toggleSongPreview } = useSongPreview();
   const [author, setAuthor] = useState<{ name: string; username: string; avatar: string | null }>({ name: 'Listener', username: '', avatar: null });
   const [replies, setReplies] = useState<Reply[]>([]);
@@ -277,6 +292,8 @@ export default function PostDetailScreen() {
     setTimeout(()=>composeRef.current?.focus(),100);
   };
   const photos = post ? photoList(post) : [];
+  const discovery=post?postArtistDiscovery(post.artist_name||'',resolvedPrimaryArtist):null;
+  const openArtistDiscovery=(artist:string)=>router.push({pathname:'/music-discovery',params:{artist,song:post?.song_title||''}});
   const music = post ? (Array.isArray(post.music_items) && post.music_items.length
     ? post.music_items : [{ id: post.apple_music_id || undefined, song: post.song_title, artist: post.artist_name, artworkUrl: post.artwork_url || undefined }]) : [];
   return <SafeAreaView style={styles.screen}>
@@ -346,15 +363,8 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
-          {!!post?.artist_name && (
-            <Pressable accessibilityRole="button" accessibilityLabel={`Explore posts and listeners of ${post.artist_name}`}
-              onPress={() => router.push({ pathname: '/music-discovery', params: { artist: post.artist_name, song: post.song_title } })}
-              style={{ marginBottom: 14, alignSelf: 'flex-start', paddingVertical: 7, paddingHorizontal: 12, backgroundColor: '#102517', borderRadius: 20 }}>
-              <Text style={{ color: green, fontSize: 12, fontWeight: '800' }}>DISCOVER MORE FROM {post.artist_name.toUpperCase()}  →</Text>
-            </Pressable>
-          )}
           <View style={styles.musicCard}>
-            <Text style={styles.musicLabel}>{music.length > 1 ? `COLLECTION · ${music.length} TRACKS` : 'MUSIC'}</Text>
+            {music.length > 1 && <Text style={styles.musicLabel}>COLLECTION · {music.length} TRACKS</Text>}
             {music.map((track, i) => {
               const key = previewKey(track);
               const playing = previewActiveKey === key;
@@ -384,6 +394,19 @@ export default function PostDetailScreen() {
             })}
 
           </View>
+          {discovery && <Pressable accessibilityRole="button"
+            accessibilityLabel={discovery.target ? `Explore posts and listeners for ${discovery.target}` : 'Choose a credited artist to explore'}
+            onPress={()=>{
+              if(discovery.target){openArtistDiscovery(discovery.target);return;}
+              Alert.alert('Explore an artist','Choose a credited artist',[
+                ...discovery.candidates.slice(0,8).map(artist=>({text:artist,onPress:()=>openArtistDiscovery(artist)})),
+                {text:'Cancel',style:'cancel' as const}
+              ]);
+            }}
+            style={{alignSelf:'flex-start',borderRadius:18,paddingVertical:8,paddingHorizontal:12,
+              marginTop:9,marginBottom:14,backgroundColor:scheme==='light'?'#F2E6E0':'#112315'}}>
+            <Text style={{color:scheme==='light'?'#3B2218':green,fontSize:11,fontWeight:'900'}}>{discovery.label} →</Text>
+          </Pressable>}
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:14}}>
             <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}
               accessibilityRole="button" accessibilityLabel={liked?'Unlike post':'Like post'}>
