@@ -50,6 +50,7 @@ type Profile = {
   avatar_url: string | null;
   header_url: string | null;
   profile_color: string | null;
+  preferred_music_service?: 'spotify' | 'apple_music' | null;
 };
 
 type MusicTrack = {
@@ -278,7 +279,7 @@ export default function MyProfileScreen() {
             supabase
               .from('profiles')
               .select(
-                'display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color'
+                'display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color, preferred_music_service'
               )
               .eq(
                 'user_id',
@@ -1184,7 +1185,7 @@ export default function MyProfileScreen() {
 
           <FirstListenShelf owner />
 
-          <SpotifyShowcaseSection owner />
+          {profile?.preferred_music_service==='spotify'&&<SpotifyShowcaseSection owner />}
 
           <View
             style={
