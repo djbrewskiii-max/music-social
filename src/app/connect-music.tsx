@@ -67,7 +67,7 @@ export default function ConnectMusicScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container,{backgroundColor:colors.background}]}>
       <View style={styles.content}>
         <View>
           <Text style={styles.logo}>OVRLEE</Text>
