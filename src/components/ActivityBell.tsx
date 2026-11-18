@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useAppearance } from '../appearance';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -7,6 +8,7 @@ import { subscribeToUnreadCounts } from '../notifications';
 const GREEN = '#39E75F';
 
 export default function ActivityBell() {
+  const {colors}=useAppearance();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => subscribeToUnreadCounts((counts) => setUnread(counts.activity)), []);
@@ -19,7 +21,7 @@ export default function ActivityBell() {
       hitSlop={12}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
-      <Text style={styles.icon}>♡</Text>
+      <Text style={[styles.icon,{color:colors.text}]}>♡</Text>
       {unread > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
