@@ -1,7 +1,7 @@
 import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
 import { Catalog } from '@wwdrew/expo-apple-music';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { supabase } from '../supabase';
@@ -28,6 +28,9 @@ const upscale = (url?: string | null) => (url || '').replace(/100x100(?:bb)?/, '
 
 export default function CoreFourScreen() {
   const {scheme,colors}=useAppearance();
+  const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
+  const isOnboarding=onboarding==='1';
+  const [favoriteArtists,setFavoriteArtists]=useState<string[]>([]);
   const s=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [userId, setUserId] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Album[]>([]);
@@ -48,6 +51,10 @@ export default function CoreFourScreen() {
       if (!active) return;
       if (error || !user) { Alert.alert('Sign in required', 'Please sign in to edit your Core Four.'); router.back(); return; }
       setUserId(user.id);
+      const {data:favoriteRows}=await supabase.from('music_taste_artists')
+        .select('artist_name').eq('user_id',user.id).eq('source','favorite')
+        .order('updated_at',{ascending:false}).limit(20);
+      if(active)setFavoriteArtists((favoriteRows||[]).map(row=>row.artist_name));
       const { data, error: loadError } = await supabase.from('core_four_albums')
         .select('apple_music_id,album_title,artist_name,artwork_url,position')
         .eq('user_id', user.id).order('position', { ascending: true });
@@ -122,14 +129,17 @@ export default function CoreFourScreen() {
     const { error } = await supabase.from('core_four_albums').upsert(payload, { onConflict: 'user_id,position' });
     setSaving(false);
     if (error) { Alert.alert('Could not save Core Four', error.message); return; }
-    setChanged(false); router.back();
+    setChanged(false);
+    if(isOnboarding)router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+    else router.back();
   }
   if (loading) return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}><ActivityIndicator color={GREEN} style={{ marginTop: 90 }} /></SafeAreaView>;
   return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}>
     <View style={s.header}><Pressable onPress={() => { if (changed) Alert.alert('Discard changes?', 'Your new selection has not been saved.', [{ text: 'Keep editing', style: 'cancel' }, { text: 'Discard', style: 'destructive', onPress: () => router.back() }]); else router.back(); }}><Text style={s.back}>‹</Text></Pressable><Text style={s.logo}>OVRLEE</Text><View style={{ width: 30 }} /></View>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
-      <Text style={s.eyebrow}>YOUR MUSIC IDENTITY</Text><Text style={s.title}>Core Four.</Text>
-      <Text style={s.subtitle}>Four albums that define you.</Text>
+      <Text style={s.eyebrow}>{isOnboarding?'YOUR MUSIC · 2 OF 4':'YOUR MUSIC IDENTITY'}</Text>
+      <Text style={s.title}>Core Four.</Text>
+      <Text style={s.subtitle}>Choose four albums that define your taste.</Text>
       <View style={s.grid}>{Array.from({ length: 4 }, (_, i) => {
         const album = chosen[i];
         return <View key={i} style={s.slot}>
@@ -139,6 +149,16 @@ export default function CoreFourScreen() {
         </View>;
       })}</View>
       <Text style={s.count}>{chosen.length} OF 4 SELECTED</Text>
+      {isOnboarding&&favoriteArtists.length>0&&<>
+        <Text style={s.searchLabel}>START WITH YOUR ARTISTS</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:9,paddingBottom:16}}>
+          {favoriteArtists.slice(0,10).map(name=><Pressable key={name}
+            accessibilityRole="button" accessibilityLabel={`Search albums by ${name}`}
+            onPress={()=>setQuery(name)} style={{borderRadius:18,padding:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.surface}}>
+            <Text style={{color:colors.text,fontWeight:'700'}}>{name}</Text>
+          </Pressable>)}
+        </ScrollView>
+      </>}
       <Text style={s.searchLabel}>{query.trim().length >= 2 ? 'SEARCH RESULTS' : 'EXPLORE ALBUMS'}</Text>
       <TextInput placeholder="Search an album or artist" placeholderTextColor="#777" value={query} onChangeText={setQuery} autoCorrect={false} style={s.search} returnKeyType="search" />
       {searching && <ActivityIndicator color={GREEN} style={{ marginVertical: 18 }} />}
@@ -154,9 +174,19 @@ export default function CoreFourScreen() {
       })}
       {searchError && <Text style={s.hint}>Apple Music search failed: {searchError}</Text>}
       {query.trim().length > 1 && !searching && !searchError && results.length === 0 && <Text style={s.hint}>No albums returned. Try the album title or artist name.</Text>}
-      <Text style={s.note}>Your Core Four stays on your profile until you decide to change it.</Text>
+
     </ScrollView>
-    <View style={s.footer}><Pressable style={[s.save, (chosen.length !== 4 || saving) && s.disabled]} onPress={save} disabled={saving || chosen.length !== 4}><Text style={s.saveText}>{saving ? 'SAVING…' : 'SAVE CORE FOUR'}</Text></Pressable></View>
+    <View style={s.footer}>
+      <Pressable style={[s.save, (chosen.length !== 4 || saving) && s.disabled]}
+        onPress={save} disabled={saving || chosen.length !== 4}>
+        <Text style={s.saveText}>{saving ? 'SAVING…' : isOnboarding?'NEXT: IN ROTATION →':'SAVE CORE FOUR'}</Text>
+      </Pressable>
+      {isOnboarding&&<Pressable accessibilityRole="button" disabled={saving}
+        onPress={()=>router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}})}
+        style={{alignItems:'center',paddingVertical:14}}>
+        <Text style={{color:colors.secondary,fontWeight:'700'}}>Choose albums later</Text>
+      </Pressable>}
+    </View>
   </SafeAreaView>;
 }
 const baseStyles = StyleSheet.create({
