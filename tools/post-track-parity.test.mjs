@@ -33,6 +33,14 @@ assert.equal(firstPostTrack({...post,music_items:[{
 }]}).id,'123','Partial imported metadata retains its catalog-ID fallback');
 
 const feed=read('app/now.tsx'),detail=read('app/post.tsx');
+const card=read('components/PostMusicTrackCard.tsx');
+assert.match(card,/track\.kind === 'album' \? \(/,
+  'Album cards must have an explicit album-only action');
+assert.match(card,/>OPEN ALBUM<\/Text>/,
+  'An album must open in the user’s music service, not present a dead preview');
+assert.match(card,/\) : \(\s*<>\s*<SongPreviewButton/,
+  'Preview and +Rotation must only render on song cards');
+
 assert.match(feed,/track=\{firstPostTrack\(post\)\}/,'Feed must display the normalized first item');
 assert.match(feed,/const track = firstPostTrack\(post\)/,'Feed link must use that same first item');
 assert.match(feed,/resolveTrackLink\([\s\S]*?track\.song, track\.artist, track\.id/,
