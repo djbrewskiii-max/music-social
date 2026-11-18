@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { supabase } from '../supabase';
+import {postCreditsArtist} from '../post-artist-discovery';
 import { activityMusicSeeds, listeningMusicSeeds, mergeMusicSeeds, musicSuggestionSeeds, selectSuggestedPosts } from '../music-suggestion-signals';
 
 type Post = {
@@ -89,12 +90,12 @@ export default function MusicDiscoveryScreen() {
       }
       // Only posts visible under RLS can appear here. No private listening
       // history is exposed to other users.
-      const safeArtist = artist.replace(/[%,()]/g, '').trim();
+      const safeArtist = artist.replace(/[%_\\]/g, '').trim();
       if (!safeArtist) { setPosts([]); setPeople([]); return; }
       const fields = 'id,user_id,body,song_title,artist_name,artwork_url,created_at,collection';
       const [leadResult, includedResult] = await Promise.all([
         supabase.from('posts').select(fields)
-          .ilike('artist_name', safeArtist)
+          .ilike('artist_name', `%${safeArtist}%`)
           .order('created_at', { ascending: false }).limit(60),
         // Include songs inside multi-track collections, not just the lead artist.
         supabase.from('posts').select(fields)
@@ -105,7 +106,7 @@ export default function MusicDiscoveryScreen() {
       if (includedResult.error) console.log('Artist collection discovery:', includedResult.error.message);
       const merged = new Map<string, Post>();
       for (const item of [
-        ...((leadResult.data || []) as Post[]),
+        ...((leadResult.data || []) as Post[]).filter(p=>postCreditsArtist(p.artist_name,artist)),
         ...((includedResult.data || []) as Post[]),
       ]) merged.set(item.id, item);
       const visible = [...merged.values()]
@@ -135,12 +136,10 @@ export default function MusicDiscoveryScreen() {
         <View style={{ width: 28 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.overline}>MUSIC CONNECTS US</Text>
+        {!artist && <Text style={styles.overline}>FIND YOUR PEOPLE THROUGH MUSIC</Text>}
         <Text style={styles.artist}>{artist || 'For your ears.'}</Text>
         {!!song && <Text style={styles.song}>{song}</Text>}
-        <Text style={styles.description}>{artist
-          ? "People who've posted music by this artist. Find a collection, discover a listener, or join the conversation."
-          : "Artists and conversations to explore, based on music you've chosen or connected. These suggestions don't claim what you've listened to."}</Text>
+        {!artist && <Text style={styles.description}>From your music picks and OVRLEE activity.</Text>}
 
         {busy && <ActivityIndicator color={green} style={{ marginTop: 40 }} />}
         {!!error && <Pressable onPress={() => void load()} style={styles.notice}>
@@ -176,7 +175,7 @@ export default function MusicDiscoveryScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
-            ) : <Text style={styles.empty}>{artist?'No listeners have posted this artist yet.':'As people post music you explore, relevant listeners can appear here.'}</Text>}
+            ) : <Text style={styles.empty}>{artist?'No listeners yet.':'No matching listeners yet.'}</Text>}
 
             <Text style={styles.section}>{artist?'POSTS & COLLECTIONS':'CONVERSATIONS FOR YOU'} · {posts.length}</Text>
             {posts.map(post => {
@@ -192,7 +191,7 @@ export default function MusicDiscoveryScreen() {
                 <Text style={{ color: green, fontWeight: '900' }}>›</Text>
               </Pressable>;
             })}
-            {!posts.length && <Text style={styles.empty}>{artist?'Be the first to post this artist to OVRLEE.':'Explore an artist above to find more conversations. Suggestions improve as the community shares music.'}</Text>}
+            {!posts.length && <Text style={styles.empty}>{artist?'No posts yet.':'No matching posts yet.'}</Text>}
             <Pressable onPress={() => router.push('/create-post')} style={styles.cta}>
               <Text style={styles.ctaText}>POST MUSIC +</Text>
             </Pressable>
