@@ -144,10 +144,8 @@ export default function MusicDiscoveryScreen() {
         <View style={{ width: 28 }} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
-        {!artist && <Text style={styles.overline}>FIND YOUR PEOPLE THROUGH MUSIC</Text>}
         <Text style={styles.artist}>{artist || 'For your ears.'}</Text>
         {!!song && <Text style={styles.song}>{song}</Text>}
-        {!artist && <Text style={styles.description}>From your music picks and OVRLEE activity.</Text>}
 
         {busy && <ActivityIndicator color={green} style={{ marginTop: 40 }} />}
         {!!error && <Pressable onPress={() => void load()} style={styles.notice}>
@@ -183,7 +181,7 @@ export default function MusicDiscoveryScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
-            ) : <Text style={styles.empty}>{artist?'No listeners yet.':'No matching listeners yet.'}</Text>}
+            ) : <Text style={styles.empty}>{artist?'No other listeners found.':'No listeners found.'}</Text>}
 
             <Text style={styles.section}>{artist?'POSTS & COLLECTIONS':'CONVERSATIONS FOR YOU'} · {posts.length}</Text>
             {posts.map(post => {
@@ -199,7 +197,7 @@ export default function MusicDiscoveryScreen() {
                 <Text style={{ color: green, fontWeight: '900' }}>›</Text>
               </Pressable>;
             })}
-            {!posts.length && <Text style={styles.empty}>{artist?'No posts yet.':'No matching posts yet.'}</Text>}
+            {!posts.length && <Text style={styles.empty}>{artist?'No more posts found for this artist.':'No matching posts yet.'}</Text>}
             <Pressable onPress={() => router.push('/create-post')} style={styles.cta}>
               <Text style={styles.ctaText}>POST MUSIC +</Text>
             </Pressable>
