@@ -398,6 +398,7 @@ export default function PostDetailScreen() {
             credit={post.artist_name || ''}
             primaryArtist={resolvedPrimaryArtist}
             song={post.song_title}
+            sourcePostId={post.id}
           />}
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:14}}>
             <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}
