@@ -53,13 +53,23 @@ export default function PostMusicTrackCard({
       </View>
     </Pressable>
     <View style={styles.actions}>
-      <SongPreviewButton size="compact" id={track.id||undefined}
-        song={track.song} artist={track.artist} kind={track.kind||'song'}/>
-      <Pressable hitSlop={8} accessibilityRole="button"
-        accessibilityLabel={`Add ${track.song} to your rotation`}
-        onPress={()=>void pin()} style={styles.rotationButton}>
-        <Text style={[styles.rotation,{color:light?'#3B2218':'#39E75F'}]}>+ ROTATION</Text>
-      </Pressable>
+      {track.kind === 'album' ? (
+        <Pressable hitSlop={8} accessibilityRole="button"
+          accessibilityLabel={`Open album ${track.song} in your music service`}
+          onPress={()=>void onOpen()} style={styles.rotationButton}>
+          <Text style={[styles.rotation,{color:light?'#3B2218':'#39E75F'}]}>OPEN ALBUM</Text>
+        </Pressable>
+      ) : (
+        <>
+          <SongPreviewButton size="compact" id={track.id||undefined}
+            song={track.song} artist={track.artist} kind="song"/>
+          <Pressable hitSlop={8} accessibilityRole="button"
+            accessibilityLabel={`Add ${track.song} to your rotation`}
+            onPress={()=>void pin()} style={styles.rotationButton}>
+            <Text style={[styles.rotation,{color:light?'#3B2218':'#39E75F'}]}>+ ROTATION</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   </View>;
 }
