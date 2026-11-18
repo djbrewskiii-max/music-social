@@ -26,4 +26,15 @@ const bell=readFileSync(new URL('../src/components/ActivityBell.tsx',import.meta
 assert.ok(bell.includes('color:colors.text'),'Home activity bell must be visible in light mode');
 const intro=readFileSync(new URL('../src/components/OverlyIntro.tsx',import.meta.url),'utf8');
 assert.ok(intro.includes('shouldShowOverlyIntro()'),'Animated intro must respect daily frequency and opt-out');
+// Specific release screenshots: enforce the meaningful brand/contrast decisions.
+const radar=readFileSync(new URL('../src/app/concerts.tsx',import.meta.url),'utf8');
+assert.match(radar,/styles\.searchWrap,scheme==='light'&&\{backgroundColor:'#F2EBE6',borderColor:/,
+  'Radar artist search needs an explicit, visible cream/brown field in light mode');
+const others=readFileSync(new URL('../src/app/profile.tsx',import.meta.url),'utf8');
+assert.match(others,/alignSelf:'center',textAlign:'center',width:'100%'/,
+  'Viewed member OVERLY identity should be centered across the profile width');
+const own=readFileSync(new URL('../src/app/my-profile.tsx',import.meta.url),'utf8');
+assert.match(own,/alignSelf:'flex-start',textAlign:'left'/,
+  'Own profile keeps its deliberately left-aligned identity presentation');
+
 console.log(`Appearance coverage: ${routes.length} routes checked, 0 unthemed styled screens`);
