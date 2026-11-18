@@ -69,7 +69,7 @@ export default function FollowsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={14}><Text style={styles.back}>←</Text></Pressable>
         <View style={styles.headerCenter}><Text style={styles.brand}>OVRLEE</Text><Text style={styles.subtitle}>{typeof params.name === 'string' ? params.name : 'CONNECTIONS'}</Text></View>
