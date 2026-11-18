@@ -1893,12 +1893,12 @@ export default function NowScreen() {
               alignItems:'center',gap:12}}>
               <Text style={styles.feedEyebrow}>DISCOVER</Text>
               <Pressable accessibilityRole="button"
-                accessibilityLabel="Explore music and people nearby"
-                onPress={()=>router.push('/nearby')}
+                accessibilityLabel="Find OVRLEE members"
+                onPress={()=>router.push('/listeners')}
                 hitSlop={10}
                 style={{paddingVertical:7,paddingHorizontal:9}}>
                 <Text style={{color:brandAccent,fontWeight:'900',fontSize:11,
-                  letterSpacing:1}}>NEARBY ↗</Text>
+                  letterSpacing:1}}>FIND PEOPLE ↗</Text>
               </Pressable>
             </View>
 
