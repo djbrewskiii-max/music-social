@@ -961,8 +961,10 @@ export default function MyProfileScreen() {
                 style={[
                   styles.brandDot,
                   {
-                    backgroundColor:
-                      profileColor,
+                    // Preserve the brand-green music indicator in light mode.
+                    // Do not override an intentionally chosen custom profile color.
+                    backgroundColor: savedColor.toLowerCase()==='#39e75f'
+                      ? '#39E75F' : profileColor,
                   },
                 ]}
               />
