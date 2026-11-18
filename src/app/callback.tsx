@@ -1,7 +1,9 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 
 import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SpotifyRemote from '../../now-spotify';
@@ -25,6 +27,8 @@ function getCallbackFromParams(params: RouteParams): string | null {
 }
 
 export default function SpotifyCallbackScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const params = useLocalSearchParams() as RouteParams;
   const routeQuery = JSON.stringify(params);
   const incomingURL = Linking.useURL();
@@ -151,7 +155,7 @@ export default function SpotifyCallbackScreen() {
   }, [incomingURL, routeQuery]);
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen,{backgroundColor:colors.background}]}>
       <View style={styles.content}>
         {!finished && <ActivityIndicator size="large" color="#1ED760" />}
         <Text style={styles.heading}>{finished ? 'Spotify connection' : 'Connecting Spotify'}</Text>
@@ -180,7 +184,7 @@ export default function SpotifyCallbackScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#090909' },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 20 },
   heading: { color: '#fff', fontSize: 27, fontWeight: '700', textAlign: 'center' },
