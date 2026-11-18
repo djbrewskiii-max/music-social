@@ -149,7 +149,7 @@ export default function ImportedMusic() {
   );
 }
 
-const baseStylestyles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   page:{flex:1,backgroundColor:'#090909'},
   header:{height:60,flexDirection:'row',alignItems:'center',justifyContent:'space-between',
     paddingHorizontal:20,borderBottomWidth:1,borderBottomColor:'#242424'},
