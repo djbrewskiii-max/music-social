@@ -80,7 +80,7 @@ export default function WorldCityPicker({visible,onClose,onPick}:{
           {hasQuery&&!searching&&!canSearchLiveCities()&&
             <Text style={styles.privacy}>More cities are being added. You can update yours later.</Text>}
         </ScrollView>
-        <Text style={styles.privacy}>Only your selected city is used—never your exact location.</Text>
+        <Text style={styles.privacy}>We use city-level location, not your GPS position.</Text>
       </View>
     </SafeAreaView>
   </Modal>;
