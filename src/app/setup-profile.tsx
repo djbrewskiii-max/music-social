@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { supabase } from '../supabase';
+import {setOnboardingStage} from '../onboarding-progress';
 import WorldCityPicker from '../components/WorldCityPicker';
 
 export default function SetupProfileScreen() {
@@ -172,6 +173,7 @@ export default function SetupProfileScreen() {
     }
 
     const hadCompletedProfile=!!(existingProfile?.display_name && existingProfile?.username);
+    if(!hadCompletedProfile) await setOnboardingStage(user.id,'pick-artists');
     router.replace(hadCompletedProfile ? '/now' : '/pick-artists');
   };
 
