@@ -82,6 +82,8 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const sendInFlight = useRef(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -146,6 +148,8 @@ export default function ChatScreen() {
 
   const initializeChat = async () => {
     setLoading(true);
+    setHistoryError('');
+    setMessages([]);
 
     const {
       data: { user },
@@ -223,6 +227,7 @@ export default function ChatScreen() {
     } else if (otherUserId) {
       // 1-on-1 conversation resolution
       if (otherUserId === user.id) {
+        setHistoryError('You cannot message your own account.');
         setLoading(false);
         return;
       }
@@ -271,6 +276,7 @@ export default function ChatScreen() {
     }
 
     if (!activeConversationId) {
+      setHistoryError('This conversation could not be opened. Go back and try again.');
       setLoading(false);
       return;
     }
@@ -294,7 +300,6 @@ export default function ChatScreen() {
     }
 
     setConversationId(activeConversationId);
-    markRead(activeConversationId);
 
     const { data: existingMessages, error: messagesError } = await supabase
       .from('messages')
@@ -302,8 +307,13 @@ export default function ChatScreen() {
       .eq('conversation_id', activeConversationId)
       .order('created_at', { ascending: true });
 
-    if (!messagesError) {
+    if (messagesError) {
+      console.log('Conversation history load:', messagesError.message);
+      setHistoryError('Could not load conversation history. Check your connection and retry.');
+      setMessages([]);
+    } else {
       setMessages(existingMessages || []);
+      void markRead(activeConversationId);
     }
 
     setLoading(false);
@@ -317,50 +327,46 @@ export default function ChatScreen() {
     const card = staged;
     const cleanMessage = typed || (card ? fallbackBody(card) : '');
 
-    if (!cleanMessage || !conversationId || !currentUserId || sending) {
-      return;
-    }
+    // A ref blocks two taps within one React render, not just after setSending.
+    if (!cleanMessage || !conversationId || !currentUserId || historyError ||
+        sending || sendInFlight.current) return;
 
+    sendInFlight.current = true;
     setSending(true);
     setMessage('');
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          body: cleanMessage,
+          attachment: card ? { ...card, autoBody: !typed } : null,
+        })
+        .select('id, conversation_id, sender_id, body, created_at, attachment')
+        .single();
 
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id: currentUserId,
-        body: cleanMessage,
-        attachment: card ? { ...card, autoBody: !typed } : null,
-      })
-      .select('id, conversation_id, sender_id, body, created_at, attachment')
-      .single();
-
-    if (error) {
+      if (error) throw error;
+      setStaged(null);
+      if (data) {
+        setMessages(currentMessages =>
+          currentMessages.some(item => item.id === data.id)
+            ? currentMessages : [...currentMessages, data]);
+      }
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (error: any) {
+      // Restore the draft and music attachment; nothing was confirmed sent.
       setMessage(typed);
-      setSending(false);
       Alert.alert(
-        error.code === '42501' ? 'Messaging unavailable' : "Message didn't send",
-        error.code === '42501'
+        error?.code === '42501' ? 'Messaging unavailable' : "Message didn't send",
+        error?.code === '42501'
           ? "You can't message this account."
           : 'Check your connection and try again.'
       );
-      return;
+    } finally {
+      sendInFlight.current = false;
+      setSending(false);
     }
-
-    setStaged(null);
-
-    if (data) {
-      setMessages((currentMessages) => {
-        const alreadyExists = currentMessages.some((item) => item.id === data.id);
-        if (alreadyExists) return currentMessages;
-        return [...currentMessages, data];
-      });
-    }
-
-    setSending(false);
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 100);
   };
 
   const showGroupInfo = () => {
@@ -377,11 +383,15 @@ export default function ChatScreen() {
           text: 'Leave Group',
           style: 'destructive',
           onPress: async () => {
-            await supabase
+            const {error: leaveError} = await supabase
               .from('conversation_members')
               .delete()
               .eq('conversation_id', conversationId)
               .eq('user_id', currentUserId);
+            if (leaveError) {
+              Alert.alert('Could not leave group', 'Please check your connection and try again.');
+              return;
+            }
             router.back();
           },
         },
@@ -459,11 +469,20 @@ export default function ChatScreen() {
             </>
           )}
 
-          {messages.length === 0 ? (
+          {!!historyError && (
+            <View style={styles.emptyConversation}>
+              <Text style={styles.emptyText}>{historyError}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Retry loading conversation"
+                onPress={()=>void initializeChat()} style={{padding:14,marginTop:10}}>
+                <Text style={{color:scheme==='light'?'#3B2218':'#39E75F',fontWeight:'800'}}>RETRY</Text>
+              </Pressable>
+            </View>
+          )}
+          {messages.length === 0 && !historyError ? (
             <View style={styles.emptyConversation}>
               <Text style={styles.emptyTitle}>Say something.</Text>
             </View>
-          ) : (
+          ) : !historyError ? (
             <View style={styles.messages}>
               {messages.map((item) => {
                 const isMine = item.sender_id === currentUserId;
@@ -551,7 +570,7 @@ export default function ChatScreen() {
                 );
               })}
             </View>
-          )}
+          ) : null}
         </ScrollView>
 
         {!!staged && (
@@ -585,15 +604,15 @@ export default function ChatScreen() {
             onChangeText={setMessage}
             returnKeyType="send"
             onSubmitEditing={sendMessage}
-            editable={!!conversationId && !sending}
+            editable={!!conversationId && !sending && !historyError}
           />
 
           <Pressable
             onPress={sendMessage}
-            disabled={(!message.trim() && !staged) || !conversationId || sending}
+            disabled={(!message.trim() && !staged) || !conversationId || sending || !!historyError}
             style={({ pressed }) => [
               styles.sendButton,
-              ((!message.trim() && !staged) || !conversationId || sending) &&
+              ((!message.trim() && !staged) || !conversationId || sending || !!historyError) &&
                 styles.sendButtonDisabled,
               pressed && (message.trim() || staged) && styles.sendPressed,
             ]}
