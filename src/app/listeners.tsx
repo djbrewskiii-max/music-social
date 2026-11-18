@@ -1,6 +1,8 @@
+import { useAppearance } from '../appearance';
+import { themedStyleSheet } from '../theme-style';
 import { launchSafeTasteEvidence } from '../music-launch-sources';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -58,6 +60,8 @@ const songKey = (track: MusicTrack) =>
   `${normalize(track.artist)}::${normalize(track.song)}`;
 
 export default function ListenersScreen() {
+  const {scheme,colors}=useAppearance();
+  const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [listeners, setListeners] =
     useState<Listener[]>([]);
 
@@ -802,7 +806,7 @@ export default function ListenersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStylestyles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#050505',
