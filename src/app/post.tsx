@@ -366,9 +366,9 @@ export default function PostDetailScreen() {
             <PostMusicTrackCard
               track={{
                 id:music[0].id || post.apple_music_id,
-                song:music[0].song,
-                artist:music[0].artist,
-                artworkUrl:music[0].artworkUrl,
+                song:music[0].song || post.song_title,
+                artist:music[0].artist || post.artist_name,
+                artworkUrl:music[0].artworkUrl || post.artwork_url,
                 kind:music[0].kind,
               }}
               albumName={!post.collection ? post.album_name : null}
