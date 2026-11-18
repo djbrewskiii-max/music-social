@@ -20,7 +20,7 @@ import { supabase } from '../supabase';
 import WorldCityPicker from '../components/WorldCityPicker';
 
 export default function SetupProfileScreen() {
-  const {scheme}=useAppearance();
+  const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
@@ -248,10 +248,10 @@ export default function SetupProfileScreen() {
               </Text>
 
               <Pressable onPress={() => setCityPickerVisible(true)} accessibilityRole="button"
-                accessibilityLabel="Choose city worldwide"
+                accessibilityLabel="Choose a city"
                 style={[styles.input, { justifyContent: 'center' }]}>
-                <Text style={{ color: city ? '#fff' : '#888', fontSize: 16 }}>
-                  {city || 'Select your city, anywhere in the world'}
+                <Text style={{ color: city ? colors.text : colors.secondary, fontSize: 16 }}>
+                  {city || 'Choose your city'}
                 </Text>
               </Pressable>
             </View>
