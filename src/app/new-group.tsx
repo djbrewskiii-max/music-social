@@ -167,10 +167,13 @@ export default function NewGroupScreen() {
                   onPress={() => toggleSelect(item.id)}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={{ uri: item.avatar_url ?? 'https://via.placeholder.com/44' }}
-                    style={styles.avatar}
-                  />
+                  {item.avatar_url ? (
+                    <Image source={{uri:item.avatar_url}} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar,styles.avatarEmpty]} accessibilityLabel={`${item.username} has no profile image`}>
+                      <Text style={styles.avatarInitial}>{(item.username || '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
                   <Text style={styles.username}>@{item.username}</Text>
                   <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
                     {isSelected && <Text style={styles.checkmark}>✓</Text>}
@@ -228,6 +231,8 @@ const baseStyles = StyleSheet.create({
     borderBottomColor: '#1A1A1A',
   },
   avatar: { width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: '#222' },
+  avatarEmpty:{alignItems:'center',justifyContent:'center',backgroundColor:'#E9DCD2'},
+  avatarInitial:{color:'#3B2218',fontSize:18,fontWeight:'900'},
   username: { color: '#FFFFFF', fontSize: 16, fontWeight: '500', flex: 1 },
   checkbox: {
     width: 24,
