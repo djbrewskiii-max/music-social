@@ -21,6 +21,8 @@ export default function PickArtistsScreen(){
   const [text,setText]=useState('');
   const [favorites,setFavorites]=useState<string[]>([]);
   const [suggestions,setSuggestions]=useState<string[]>([]);
+  const [artistMatches,setArtistMatches]=useState<string[]>([]);
+  const [artistSearching,setArtistSearching]=useState(false);
   const [share,setShare]=useState(false);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -47,6 +49,29 @@ export default function PickArtistsScreen(){
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
+  // Canonical name suggestions are public catalog metadata, not private listening data.
+  useEffect(()=>{
+    const term=text.trim();
+    if(term.length<2){setArtistMatches([]);setArtistSearching(false);return;}
+    const controller=new AbortController();
+    const timer=setTimeout(async()=>{
+      setArtistSearching(true);
+      try{
+        const url='https://itunes.apple.com/search?media=music&entity=musicArtist&limit=15&term='+encodeURIComponent(term);
+        const response=await fetch(url,{signal:controller.signal});
+        if(!response.ok)throw new Error('Artist lookup unavailable');
+        const json=await response.json();
+        const names=[...new Set((json?.results||[])
+          .map((row:any)=>String(row.artistName||'').trim()).filter(Boolean))] as string[];
+        names.sort((a,b)=>Number(b.toLowerCase().startsWith(term.toLowerCase()))-
+          Number(a.toLowerCase().startsWith(term.toLowerCase())));
+        if(!controller.signal.aborted)setArtistMatches(names.slice(0,7));
+      }catch{if(!controller.signal.aborted)setArtistMatches([]);}
+      finally{if(!controller.signal.aborted)setArtistSearching(false);}
+    },250);
+    return()=>{clearTimeout(timer);controller.abort();};
+  },[text]);
+
   const keys=useMemo(()=>new Set(favorites.map(tasteKey)),[favorites]);
   const add=(raw:string)=>{
     const names=raw.split(/[,\n]/).map(t=>t.trim().slice(0,120)).filter(Boolean);
@@ -61,6 +86,7 @@ export default function PickArtistsScreen(){
       return next;
     });
     setText('');
+    setArtistMatches([]);
   };
   const save=async()=>{
     if(saving||favorites.length<MIN)return;
@@ -110,6 +136,16 @@ export default function PickArtistsScreen(){
           <Pressable style={s.add} onPress={()=>add(text)}
             accessibilityRole="button" accessibilityLabel="Add artist"><Text style={s.addText}>+</Text></Pressable>
         </View>
+        {artistSearching&&<ActivityIndicator color={colors.accent} style={{marginTop:8}}/>}
+        {!!artistMatches.filter(name=>!keys.has(tasteKey(name))).length&&
+          <View style={s.chips}>
+            {artistMatches.filter(name=>!keys.has(tasteKey(name))).map(name=>
+              <Pressable key={tasteKey(name)} accessibilityRole="button"
+                accessibilityLabel={'Choose '+name} style={s.suggestChip}
+                onPress={()=>add(name)}>
+                <Text style={s.suggestText}>+ {name}</Text>
+              </Pressable>)}
+          </View>}
         {loading&&<ActivityIndicator color={GREEN} style={{marginTop:18}}/>}
         {favorites.length>0&&<View style={s.chips}>
           {favorites.map(name=><Pressable key={tasteKey(name)} accessibilityRole="button"
