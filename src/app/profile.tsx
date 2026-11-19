@@ -93,6 +93,7 @@ type PostRow = {
   created_at: string;
   user_id: string;
   body: string | null;
+  post_kind?: 'music' | 'aux_prompt';
   song_title: string;
   artist_name: string;
   album_name: string | null;
@@ -345,7 +346,7 @@ function ProfileContent() {
             supabase
               .from('posts')
               .select(
-                'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection'
+                'id, created_at, user_id, body, post_kind, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection'
               )
               .eq(
                 'user_id',
@@ -1759,6 +1760,7 @@ function ProfileContent() {
                       </Text>
                     </View>
 
+                    {post.post_kind==='aux_prompt'&&<Text style={{color:brandAccent,fontSize:11,fontWeight:'900',letterSpacing:1.3,marginTop:6,marginBottom:6}}>THE AUX · OVRLEE ASKS</Text>}
                     {!!post.body && (
                       <Text
                         style={
@@ -1776,7 +1778,7 @@ function ProfileContent() {
 
                     {post.collection ? (
                       <CollectionPreview post={{ ...post, music_items: post.music_items || [], collection: post.collection }} username={profile.username || ''} slideWidth={160} />
-                    ) : (<View
+                    ) : post.post_kind==='aux_prompt' ? null : (<View
                       style={
                         styles.postMusic
                       }
