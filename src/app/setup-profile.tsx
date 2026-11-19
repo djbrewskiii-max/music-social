@@ -114,7 +114,7 @@ export default function SetupProfileScreen() {
     const { data: existingProfile, error: checkError } =
       await supabase
         .from('profiles')
-        .select('id,display_name,username,city')
+        .select('id,display_name,username,city,onboarding_complete')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -172,9 +172,14 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    const hadCompletedProfile=!!(existingProfile?.display_name && existingProfile?.username);
-    if(!hadCompletedProfile) await setOnboardingStage(user.id,'pick-artists');
-    router.replace(hadCompletedProfile ? '/now' : '/pick-artists');
+    // An earlier partial setup may have saved name/username without completing
+    // the five-artist journey. Only the server completion flag can unlock Home.
+    if(existingProfile?.onboarding_complete===true){
+      router.replace('/now');
+    }else{
+      await setOnboardingStage(user.id,'pick-artists');
+      router.replace('/pick-artists');
+    }
   };
 
   const canContinue =
