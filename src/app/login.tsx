@@ -73,7 +73,7 @@ export default function LoginScreen() {
       error: profileError,
     } = await supabase
       .from('profiles')
-      .select('user_id')
+      .select('user_id,display_name,username,onboarding_complete')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -94,8 +94,18 @@ export default function LoginScreen() {
     }
 
     const stage=await getOnboardingStage(user.id);
-    if(stage==='setup-profile'||(!existingProfile&&!stage)){
+    if(!existingProfile?.display_name?.trim() || !existingProfile?.username?.trim()){
       router.replace('/setup-profile');
+      return;
+    }
+    if(existingProfile.onboarding_complete===true){
+      router.replace('/now');
+      return;
+    }
+    // A new account can have an auth session while its music identity is
+    // unfinished. Do not show the feed until setup is completed.
+    if(!stage || stage==='setup-profile'){
+      router.replace('/pick-artists');
       return;
     }
     if(stage==='pick-artists'){router.replace('/pick-artists');return;}
