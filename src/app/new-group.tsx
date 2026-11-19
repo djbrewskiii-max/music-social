@@ -1,6 +1,6 @@
 import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../supabase';
 
 interface MutualUser {
@@ -34,16 +34,22 @@ export default function NewGroupScreen() {
   const [directoryMatches,setDirectoryMatches]=useState<MutualUser[]>([]);
   const [searchBusy,setSearchBusy]=useState(false);
   const [searchError,setSearchError]=useState('');
+  const [refreshTick,setRefreshTick]=useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchMutuals();
-  }, []);
+  // Recheck eligibility after returning from someone's profile. A member
+  // who just became a mutual should be immediately addable without typing
+  // the username again or reopening the New Group screen.
+  useFocusEffect(useCallback(()=>{
+    void fetchMutuals();
+    setRefreshTick(tick=>tick+1);
+  },[]));
 
   async function fetchMutuals() {
+    setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); setError('Please sign in to start a group.'); return; }
 
@@ -137,7 +143,7 @@ export default function NewGroupScreen() {
       }finally{if(active)setSearchBusy(false);}
     },300);
     return()=>{active=false;clearTimeout(timer);};
-  },[needle]);
+  },[needle,refreshTick]);
   const matchedMutuals=needle
     ? mutuals.filter(person=>person.username.toLocaleLowerCase().includes(needle)
         || (person.display_name||'').toLocaleLowerCase().includes(needle))
