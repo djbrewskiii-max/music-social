@@ -44,7 +44,7 @@ type GroupMember = {
 };
 
 export default function ChatScreen() {
-  const {scheme}=useAppearance();
+  const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>{
     const defaults=themedStyleSheet(baseStyles,scheme);
     // Message bubbles are intentional two-sided surfaces, not generic
@@ -60,6 +60,7 @@ export default function ChatScreen() {
     draft?: string;
     attach?: string;
     isGroup?: string;
+    search?: string;
   }>();
 
   const otherUserId = params.userId || '';
@@ -81,6 +82,8 @@ export default function ChatScreen() {
     typeof params.draft === 'string' ? params.draft : ''
   );
   const [messages, setMessages] = useState<Message[]>([]);
+  const [searchOpen,setSearchOpen]=useState(params.search==='1');
+  const [searchTerm,setSearchTerm]=useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -405,6 +408,10 @@ export default function ChatScreen() {
   };
 
 
+  const needle=searchTerm.trim().toLocaleLowerCase();
+  const visibleMessages=needle
+    ? messages.filter(item=>String(item.body||'').toLocaleLowerCase().includes(needle))
+    : messages;
   const initial = isGroup ? '👥' : chatName.trim().charAt(0).toUpperCase() || '?';
 
   if (loading) {
@@ -447,8 +454,28 @@ export default function ChatScreen() {
             </View>
           </TouchableOpacity>
 
-          <View style={styles.headerSpacer} />
+          <Pressable accessibilityRole="button"
+            accessibilityLabel={searchOpen?'Close message search':'Search messages'}
+            onPress={()=>{setSearchOpen(value=>!value);setSearchTerm('');}}
+            style={{padding:9,borderRadius:15}}>
+            <Text style={{color:colors.text,fontWeight:'800',fontSize:13}}>
+              {searchOpen?'CLOSE':'SEARCH'}
+            </Text>
+          </Pressable>
         </View>
+
+        {searchOpen&&<View style={{paddingHorizontal:17,paddingVertical:10,
+          backgroundColor:colors.background,borderBottomWidth:1,borderBottomColor:colors.border}}>
+          <TextInput autoFocus value={searchTerm} onChangeText={setSearchTerm}
+            accessibilityLabel="Search recent messages in this chat"
+            placeholder="Search recent messages" placeholderTextColor={colors.secondary}
+            autoCapitalize="none" style={{color:colors.text,backgroundColor:colors.surface,
+              borderWidth:1,borderColor:colors.border,borderRadius:13,paddingHorizontal:14,
+              paddingVertical:12,fontSize:15}}/>
+          {!!needle&&<Text style={{fontSize:11,color:colors.secondary,marginTop:8}}>
+            {visibleMessages.length} matching message{visibleMessages.length===1?'':'s'} · recent history
+          </Text>}
+        </View>}
 
         <ScrollView
           ref={scrollRef}
@@ -483,13 +510,13 @@ export default function ChatScreen() {
               </Pressable>
             </View>
           )}
-          {messages.length === 0 && !historyError ? (
+          {visibleMessages.length === 0 && !historyError ? (
             <View style={styles.emptyConversation}>
-              <Text style={styles.emptyTitle}>Say something.</Text>
+              <Text style={styles.emptyTitle}>{needle?'No messages match.':'Say something.'}</Text>
             </View>
           ) : !historyError ? (
             <View style={styles.messages}>
-              {messages.map((item) => {
+              {visibleMessages.map((item) => {
                 const isMine = item.sender_id === currentUserId;
                 const senderDisplay = memberMap[item.sender_id] || 'Member';
 
