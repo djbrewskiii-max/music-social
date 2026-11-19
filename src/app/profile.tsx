@@ -163,7 +163,14 @@ const trackKey = (
     track.song
   )}`;
 
-export default function ProfileScreen() {
+// Prevent Expo Router from reusing another member's cached profile data when
+// the target userId changes during gestures, back navigation or deep links.
+export default function ProfileScreen(){
+  const {userId}=useLocalSearchParams<{userId?:string}>();
+  return <ProfileContent key={typeof userId==='string'?userId:'invalid'} />;
+}
+
+function ProfileContent() {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const brandAccent=scheme==='light'?'#3B2218':'#39E75F';
@@ -398,9 +405,11 @@ export default function ProfileScreen() {
           return;
         }
 
-        setProfile(
-          profileResult.data
-        );
+        if(profileResult.data && profileResult.data.user_id!==userId){
+          setProfile(null);
+          return;
+        }
+        setProfile(profileResult.data);
 
         await refreshRelationships(user.id, userId);
 
