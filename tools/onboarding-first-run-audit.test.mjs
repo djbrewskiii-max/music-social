@@ -49,7 +49,11 @@ assert.doesNotMatch(service,/router\.push\('\/spotify-connect'\)/,
 assert.match(service,/spotifyButton/);
 assert.match(service,/color: '#3B2218'/,'Spotify choice must not be greyed out');
 
-assert.match(group,/Search mutuals by @username/);
+assert.match(group,/Search people by @username/);
+assert.match(group,/directoryMatches/,
+  'New Group must search the whole member directory, not only mutuals');
+assert.match(group,/const canAdd=mutualIds.has\(item.id\)/,
+  'Members can view nonmutual profiles but only invite eligible mutuals');
 assert.match(group,/matchedMutuals=needle/);
 assert.match(group,/pathname:'\/listeners'/,'Non-mutual searches should offer member discovery');
 assert.match(memberSearch,/Search people by name or @username/);
