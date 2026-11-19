@@ -14,7 +14,7 @@ assert.match(direct,/if \(messagesError\) \{[\s\S]*?setHistoryError\(/,
   'DM read failure must show an actionable error');
 assert.match(direct,/Retry loading conversation/,
   'DM history needs a retry button');
-assert.match(direct,/messages\.length === 0 && !historyError/,
+assert.match(direct,/visibleMessages\.length === 0 && !historyError/,
   'DM history failure cannot say the conversation is empty');
 assert.match(direct,/disabled=\{\(!message\.trim\(\) && !staged\) \|\| !conversationId \|\| sending \|\| !!historyError\}/,
   'Do not allow a send before successful history validation');
