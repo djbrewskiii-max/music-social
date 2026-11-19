@@ -3,8 +3,12 @@ import {StyleSheet} from 'react-native';
 const CHOCOLATE='#3B2218';
 const LIGHT_CHOCOLATE='#BA8B73';
 const GREEN='#39E75F';
-const ONLINE=new Set(['online','live','presence','unread','new','verified','success','status','listening','dot','activeindicator','available']);
-const isStatus=(key:string)=>ONLINE.has(key.toLowerCase())||/(?:online|live|presence|unread|verified|success|listening|status|newdot|roomcountdot|onlinedot)/i.test(key);
+// Meaningful state indicators must stay green in both appearance modes.
+// Decorative brand green can become chocolate, but never online/live/availability dots.
+const ONLINE=new Set(['online','live','presence','unread','new','verified','success','status','listening','dot','activeindicator','available','branddot']);
+const isStatus=(key:string)=>ONLINE.has(key.toLowerCase())||
+  /(?:online|live|presence|unread|verified|success|listening|status|notification|availability|active|here|roomcount)/i.test(key)||
+  /(?:^|[A-Z])Dot$/.test(key);
 
 function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):string{
   if(scheme==='dark')return value; // Preserve the original dark design exactly.
@@ -16,7 +20,7 @@ function recolor(name:string,prop:string,value:string,scheme:'light'|'dark'):str
   const brightGreen=/(?:#39e75f|#35d95[0-9a-f]|#2fe[0-9a-f]{3}|#ba[f0-9]{4})/i.test(value);
   const status=isStatus(name);
   if(brightGreen){
-    if(status)return GREEN;
+    if(status)return (textProp&&scheme==='light' ? '#16843E' : GREEN);
     if(textProp||borderProp)return scheme==='light'?CHOCOLATE:LIGHT_CHOCOLATE;
     if(bgProp)return scheme==='light'?'#EFE0D7':'#3B2218';
   }
