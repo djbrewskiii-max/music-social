@@ -1,3 +1,4 @@
+import {supabase} from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** Local navigation checkpoint for new first-run signup journeys.
@@ -29,7 +30,19 @@ export async function setOnboardingStage(userId:string,stage:OnboardingStage):Pr
 }
 
 export async function finishOnboarding(userId:string):Promise<void>{
-  if(!userId)return;
+  if(!userId)throw new Error('Sign in to finish setting up OVRLEE.');
+  const {data:{user}}=await supabase.auth.getUser();
+  if(!user||user.id!==userId)throw new Error('The active account changed. Sign in again.');
+  const {data:profile,error:readError}=await supabase.from('profiles')
+    .select('display_name,username').eq('user_id',userId).maybeSingle();
+  if(readError)throw readError;
+  if(!profile?.display_name?.trim()||!profile?.username?.trim())
+    throw new Error('Choose a display name and username before entering OVRLEE.');
+  // The server-side completion flag, not local storage, gates public discovery.
+  const {data:completed,error}=await supabase.from('profiles')
+    .update({onboarding_complete:true}).eq('user_id',userId)
+    .select('user_id,onboarding_complete').single();
+  if(error||!completed?.onboarding_complete)throw (error||new Error('Could not finish setup.'));
   try{await AsyncStorage.removeItem(key(userId));}
-  catch(error){console.log('Onboarding checkpoint cleanup:',error);}
+  catch(err){console.log('Onboarding checkpoint cleanup:',err);}
 }
