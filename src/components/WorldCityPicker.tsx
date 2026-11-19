@@ -77,7 +77,7 @@ export default function WorldCityPicker({visible,onClose,onPick}:{
           {!hasQuery&&<Text style={styles.feedback}>Type at least two letters to find your city.</Text>}
           {hasQuery&&!searching&&!error&&results.length===0&&
             <Text style={styles.feedback}>No matching city yet. Try a nearby city or choose later.</Text>}
-          {hasQuery&&!searching&&!canSearchLiveCities()&&
+          {hasQuery&&!searching&&!canSearchLiveCities()&&!results.some(c=>c.source==='geonames')&&
             <Text style={styles.privacy}>More cities are being added. You can update yours later.</Text>}
         </ScrollView>
         <Text style={styles.privacy}>We use city-level location, not your GPS position.</Text>
