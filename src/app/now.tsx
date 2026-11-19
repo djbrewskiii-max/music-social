@@ -2867,12 +2867,12 @@ export default function NowScreen() {
                       />
                     )}
 
-                    <PostArtistDiscoveryLink
+                    {!post.collection&&<PostArtistDiscoveryLink
                       credit={post.artist_name || ''}
                       primaryArtist={primaryArtists[String(post.apple_music_id||post.music_items?.[0]?.id||'')]?.name}
                       song={post.song_title}
                       sourcePostId={post.id}
-                    />
+                    />}
                     <View
                       style={
                         styles.actions
