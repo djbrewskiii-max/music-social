@@ -33,6 +33,7 @@ jobs:
       - run: node --check scripts/import-geonames-cities.mjs
       - run: node tools/launch-account-group-appearance.test.mjs
       - run: node tools/unaddressed-requests-audit.test.mjs
+      - run: node tools/group-push-mute-contract.test.mjs
       - run: node tools/beta-release-config.test.mjs
       - run: node tools/beta-ui-brand.test.mjs
       - run: node --experimental-strip-types tools/spotify-oembed.test.mjs
