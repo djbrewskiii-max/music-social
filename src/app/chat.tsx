@@ -1,8 +1,8 @@
 import ProfileAvatar from '../components/ProfileAvatar';
 import {useAppearance} from '../appearance';
 import {themedStyleSheet} from '../theme-style';
-import {useMemo} from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import {useMemo,useCallback} from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -71,6 +71,7 @@ export default function ChatScreen() {
   const [conversationId, setConversationId] = useState(params.id || '');
   const [isGroup, setIsGroup] = useState(params.isGroup === 'true');
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [groupImage,setGroupImage]=useState<string|null>(null);
   const [memberMap, setMemberMap] = useState<Record<string, string>>({});
   const [partnerUserId,setPartnerUserId]=useState(otherUserId);
   const [partnerAvatar,setPartnerAvatar]=useState<string|null>(null);
@@ -170,7 +171,7 @@ export default function ChatScreen() {
     if (activeConversationId) {
       const { data: convData } = await supabase
         .from('conversations')
-        .select('id, is_group, title, created_by, user_one, user_two')
+        .select('id, is_group, title, image_url, created_by, user_one, user_two')
         .eq('id', activeConversationId)
         .maybeSingle();
 
@@ -180,6 +181,7 @@ export default function ChatScreen() {
       }
       if (convData?.is_group) {
         setIsGroup(true);
+        setGroupImage(convData.image_url||null);
         if (convData.title) {
           setChatName(convData.title);
         }
@@ -322,6 +324,39 @@ export default function ChatScreen() {
     }, 200);
   };
 
+  // Group details may change while this screen is in the back stack.
+  // Refresh on focus so every member sees edited names, photos and people.
+  useFocusEffect(useCallback(()=>{
+    if(!conversationId||!isGroup)return;
+    let active=true;
+    void (async()=>{
+      const [conv,memberResult]=await Promise.all([
+        supabase.from('conversations').select('title,image_url')
+          .eq('id',conversationId).eq('is_group',true).maybeSingle(),
+        supabase.from('conversation_members').select('user_id,role')
+          .eq('conversation_id',conversationId),
+      ]);
+      if(!active)return;
+      if(conv.data){
+        if(conv.data.title)setChatName(conv.data.title);
+        setGroupImage(conv.data.image_url||null);
+      }
+      if(memberResult.data?.length){
+        const memberIds=memberResult.data.map(row=>row.user_id);
+        const {data:profiles}=await supabase.from('profiles')
+          .select('user_id,username,display_name,avatar_url').in('user_id',memberIds);
+        if(!active)return;
+        const byId=new Map((profiles||[]).map(p=>[p.user_id,p]));
+        setGroupMembers(memberResult.data.map(row=>{
+          const p=byId.get(row.user_id);
+          return {user_id:row.user_id,role:row.role,username:p?.username||'member',
+            display_name:p?.display_name||null,avatar_url:p?.avatar_url||null};
+        }));
+      }
+    })();
+    return()=>{active=false;};
+  },[conversationId,isGroup]));
+
   const sendMessage = async () => {
     const typed = message.trim();
     const card = staged;
@@ -369,36 +404,6 @@ export default function ChatScreen() {
     }
   };
 
-  const showGroupInfo = () => {
-    if (!isGroup) return;
-    const memberListStr = groupMembers
-      .map((m) => `@${m.username}${m.role === 'admin' ? ' (Admin)' : ''}`)
-      .join('\n');
-
-    Alert.alert(
-      chatName,
-      `Members (${groupMembers.length}):\n\n${memberListStr}`,
-      [
-        {
-          text: 'Leave Group',
-          style: 'destructive',
-          onPress: async () => {
-            const {error: leaveError} = await supabase
-              .from('conversation_members')
-              .delete()
-              .eq('conversation_id', conversationId)
-              .eq('user_id', currentUserId);
-            if (leaveError) {
-              Alert.alert('Could not leave group', 'Please check your connection and try again.');
-              return;
-            }
-            router.back();
-          },
-        },
-        { text: 'Done', style: 'cancel' },
-      ]
-    );
-  };
 
   const initial = isGroup ? '👥' : chatName.trim().charAt(0).toUpperCase() || '?';
 
@@ -424,12 +429,12 @@ export default function ChatScreen() {
 
           <TouchableOpacity
             style={styles.headerProfile}
-            onPress={isGroup ? showGroupInfo : ()=>{
+            onPress={isGroup ? ()=>router.push({pathname:'/group-info',params:{id:conversationId}}) : ()=>{
               if(partnerUserId)router.push({pathname:'/profile',params:{userId:partnerUserId}});
             }}
             activeOpacity={0.7}
           >
-            <ProfileAvatar group={isGroup} size={42} uri={partnerAvatar} name={chatName}/>
+            <ProfileAvatar group={isGroup} size={42} uri={isGroup?groupImage:partnerAvatar} name={chatName}/>
 
             <View style={styles.headerText}>
               <Text style={styles.name} numberOfLines={1}>
