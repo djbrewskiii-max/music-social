@@ -175,8 +175,8 @@ export default function PickArtistsScreen(){
           </View>
         </Pressable>
         <Pressable accessibilityRole="button" disabled={!canContinue}
-          onPress={()=>void save()} style={[s.button,!canContinue&&{opacity:.45}]}>
-          {saving?<ActivityIndicator color="#000"/>:<Text style={s.buttonText}>
+          onPress={()=>void save()} style={[s.button,{backgroundColor:colors.accent},!canContinue&&{opacity:.45}]}>
+          {saving?<ActivityIndicator color={colors.accentText}/>:<Text style={[s.buttonText,{color:colors.accentText}]}>
             {editing?'SAVE ARTISTS':'NEXT: YOUR ALBUMS'} →
           </Text>}
         </Pressable>
