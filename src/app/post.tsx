@@ -340,10 +340,6 @@ export default function PostDetailScreen() {
             {author.avatar ? <Image source={{ uri: author.avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={{ color: '#fff' }}>{author.name[0]}</Text></View>}
             <View><Text style={styles.authorName}>{author.name}</Text><Text style={styles.secondary}>@{author.username}</Text></View>
           </Pressable>
-          {post.post_kind==='aux_prompt'&&<Text style={{fontSize:11,fontWeight:'900',
-            letterSpacing:1.6,color:colors.accent,marginTop:12,marginBottom:9}}>
-            THE AUX · OVRLEE ASKS
-          </Text>}
           {!!post.body && !post.collection && <Text style={styles.caption}>{post.body}</Text>}
           {!!post.collection && fontsLoaded && (() => {
             const items = itemsFromPost(post);
