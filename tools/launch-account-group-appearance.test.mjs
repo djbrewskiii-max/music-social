@@ -42,7 +42,7 @@ assert.match(profile,/ProfileContent key=\{typeof userId==='string'\?userId:'inv
  'Viewing a new profile must remount state, not flash old data');
 assert.match(login,/onboarding_complete===true/);
 assert.match(index,/onboarding_complete===false/);
-assert.match(progress,/update\(\{onboarding_complete:true\}\)/,
+assert.match(progress,/update\(\{onboarding_complete:true,onboarding_stage:null\}\)/,
  'Completing the auth account is not completing signup');
 assert.match(sql,/Members see finished profiles or their own setup/);
 
@@ -62,3 +62,12 @@ assert.match(read('components/ProfileAvatar.tsx'),/if\(valid\)\{/,
  'Uploaded group images must render just like profile photos');
 
 console.log('Account identity, theme semantics, group controls and collection discovery checks passed');
+
+const checkpointMigration=readFileSync(new URL('../supabase/migrations/20261119230000_server_onboarding_resume_and_completion_guard.sql',import.meta.url),'utf8');
+assert.match(checkpointMigration,/guard_profile_completion/);
+assert.match(checkpointMigration,/before insert or update of onboarding_complete,onboarding_stage/);
+assert.match(checkpointMigration,/source='favorite'\)<5/,
+  'Database must reject incomplete five-artist profiles even if clients skip UI');
+assert.match(progress,/onboarding_stage:stage/);
+assert.match(progress,/select\('onboarding_stage,onboarding_complete'\)/,
+  'Cross-device login must resume from server checkpoint');
