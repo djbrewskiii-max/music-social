@@ -10,6 +10,7 @@ import { openMusicCard } from '../music-card';
 import { previewKey, useSongPreview } from '../preview-player';
 import Slide, { buildSlides, ThemeKey } from './CollectionSlides';
 import SongPreviewButton from './SongPreviewButton';
+import CollectionArtistDiscoveryLinks from './CollectionArtistDiscoveryLinks';
 
 /*
   How a collection appears in the feed and on profiles: its title in the
@@ -93,6 +94,7 @@ export default function CollectionPreview({
           </Pressable>
         )}
       </View>
+      <CollectionArtistDiscoveryLinks items={items} sourcePostId={post.id}/>
     </View>
   );
 }
