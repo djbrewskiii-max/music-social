@@ -1760,7 +1760,6 @@ function ProfileContent() {
                       </Text>
                     </View>
 
-                    {post.post_kind==='aux_prompt'&&<Text style={{color:brandAccent,fontSize:11,fontWeight:'900',letterSpacing:1.3,marginTop:6,marginBottom:6}}>THE AUX · OVRLEE ASKS</Text>}
                     {!!post.body && (
                       <Text
                         style={
