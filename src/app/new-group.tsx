@@ -21,6 +21,7 @@ interface MutualUser {
   id: string;
   username: string;
   avatar_url: string | null;
+  display_name?: string | null;
 }
 
 export default function NewGroupScreen() {
@@ -30,6 +31,9 @@ export default function NewGroupScreen() {
   const [title, setTitle] = useState('');
   const [search, setSearch] = useState('');
   const [mutuals, setMutuals] = useState<MutualUser[]>([]);
+  const [directoryMatches,setDirectoryMatches]=useState<MutualUser[]>([]);
+  const [searchBusy,setSearchBusy]=useState(false);
+  const [searchError,setSearchError]=useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -62,7 +66,7 @@ export default function NewGroupScreen() {
         return;
       }
       const [profilesResult, blockedResult, blockedByResult] = await Promise.all([
-        supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', mutualIds),
+        supabase.from('profiles').select('user_id, username, display_name, avatar_url').in('user_id', mutualIds).eq('onboarding_complete',true),
         supabase.from('user_blocks').select('blocked_id').eq('blocker_id', user.id),
         supabase.from('user_blocks').select('blocker_id').eq('blocked_id', user.id),
       ]);
@@ -75,7 +79,8 @@ export default function NewGroupScreen() {
         .filter((person) => !hidden.has(person.user_id))
         .map((person) => ({
           id: person.user_id,
-          username: person.username || 'listener',
+          username: person.username || '',
+          display_name: person.display_name,
           avatar_url: person.avatar_url,
         })));
     } catch (error) {
@@ -87,8 +92,62 @@ export default function NewGroupScreen() {
     }
   }
 
-  const needle=search.trim().replace(/^@/,'').toLocaleLowerCase();
-  const matchedMutuals=needle ? mutuals.filter(person=>person.username.toLocaleLowerCase().includes(needle)) : mutuals;
+  // Typing @username searches the *entire* finished member directory,
+  // not just mutuals. Non-mutuals are discoverable but cannot be added to
+  // a private group without a two-way follow relationship.
+  const needle=search.trim().replace(/^@/,'').replace(/[%_,()\\]/g,'')
+    .slice(0,40).toLocaleLowerCase();
+  const mutualIds=useMemo(()=>new Set(mutuals.map(person=>person.id)),[mutuals]);
+  useEffect(()=>{
+    if(needle.length<2){setDirectoryMatches([]);setSearchBusy(false);setSearchError('');return;}
+    let active=true;
+    const timer=setTimeout(async()=>{
+      setSearchBusy(true);
+      setSearchError('');
+      try{
+        const {data:{user}}=await supabase.auth.getUser();
+        if(!user)throw new Error('Sign in to search people.');
+        const [handles,names,blockedMine,blockedTheirs]=await Promise.all([
+          supabase.from('profiles')
+            .select('user_id,username,display_name,avatar_url')
+            .eq('onboarding_complete',true)
+            .ilike('username',needle+'%').limit(25),
+          supabase.from('profiles')
+            .select('user_id,username,display_name,avatar_url')
+            .eq('onboarding_complete',true)
+            .ilike('display_name','%'+needle+'%').limit(25),
+          supabase.from('user_blocks').select('blocked_id').eq('blocker_id',user.id),
+          supabase.from('user_blocks').select('blocker_id').eq('blocked_id',user.id),
+        ]);
+        for(const result of [handles,names,blockedMine,blockedTheirs])
+          if(result.error)throw result.error;
+        const hidden=new Set([user.id,
+          ...(blockedMine.data||[]).map(row=>row.blocked_id),
+          ...(blockedTheirs.data||[]).map(row=>row.blocker_id)]);
+        const unique=new Map<string,MutualUser>();
+        for(const member of [...(handles.data||[]),...(names.data||[])])
+          if(member.user_id && member.username && !hidden.has(member.user_id))
+            unique.set(member.user_id,{
+              id:member.user_id,username:member.username,
+              display_name:member.display_name,avatar_url:member.avatar_url,
+            });
+        if(active)setDirectoryMatches([...unique.values()]);
+      }catch{
+        if(active){setDirectoryMatches([]);setSearchError('Could not search people. Try again.');}
+      }finally{if(active)setSearchBusy(false);}
+    },300);
+    return()=>{active=false;clearTimeout(timer);};
+  },[needle]);
+  const matchedMutuals=needle
+    ? mutuals.filter(person=>person.username.toLocaleLowerCase().includes(needle)
+        || (person.display_name||'').toLocaleLowerCase().includes(needle))
+    : mutuals;
+  const candidates=needle.length>=2
+    ? [...new Map([...matchedMutuals,...directoryMatches]
+        .map(person=>[person.id,person])).values()]
+        .sort((a,b)=>Number(mutualIds.has(b.id))-Number(mutualIds.has(a.id))
+          || a.username.localeCompare(b.username))
+    : matchedMutuals;
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) =>
@@ -143,7 +202,7 @@ export default function NewGroupScreen() {
         {!!error && <Text style={{ color: '#ff9494', marginBottom: 12 }}>{error}</Text>}
         <TextInput
           style={styles.nameInput}
-          placeholder="Search mutuals by @username"
+          placeholder="Search people by @username"
           placeholderTextColor={colors.secondary}
           value={search}
           onChangeText={setSearch}
@@ -163,18 +222,24 @@ export default function NewGroupScreen() {
         />
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>SELECT MUTUALS</Text>
+          <Text style={styles.sectionTitle}>{needle?'PEOPLE':'ADD MUTUALS'}</Text>
           <Text style={styles.selectedCount}>{selectedIds.length} selected</Text>
         </View>
 
         {loading ? (
-          <ActivityIndicator color="#00E575" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
         ) : (
           <FlatList
-            data={matchedMutuals}
+            data={candidates}
+            ListHeaderComponent={searchBusy||!!searchError
+              ? <View style={{paddingVertical:8}}>
+                  {searchBusy?<ActivityIndicator color={colors.accent} size="small"/>:null}
+                  {!!searchError&&<Text style={{color:colors.secondary,fontSize:12}}>{searchError}</Text>}
+                </View>:null}
             ListEmptyComponent={<View style={{alignItems:'center',paddingVertical:24,paddingHorizontal:14}}>
               <Text style={[styles.emptyText,{color:colors.secondary}]}>
-                {needle ? 'No matching mutuals.' : 'Group chats are for people who follow each other.'}
+                {searchBusy?'Searching…':needle.length===1?'Type another letter to search everyone.'
+                  :needle?'No matching people.':'Follow each other to start a group.'}
               </Text>
               <TouchableOpacity onPress={()=>router.push({pathname:'/listeners',params:needle?{search:needle}:{}})}
                 accessibilityRole="button" accessibilityLabel="Find members in Discover">
@@ -185,10 +250,17 @@ export default function NewGroupScreen() {
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
               const isSelected = selectedIds.includes(item.id);
+              const canAdd=mutualIds.has(item.id);
               return (
                 <TouchableOpacity
-                  style={styles.userRow}
-                  onPress={() => toggleSelect(item.id)}
+                  style={[styles.userRow,{borderBottomColor:colors.border}]}
+                  accessibilityRole="button"
+                  accessibilityLabel={canAdd?
+                    (isSelected?'Remove ':'Add ')+item.username+' from group':
+                    'View '+item.username+' — mutual follow required to invite'}
+                  onPress={() => canAdd
+                    ? toggleSelect(item.id)
+                    : router.push({pathname:'/profile',params:{userId:item.id}})}
                   activeOpacity={0.7}
                 >
                   {item.avatar_url ? (
@@ -198,10 +270,19 @@ export default function NewGroupScreen() {
                       <Text style={styles.avatarInitial}>{(item.username || '?').charAt(0).toUpperCase()}</Text>
                     </View>
                   )}
-                  <Text style={styles.username}>@{item.username}</Text>
-                  <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
-                    {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                  <View style={{flex:1}}>
+                    <Text style={[styles.username,{color:colors.text}]}>{item.display_name||'@'+item.username}</Text>
+                    <Text style={{fontSize:12,color:colors.secondary,marginTop:3}}>
+                      @{item.username}{canAdd?'':' · Follow each other to add'}
+                    </Text>
                   </View>
+                  {canAdd
+                    ? <View style={[styles.checkbox,
+                        {borderColor:colors.border},
+                        isSelected&&{backgroundColor:colors.accent,borderColor:colors.accent}]}>
+                        {isSelected&&<Text style={[styles.checkmark,{color:colors.accentText}]}>✓</Text>}
+                      </View>
+                    : <Text style={{color:colors.accent,fontSize:12,fontWeight:'800'}}>VIEW →</Text>}
                 </TouchableOpacity>
               );
             }}
