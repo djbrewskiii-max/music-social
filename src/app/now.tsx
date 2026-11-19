@@ -2787,9 +2787,6 @@ export default function NowScreen() {
                       </Pressable>
                     </View>
 
-                    {post.post_kind==='aux_prompt'&&
-                      <Text style={{color:brandAccent,fontSize:11,fontWeight:'900',
-                        letterSpacing:1.8,marginBottom:10}}>THE AUX · OVRLEE ASKS</Text>}
                     {!!post.body && !post.collection && (
                       <Pressable accessibilityRole="button" accessibilityLabel="Open post conversation" onPress={() => openPost(post.id)}>
                         <Text style={styles.body}>{post.body}</Text>
