@@ -1,6 +1,7 @@
 import {useAppearance} from '../appearance';
 import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
+import CollectionArtistDiscoveryLinks from '../components/CollectionArtistDiscoveryLinks';
 import PostMusicTrackCard from '../components/PostMusicTrackCard';
 import {firstPostTrack} from '../post-track';
 import SongPreviewButton from '../components/SongPreviewButton';
@@ -418,12 +419,14 @@ export default function PostDetailScreen() {
   
             </View>
           )}
-          {post && <PostArtistDiscoveryLink
-            credit={post.artist_name || ''}
-            primaryArtist={resolvedPrimaryArtist}
-            song={post.song_title}
-            sourcePostId={post.id}
-          />}
+          {post?.collection
+            ? <CollectionArtistDiscoveryLinks items={itemsFromPost(post)} sourcePostId={post.id}/>
+            : post && <PostArtistDiscoveryLink
+                credit={post.artist_name || ''}
+                primaryArtist={resolvedPrimaryArtist}
+                song={post.song_title}
+                sourcePostId={post.id}
+              />}
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:14}}>
             <Pressable style={styles.likeRow} onPress={toggleLike} disabled={busy}
               accessibilityRole="button" accessibilityLabel={liked?'Unlike post':'Like post'}>
