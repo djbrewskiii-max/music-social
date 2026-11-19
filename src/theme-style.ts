@@ -5,7 +5,7 @@ const LIGHT_CHOCOLATE='#BA8B73';
 const GREEN='#39E75F';
 // Meaningful state indicators must stay green in both appearance modes.
 // Decorative brand green can become chocolate, but never online/live/availability dots.
-const ONLINE=new Set(['online','live','presence','unread','new','verified','success','status','listening','dot','activeindicator','available','branddot']);
+const ONLINE=new Set(['online','live','presence','unread','new','verified','success','status','listening','dot','activeindicator','available','branddot','listeningeyebrow','liveeyebrow']);
 const isStatus=(key:string)=>ONLINE.has(key.toLowerCase())||
   /(?:online|live|presence|unread|verified|success|listening|status|notification|availability|active|here|roomcount)/i.test(key)||
   /(?:^|[A-Z])Dot$/.test(key);
