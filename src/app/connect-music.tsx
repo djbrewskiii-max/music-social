@@ -86,6 +86,9 @@ export default function ConnectMusicScreen() {
               disabled={connecting}
               style={({ pressed }) => [
                 styles.appleButton,
+                scheme==='light'
+                  ? {backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#DCC9BD'}
+                  : {backgroundColor:'#FFFFFF',borderWidth:1,borderColor:'#FFFFFF'},
                 (pressed || connecting) && styles.pressed,
               ]}
               onPress={connectAppleMusic}
@@ -103,18 +106,21 @@ export default function ConnectMusicScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.spotifyButton,
+                scheme==='light'
+                  ? {backgroundColor:'#F0E2D9',borderColor:'#E1CFC4'}
+                  : {backgroundColor:'#17271C',borderColor:'#39E75F'},
                 (pressed || connecting) && styles.pressed,
               ]}
               disabled={connecting}
               onPress={connectSpotify}
             >
               <View>
-                <Text style={styles.spotifyLabel}>SPOTIFY</Text>
-                <Text style={styles.spotifyText}>
+                <Text style={[styles.spotifyLabel,scheme==='dark'&&{color:'#A8D3B2'}]}>SPOTIFY</Text>
+                <Text style={[styles.spotifyText,scheme==='dark'&&{color:'#FFFFFF'}]}>
                   {connecting ? 'Opening...' : 'Spotify'}
                 </Text>
               </View>
-              <Text style={styles.soon}>→</Text>
+              <Text style={[styles.soon,scheme==='dark'&&{color:'#39E75F'}]}>→</Text>
             </Pressable>
           </View>
         </View>
