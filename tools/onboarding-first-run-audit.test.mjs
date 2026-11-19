@@ -75,6 +75,8 @@ assert.match(progress,/AsyncStorage\.setItem/,'First-run checkpoint must persist
 assert.match(progress,/AsyncStorage\.removeItem/,'Completed signup must clear checkpoint');
 assert.match(signup,/setOnboardingStage\(data\.user\.id,'setup-profile'\)/);
 assert.match(setup,/setOnboardingStage\(user\.id,'pick-artists'\)/);
+assert.match(setup,/existingProfile\?\.onboarding_complete===true/,
+ 'Partial setup must never route to Home based only on name and username');
 assert.match(artists,/setOnboardingStage\(user\.id,'core-four'\)/);
 assert.match(albums,/setOnboardingStage\(userId,'rotation-setup'\)/);
 assert.match(rotation,/setOnboardingStage\(user\.id,'connect-music'\)/);
