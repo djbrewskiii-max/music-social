@@ -5,6 +5,7 @@ const feed=read('src/app/now.tsx');
 const thread=read('src/app/post.tsx');
 const myProfile=read('src/app/my-profile.tsx');
 const memberProfile=read('src/app/profile.tsx');
+const activity=read('src/app/post-collections.tsx');
 const chat=read('src/app/chat.tsx');
 const groupInfo=read('src/app/group-info.tsx');
 const musicSettings=read('src/app/music-settings.tsx');
@@ -45,6 +46,9 @@ assert.match(myProfile,/post\.post_kind!=='aux_prompt'/,
  'Own profile must not show empty music art on Aux prompts');
 assert.match(memberProfile,/post\.post_kind==='aux_prompt' \? null/,
  'Viewed member profile must not show empty music art on Aux prompts');
+assert.match(activity,/post_kind==='aux_prompt'\?'THE AUX · QUESTION'/,
+ 'Private saves and public Likes must not present an Aux question as a missing music track');
+
 assert.match(feed,/REPLY WITH A SONG/,
  'Official questions must lead to existing Song Reply conversations');
 console.log('Previously requested features regression contract passed');
