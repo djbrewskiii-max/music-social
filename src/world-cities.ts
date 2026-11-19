@@ -1,3 +1,4 @@
+import {supabase} from './supabase';
 import { CITY_LOCATIONS, cityLabel } from './city-locations';
 import { OFFLINE_WORLD_CITIES, isMatchingCity, sameCityRegion } from './world-city-fallback';
 
@@ -10,7 +11,7 @@ export type WorldCity = {
   country: string;
   region?: string;
   population?: number;
-  source: 'open-meteo' | 'curated';
+  source: 'open-meteo' | 'curated' | 'geonames';
 };
 
 // A modest offline directory is always available in installed builds.
@@ -55,6 +56,33 @@ export async function searchWorldwideCities(term:string,signal?:AbortSignal,coun
   if(query.length<2)return [];
   const local=CURATED_CITIES.filter(c=>isMatchingCity(c,query,countryCode,region))
     .sort((a,b)=>rankCityName(a,query)-rankCityName(b,query)).slice(0,30);
+  // The licensed GeoNames gazetteer is hosted on OVRLEE's own Supabase
+  // project and searched with an indexed, RLS-protected read-only RPC.
+  // No device GPS, browser geolocation, or public API rate-limit dependency.
+  try{
+    const request=supabase.rpc('search_world_cities',{
+      p_name:query,p_count:40,p_country_code:countryCode||null,
+    });
+    const {data,error}=await (signal?request.abortSignal(signal):request);
+    if(error)throw error;
+    const matches:WorldCity[]=(data||[])
+      .filter((x:any)=>Number.isFinite(x.latitude)&&Number.isFinite(x.longitude)
+        && x.name&&x.country&&x.country_code
+        && sameCityRegion(String(x.region||''),region,countryCode))
+      .map((x:any)=>({
+        id:'geonames:'+String(x.geoname_id),
+        label:[x.name,x.region&&String(x.region).toLowerCase()!==String(x.name).toLowerCase()?x.region:'',
+          x.country].filter(Boolean).join(', '),
+        lat:Number(x.latitude),lon:Number(x.longitude),
+        countryCode:String(x.country_code).toUpperCase(),
+        country:String(x.country),region:x.region||undefined,
+        population:Number(x.population||0),source:'geonames' as const,
+      }));
+    if(matches.length)return uniqueCities([...matches,...local]).slice(0,30);
+  }catch(error){
+    if(signal?.aborted)throw error;
+    console.log('City directory lookup unavailable; trying fallback:',error);
+  }
   const configured=(process.env.EXPO_PUBLIC_CITY_GEOCODING_URL||'').trim();
   const baseUrl=configured || (__DEV__?'https://geocoding-api.open-meteo.com/v1/search':'');
   if(!baseUrl)return local;
