@@ -120,8 +120,8 @@ export default function BottomNav({
             ◫
           </Text>
           {unreadMessages > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
+            <View style={[styles.badge,scheme==='light'&&{backgroundColor:'#3B2218'}]}>
+              <Text style={[styles.badgeText,scheme==='light'&&{color:'#F0E5DF'}]}>
                 {unreadMessages > 99 ? '99+' : unreadMessages}
               </Text>
             </View>
