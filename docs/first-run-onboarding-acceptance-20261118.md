@@ -44,3 +44,37 @@ A person joins OVRLEE to discover music and people, not to complete lengthy form
 - Force quit halfway through album/rotation selection and resume on same device; verify stage resumes. Open signed-in account on a second installation separately to document server checkpoint gap.
 
 Source checks: `tools/onboarding-first-run-audit.test.mjs`; GitHub Actions quality checks. This is a **release gate**, not a device-level PASS.
+
+
+## Evening screenshot batch: profile identity, collections, group interactions, palette semantics
+
+### Symptoms observed
+- Member profile rendered an empty/generic identity (`Listener / @nowuser`) even though signup wasn't finished
+- Navigating away from profile could expose the previously loaded member's profile for a moment
+- A collection only offered the Explore action for the leading track's artist
+- Instagram group details offered changing name/image and adding members from any member account; OVRLEE only exposed a members/leave alert
+- Light header online/brand status dots and other meaningful green designations were remapped to beige/chocolate
+- Light-mode message badge used pale background and dark number instead of the desired dark chocolate with cream number
+- Appearance parity for the signup city modal needed an explicit check in all three appearance settings
+
+### Implemented
+- Backend `profiles.onboarding_complete` defaults false for new profiles, existing completed identities backfilled true. Profile SELECT RLS excludes unfinished profiles from other members. Auth sessions are not assumed to be fully onboarded accounts
+- `src/onboarding-progress.ts`, `index.tsx`, `login.tsx`, and `connect-music.tsx` gate home entry until a real name/handle exists and server completion is confirmed
+- `my-profile.tsx` waits for the actual signed-in account before rendering; `profile.tsx` remounts on target user ID changes
+- All distinct collection artist credits receive consistent, horizontally scrollable Explore actions on feed, profile, and opened post. Combined-artist credits use the existing safe chooser
+- New `group-info.tsx` with editable name/photo, member list, invite eligible mutuals, promote/demote admin, remove members, leave group; admins control whether any member can edit or invite. Backend RPCs enforce membership, limits, mutual follow and block checks
+- Group images in inbox/chat using `group-media` storage bucket with user-scoped upload paths
+- Semantic live/online/status dots remain green in Light and Dark. Light unread badge is chocolate `#3B2218` with cream `#F0E5DF`
+- Both city picker and group-info consume the shared appearance context, including System mode; new source-level regressions run in CI
+
+### Still required on device (release blocking)
+- [ ] Fresh account: abort before profile, abort after display name, abort after artist picks, and complete Spotify/Apple Music paths; test from a second device too
+- [ ] Switch between two accounts and swipe rapidly between own profile, another person's profile, feed, chat and Settings—**no frame should show the wrong member's identity**
+- [ ] For a collection with 4 distinct credited artists, all 4 Explore pills are accessible on feed and opened post; deduplicate repeated artist, respect combined-artist chooser
+- [ ] Screenshot match in Light/Dark/System for signup, city picker, album editor, rotation editor, provider selection, profile, collections, Home, Radar, messages and group details; check switching appearance with modal open
+- [ ] Distinct member/admin group account tests: rename, upload image, invite mutual, try non-mutual, block cases, restrict permissions, promote/demote, remove, leave, last admin promotion, group member count and inbox avatar refresh
+- [ ] Confirm device upload to Supabase group-media, and confirm group image media retention/ownership policies with data deletion requirements
+- [ ] Deliberately publish compatible preview OTA after branch verification, then retest exact build. Commit and CI alone do not update iPhone
+
+### Not equivalent to all Instagram DM features
+OVRLEE now covers the requested group-management foundation, but not Instagram's voice/video calling, story/media integrations, voice notes, reaction/nickname/theme controls, linked QR invites, message pinning, or other mature messaging surfaces. Do not advertise those as available until shipped and tested. A member's ability to invite is deliberately limited to mutual followers; bypassing this without an approval and safety design would encourage unwanted group adds.
