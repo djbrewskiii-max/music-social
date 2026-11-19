@@ -28,6 +28,7 @@ type ConversationRow = {
   user_two: string | null;
   is_group?: boolean;
   title?: string | null;
+  image_url?: string | null;
   created_by?: string | null;
 };
 
@@ -87,7 +88,7 @@ export default function MessagesScreen() {
       // 1. Fetch 1-on-1 conversations
       const { data: directData, error: directError } = await supabase
         .from('conversations')
-        .select('id, created_at, user_one, user_two, is_group, title, created_by')
+        .select('id, created_at, user_one, user_two, is_group, title, image_url, created_by')
         .or(`user_one.eq.${user.id},user_two.eq.${user.id}`);
 
       // 2. Fetch group memberships
@@ -104,7 +105,7 @@ export default function MessagesScreen() {
       if (groupConvIds.length > 0) {
         const { data: groupsData, error: groupsError } = await supabase
           .from('conversations')
-          .select('id, created_at, user_one, user_two, is_group, title, created_by')
+          .select('id, created_at, user_one, user_two, is_group, title, image_url, created_by')
           .in('id', groupConvIds)
           .eq('is_group', true);
         if (groupsError) throw groupsError;
@@ -166,7 +167,7 @@ export default function MessagesScreen() {
             isGroup: true,
             displayName: conversation.title || 'Group Chat',
             username: 'group',
-            avatarUrl: null,
+            avatarUrl: conversation.image_url || null,
             lastMessage: latestMessage?.body || 'New group created',
             lastMessageAt: latestMessage?.created_at || conversation.created_at,
             lastSenderId: latestMessage?.sender_id || '',
