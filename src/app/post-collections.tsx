@@ -9,7 +9,7 @@ import { supabase } from '../supabase';
 
 type Tab = 'saved' | 'likes' | 'replies';
 type ActionRow = { post_id: string; created_at: string; reply_id?: string; reply_body?: string };
-type PostRow = { id: string; user_id: string; body: string | null; song_title: string; artist_name: string; artwork_url: string | null; photo_url: string | null };
+type PostRow = { id: string; user_id: string; body: string | null; post_kind?: 'music' | 'aux_prompt'; song_title: string; artist_name: string; artwork_url: string | null; photo_url: string | null };
 type Item = ActionRow & { post: PostRow; author: string };
 
 const accent = '#39E75F';
@@ -66,7 +66,7 @@ export default function PostCollectionsScreen() {
       const ids = Array.from(new Set(actions.map(r => r.post_id)));
       if (!ids.length) { setItems([]); return; }
       // Post RLS automatically removes blocked/deleted posts.
-      const postResult = await supabase.from('posts').select('id,user_id,body,song_title,artist_name,artwork_url,photo_url').in('id', ids);
+      const postResult = await supabase.from('posts').select('id,user_id,body,post_kind,song_title,artist_name,artwork_url,photo_url').in('id', ids);
       if (postResult.error) throw postResult.error;
       const posts = (postResult.data || []) as PostRow[];
       const byId = new Map(posts.map(p => [p.id, p]));
@@ -134,9 +134,9 @@ export default function PostCollectionsScreen() {
           style={styles.item}>
           {item.post.artwork_url || item.post.photo_url
             ? <Image source={{uri:item.post.artwork_url || item.post.photo_url || ''}} style={styles.art}/>
-            : <View style={[styles.art,styles.artFallback]}><Text style={styles.musicNote}>♫</Text></View>}
+            : <View style={[styles.art,styles.artFallback]}><Text style={styles.musicNote}>{item.post.post_kind==='aux_prompt'?'?':'♫'}</Text></View>}
           <View style={styles.itemCopy}>
-            <Text style={styles.song} numberOfLines={1}>{item.post.song_title || 'Music conversation'}</Text>
+            <Text style={styles.song} numberOfLines={1}>{item.post.post_kind==='aux_prompt'?'THE AUX · QUESTION':item.post.song_title || 'Music conversation'}</Text>
             <Text style={styles.artist} numberOfLines={1}>{item.post.artist_name || item.author}</Text>
             <Text style={styles.caption} numberOfLines={2}>{item.reply_body || item.post.body || `Posted by ${item.author}`}</Text>
             <Text style={styles.age}>{elapsed(item.created_at)}</Text>
