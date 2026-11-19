@@ -54,6 +54,7 @@ type PostRow = {
   created_at: string;
   user_id: string;
   body: string | null;
+  post_kind?: 'music' | 'aux_prompt';
   song_title: string;
   artist_name: string;
   album_name: string | null;
@@ -709,7 +710,7 @@ export default function NowScreen() {
               .eq('user_id',user.id).order('listen_count',{ascending:false}).limit(300),
           ]);
           const postFields =
-            'id, created_at, user_id, body, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
+            'id, created_at, user_id, body, post_kind, song_title, artist_name, album_name, artwork_url, apple_music_id, photo_url, photo_urls, music_items, collection';
 
           // Collections are first-class posts. Fetching a second, recent
           // collection window prevents active standard posts from pushing
@@ -2786,11 +2787,23 @@ export default function NowScreen() {
                       </Pressable>
                     </View>
 
+                    {post.post_kind==='aux_prompt'&&
+                      <Text style={{color:brandAccent,fontSize:11,fontWeight:'900',
+                        letterSpacing:1.8,marginBottom:10}}>THE AUX · OVRLEE ASKS</Text>}
                     {!!post.body && !post.collection && (
                       <Pressable accessibilityRole="button" accessibilityLabel="Open post conversation" onPress={() => openPost(post.id)}>
                         <Text style={styles.body}>{post.body}</Text>
                       </Pressable>
                     )}
+                    {post.post_kind==='aux_prompt'&&<Pressable
+                      accessibilityRole="button" accessibilityLabel="Reply to the OVRLEE question with a song"
+                      onPress={()=>openPost(post.id)}
+                      style={{alignSelf:'flex-start',borderRadius:22,borderWidth:1,
+                        borderColor:scheme==='light'?'#DCC9BD':'#39E75F',
+                        paddingHorizontal:16,paddingVertical:12,marginTop:5,marginBottom:15}}>
+                      <Text style={{color:brandAccent,fontSize:12,fontWeight:'900',
+                        letterSpacing:.6}}>REPLY WITH A SONG →</Text>
+                    </Pressable>}
 
                     {post.collection ? (
                       <CollectionPreview post={{ ...post, collection: post.collection }} username={post.username || ''} />
@@ -2836,7 +2849,7 @@ export default function NowScreen() {
                         </View>
                       );
                     })()}
-                    {post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
+                    {post.post_kind==='aux_prompt' || post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
                       <View style={styles.collectionContainer}>
                         <Text style={styles.collectionHeading}>
                           COLLECTION · {post.music_items.length} TRACKS
@@ -2876,7 +2889,7 @@ export default function NowScreen() {
                       />
                     )}
 
-                    {!post.collection&&<PostArtistDiscoveryLink
+                    {!post.collection && post.post_kind!=='aux_prompt'&&<PostArtistDiscoveryLink
                       credit={post.artist_name || ''}
                       primaryArtist={primaryArtists[String(post.apple_music_id||post.music_items?.[0]?.id||'')]?.name}
                       song={post.song_title}
