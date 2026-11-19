@@ -16,6 +16,18 @@ const group=read('app/group-info.tsx'),chat=read('app/chat.tsx');
 const inbox=read('app/messages.tsx');
 
 assert.match(theme,/branddot/,'Green header dot must be protected in both modes');
+assert.match(theme,/listeningeyebrow/,'Happening Now remains a green status label');
+assert.match(read('app/setup-profile.tsx'),/backgroundColor:scheme==='light'\?'#3B2218':'#FFFFFF'/,
+ 'Signup profile CTA must be visibly chocolate in Light');
+assert.match(read('app/pick-artists.tsx'),/backgroundColor:colors.accent/,
+ 'Artist CTA must follow theme palette');
+assert.match(read('app/core-four.tsx'),/backgroundColor:colors.accent/,
+ 'Album CTA must follow theme palette');
+assert.match(read('app/connect-music.tsx'),/borderWidth:1,borderColor:'#DCC9BD'/,
+ 'Apple Music button must be visible on a light background');
+assert.match(read('app/connect-music.tsx'),/borderColor:'#39E75F'/,
+ 'Spotify selection must remain visibly available in Dark');
+
 assert.match(theme,/isStatus\(name\)/,'Status semantics must drive the theme');
 assert.match(theme,/if\(status\)return \(textProp&&scheme==='light'/,
  'Status green text needs accessible light mode handling');
