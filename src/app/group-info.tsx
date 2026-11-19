@@ -29,6 +29,8 @@ export default function GroupInfoScreen(){
  const [members,setMembers]=useState<Member[]>([]);
  const [canEdit,setCanEdit]=useState(true);
  const [canInvite,setCanInvite]=useState(true);
+ const [muted,setMuted]=useState(false);
+ const [muteBusy,setMuteBusy]=useState(false);
  const [loading,setLoading]=useState(true);
  const [saving,setSaving]=useState(false);
  const [photoBusy,setPhotoBusy]=useState(false);
@@ -46,7 +48,7 @@ export default function GroupInfoScreen(){
      const [conversation,memberResult,following,followers,blocks,blockedBy]=await Promise.all([
        supabase.from('conversations').select('id,is_group,title,image_url,members_can_edit,members_can_invite')
          .eq('id',groupId).maybeSingle(),
-       supabase.from('conversation_members').select('user_id,role,joined_at')
+       supabase.from('conversation_members').select('user_id,role,joined_at,notifications_muted')
          .eq('conversation_id',groupId).order('joined_at'),
        supabase.from('user_follows').select('following_id').eq('follower_id',user.id),
        supabase.from('user_follows').select('follower_id').eq('following_id',user.id),
@@ -80,6 +82,7 @@ export default function GroupInfoScreen(){
          display_name:p?.display_name||null,avatar_url:p?.avatar_url||null,role};
      };
      setUserId(user.id);
+     setMuted(memberRows.find(member=>member.user_id===user.id)?.notifications_muted===true);
      setMembers(memberRows.map(m=>toMember(m.user_id,m.role as 'admin'|'member')));
      setMutuals(choices.filter(uid=>personById.has(uid)).map(uid=>toMember(uid,'member')));
      setTitle(conversation.data.title||'');
@@ -159,6 +162,20 @@ export default function GroupInfoScreen(){
      await load();
    }catch(error){Alert.alert('Could not add people',errorText(error));}
    finally{setSaving(false);}
+ };
+
+ const toggleMute=async()=>{
+   if(muteBusy||!groupId||!userId)return;
+   setMuteBusy(true);
+   try{
+     const {data,error}=await supabase.rpc('set_group_muted',{
+       p_conversation:groupId,p_muted:!muted,
+     });
+     if(error)throw error;
+     setMuted(data===true);
+   }catch(error){
+     Alert.alert('Could not change notifications',errorText(error));
+   }finally{setMuteBusy(false);}
  };
 
  const changePermissions=async(nextEdit:boolean,nextInvite:boolean)=>{
@@ -257,6 +274,16 @@ export default function GroupInfoScreen(){
          onPress={()=>router.replace({pathname:'/chat',params:{id:groupId,search:'1'}})}
          style={[s.action,{borderColor:colors.border,backgroundColor:colors.surface}]}>
          <Text style={{color:accent,fontWeight:'800'}}>Search messages →</Text>
+       </Pressable>
+
+       <Pressable accessibilityRole="switch"
+         accessibilityLabel="Mute group notifications"
+         accessibilityState={{checked:muted,disabled:muteBusy}}
+         disabled={muteBusy} onPress={()=>void toggleMute()}
+         style={[s.permission,{borderBottomColor:colors.border}]}>
+         <Text style={{color:ink,fontWeight:'700'}}>Mute notifications</Text>
+         {muteBusy?<ActivityIndicator color={accent} size="small"/>:
+           <Text style={{color:muted?accent:sub,fontWeight:'900'}}>{muted?'ON':'OFF'}</Text>}
        </Pressable>
 
        <View style={s.section}>
