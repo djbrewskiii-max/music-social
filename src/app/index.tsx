@@ -16,16 +16,30 @@ export default function HomeScreen(){
     let request=0;
     const route=async(userId?:string)=>{
       const current=++request;
-      const next:Destination=userId
-        ? (await getOnboardingStage(userId))||'now'
-        : 'signup';
+      let next:Destination='signup';
+      if(userId){
+        const [stage,profileResult]=await Promise.all([
+          getOnboardingStage(userId),
+          supabase.from('profiles').select('display_name,username,onboarding_complete')
+            .eq('user_id',userId).maybeSingle(),
+        ]);
+        const profile=profileResult.data;
+        // Auth sign-up is not a finished member identity. Do not route into
+        // a public feed or generic "Listener/@nowuser" placeholder profile.
+        if(profileResult.error || !profile?.display_name?.trim() || !profile?.username?.trim())
+          next='setup-profile';
+        else if(profile.onboarding_complete===false)
+          next=stage && stage!=='setup-profile' ? stage : 'pick-artists';
+        else next='now';
+      }
       if(active&&request===current)setDestination(next);
     };
     void supabase.auth.getSession()
       .then(({data:{session}})=>route(session?.user?.id))
       .catch(()=>{if(active)setDestination('signup');});
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      void route(session?.user?.id);
+      // Defer requests until Supabase releases its auth-state callback lock.
+      setTimeout(()=>{if(active)void route(session?.user?.id);},0);
     });
     return()=>{active=false;subscription.unsubscribe();};
   },[]);
