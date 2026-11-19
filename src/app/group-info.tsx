@@ -253,6 +253,12 @@ export default function GroupInfoScreen(){
          </Pressable>
        </View>}
 
+       <Pressable accessibilityRole="button" accessibilityLabel="Search messages in this group"
+         onPress={()=>router.replace({pathname:'/chat',params:{id:groupId,search:'1'}})}
+         style={[s.action,{borderColor:colors.border,backgroundColor:colors.surface}]}>
+         <Text style={{color:accent,fontWeight:'800'}}>Search messages →</Text>
+       </Pressable>
+
        <View style={s.section}>
          <View style={s.sectionHead}>
            <Text style={[s.label,{color:sub}]}>PEOPLE · {members.length}</Text>
