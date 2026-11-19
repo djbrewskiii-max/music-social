@@ -22,7 +22,7 @@ import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music
 import { resolveSharedMusic } from '../shared-music';
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
-type Post = { id: string; user_id: string; created_at: string; body: string | null; song_title: string; artist_name: string; album_name: string | null; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
+type Post = { id: string; user_id: string; created_at: string; body: string | null; post_kind?: 'music' | 'aux_prompt'; song_title: string; artist_name: string; album_name: string | null; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
 type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null; parent_reply_id: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
@@ -188,7 +188,7 @@ export default function PostDetailScreen() {
     setLoading(true); setError(''); setSaved(false); setSaveBusy(true);
     try {
       const { data: found, error: postError } = await supabase.from('posts')
-        .select('id,user_id,created_at,body,song_title,artist_name,album_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
+        .select('id,user_id,created_at,body,post_kind,song_title,artist_name,album_name,artwork_url,apple_music_id,photo_url,photo_urls,music_items,collection')
         .eq('id', postId).maybeSingle();
       if (postError) throw postError;
       if (!found) { setError('This post is unavailable.'); setPost(null); return; }
@@ -340,6 +340,10 @@ export default function PostDetailScreen() {
             {author.avatar ? <Image source={{ uri: author.avatar }} style={styles.avatar} /> : <View style={styles.avatar}><Text style={{ color: '#fff' }}>{author.name[0]}</Text></View>}
             <View><Text style={styles.authorName}>{author.name}</Text><Text style={styles.secondary}>@{author.username}</Text></View>
           </Pressable>
+          {post.post_kind==='aux_prompt'&&<Text style={{fontSize:11,fontWeight:'900',
+            letterSpacing:1.6,color:colors.accent,marginTop:12,marginBottom:9}}>
+            THE AUX · OVRLEE ASKS
+          </Text>}
           {!!post.body && !post.collection && <Text style={styles.caption}>{post.body}</Text>}
           {!!post.collection && fontsLoaded && (() => {
             const items = itemsFromPost(post);
@@ -380,7 +384,7 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
-          {music.length === 1 ? (
+          {post.post_kind!=='aux_prompt' && (music.length === 1 ? (
             <PostMusicTrackCard
               track={singleTrack!}
               albumName={!post.collection ? post.album_name : null}
@@ -418,8 +422,8 @@ export default function PostDetailScreen() {
               })}
   
             </View>
-          )}
-          {post?.collection
+          ))}
+          {post?.post_kind==='aux_prompt' ? null : post?.collection
             ? <CollectionArtistDiscoveryLinks items={itemsFromPost(post)} sourcePostId={post.id}/>
             : post && <PostArtistDiscoveryLink
                 credit={post.artist_name || ''}
