@@ -46,20 +46,20 @@ export default function MusicSettingsScreen() {
             <Text style={styles.check}>{provider===value?'✓':'○'}</Text>
           </Pressable>
         ))}
-        <Text style={styles.note}>
-          Spotify is a playback destination. OVRLEE does not automatically read Spotify libraries or listening history.
-        </Text>
+        {provider==='spotify'&&<Text style={styles.note}>
+          Spotify opens songs. Listening history is not synced.
+        </Text>}
         <Text style={styles.section}>YOUR MUSIC IDENTITY</Text>
         <Pressable accessibilityRole="button" onPress={() => router.push({pathname:'/pick-artists',params:{edit:'1'}})} style={styles.option}>
           <Text style={styles.name}>My favorite artists</Text><Text style={styles.check}>›</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/spotify-showcase')} style={styles.option}>
+        {provider==='spotify'&&<Pressable accessibilityRole="button"
+          onPress={() => router.push('/spotify-showcase')} style={styles.option}>
           <View style={{flex:1}}>
             <Text style={styles.name}>My Spotify playlists</Text>
-            <Text style={styles.note}>Feature links you choose on your OVRLEE profile.</Text>
           </View>
           <Text style={styles.check}>›</Text>
-        </Pressable>
+        </Pressable>}
 
         {busy&&<ActivityIndicator color={GREEN}/>}
       </ScrollView>
