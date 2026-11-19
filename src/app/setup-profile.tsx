@@ -270,6 +270,7 @@ export default function SetupProfileScreen() {
               disabled={!canContinue}
               style={({ pressed }) => [
                 styles.button,
+                {backgroundColor:scheme==='light'?'#3B2218':'#FFFFFF'},
                 !canContinue &&
                   styles.buttonDisabled,
                 pressed &&
@@ -277,7 +278,7 @@ export default function SetupProfileScreen() {
                   styles.buttonPressed,
               ]}
             >
-              <Text style={styles.buttonText}>
+              <Text style={[styles.buttonText,{color:scheme==='light'?'#FFFFFF':'#000000'}]}>
                 {loading
                   ? 'Saving...'
                   : 'Continue'}
