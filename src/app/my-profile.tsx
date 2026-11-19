@@ -42,6 +42,8 @@ import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 
 type Profile = {
+  user_id: string;
+  onboarding_complete: boolean;
   display_name: string | null;
   username: string | null;
   city: string | null;
@@ -160,7 +162,26 @@ const formatArtworkUrl = (
     );
 };
 
-export default function MyProfileScreen() {
+// Resolve the authenticated identity before mounting a profile component.
+// A previous account's React state can never appear during tab transitions.
+export default function MyProfileScreen(){
+  const {colors}=useAppearance();
+  const [userId,setUserId]=useState<string|null>(null);
+  useFocusEffect(useCallback(()=>{
+    let active=true;
+    setUserId(null);
+    void supabase.auth.getUser()
+      .then(({data:{user}})=>{if(active)setUserId(user?.id||null);})
+      .catch(()=>{if(active)router.replace('/login');});
+    return()=>{active=false;setUserId(null);};
+  },[]));
+  if(!userId)return <SafeAreaView style={{flex:1,backgroundColor:colors.background,justifyContent:'center',alignItems:'center'}}>
+    <ActivityIndicator color={colors.accent}/>
+  </SafeAreaView>;
+  return <MyProfileContent key={userId} authUserId={userId}/>;
+}
+
+function MyProfileContent({authUserId}:{authUserId:string}) {
   const {scheme}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
@@ -260,7 +281,7 @@ export default function MyProfileScreen() {
 
         if (
           userError ||
-          !user
+          !user || user.id!==authUserId
         ) {
           router.replace(
             '/login'
@@ -279,7 +300,7 @@ export default function MyProfileScreen() {
             supabase
               .from('profiles')
               .select(
-                'display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color, preferred_music_service'
+                'user_id, display_name, username, city, bio, overly_trait, avatar_url, header_url, profile_color, preferred_music_service, onboarding_complete'
               )
               .eq(
                 'user_id',
@@ -361,21 +382,22 @@ export default function MyProfileScreen() {
               ),
           ]);
 
-        if (
-          profileResult.error
-        ) {
-          console.log(
-            'Profile error:',
-            profileResult
-              .error.message
-          );
-        } else if (
-          profileResult.data
-        ) {
-          setProfile(
-            profileResult.data as Profile
-          );
+        // Never display fallback identity or another account's loaded profile.
+        if(user.id!==authUserId)return;
+        if(profileResult.error || !profileResult.data ||
+          profileResult.data.user_id!==authUserId ||
+          !profileResult.data.display_name?.trim() ||
+          !profileResult.data.username?.trim()){
+          setProfile(null);
+          router.replace('/setup-profile');
+          return;
         }
+        if(profileResult.data.onboarding_complete===false){
+          setProfile(null);
+          router.replace('/');
+          return;
+        }
+        setProfile(profileResult.data as Profile);
 
         if (
           dnaResult.error
@@ -900,7 +922,7 @@ export default function MyProfileScreen() {
           5
         );
 
-  if (loading) {
+  if (loading || !profile || profile.user_id!==authUserId) {
     return (
       <SafeAreaView
         style={
