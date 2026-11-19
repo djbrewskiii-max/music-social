@@ -26,7 +26,7 @@ export default function ProfileAvatar({uri,name,size=46,group=false}:Props){
   const surface=scheme==='light'?'#EFE6E0':'#252525';
   const textColor=scheme==='light'?'#3B2218':'#FFFFFF';
   const circle={width:size,height:size,borderRadius:size/2};
-  if(valid&&!group){
+  if(valid){
     // Keep fallback behind the photo to avoid a blank avatar on load error.
     return <View style={[circle,{overflow:'hidden',backgroundColor:surface,alignItems:'center',justifyContent:'center'}]}>
       <Text style={{position:'absolute',fontSize:size*.37,fontWeight:'800',color:textColor}}>{first}</Text>
