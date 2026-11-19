@@ -1614,6 +1614,13 @@ export default function NowScreen() {
       return people.size;
     };
 
+  // Sparse beta cohorts should not see a giant, empty or generic presence
+  // billboard. Only show actual consented music presence when a valid song
+  // and artist exist; all other discovery stays in For You / Find People.
+  const activeMusicPeople=listeningPeople.filter(person=>
+    person.listeningNow && !!person.song_title?.trim() && !!person.artist_name?.trim()
+  );
+
   if (loading) {
     return (
       <SafeAreaView
@@ -1729,6 +1736,7 @@ export default function NowScreen() {
             />
           }
         >
+          {activeMusicPeople.length>0&&(
           <View
             style={
               styles.listeningSection
@@ -1745,7 +1753,7 @@ export default function NowScreen() {
                     styles.listeningEyebrow
                   }
                 >
-                  HAPPENING NOW
+                  MUSIC IN THE MOMENT
                 </Text>
 
                 <Text
@@ -1753,11 +1761,11 @@ export default function NowScreen() {
                     styles.listeningSectionTitle
                   }
                 >
-                  Who's here
+                  Listening now
                 </Text>
               </View>
 
-              {listeningPeople.length >
+              {activeMusicPeople.length >
                 0 && (
                 <View
                   style={
@@ -1776,15 +1784,15 @@ export default function NowScreen() {
                     }
                   >
                     {
-                      listeningPeople.length
+                      activeMusicPeople.length
                     }{' '}
-                    HERE
+                    LISTENING
                   </Text>
                 </View>
               )}
             </View>
 
-            {listeningPeople.length ===
+            {activeMusicPeople.length ===
             0 ? (
               <View
                 style={
@@ -1819,7 +1827,7 @@ export default function NowScreen() {
                 }
                 decelerationRate="fast"
               >
-                {listeningPeople.map(
+                {activeMusicPeople.map(
                   (person) => {
                     const initial =
                       person.displayName
@@ -1884,6 +1892,7 @@ export default function NowScreen() {
             )}
           </View>
 
+          )}
           <View
             style={
               styles.feedHeading
