@@ -30,6 +30,7 @@ jobs:
       - run: node tools/prelaunch-conversation-reliability.test.mjs
       - run: node tools/onboarding-first-run-audit.test.mjs
       - run: node tools/world-city-directory-contract.test.mjs
+      - run: node --check scripts/import-geonames-cities.mjs
       - run: node tools/launch-account-group-appearance.test.mjs
       - run: node tools/beta-release-config.test.mjs
       - run: node tools/beta-ui-brand.test.mjs
