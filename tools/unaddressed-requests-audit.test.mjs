@@ -8,6 +8,7 @@ const memberProfile=read('src/app/profile.tsx');
 const activity=read('src/app/post-collections.tsx');
 const chat=read('src/app/chat.tsx');
 const groupInfo=read('src/app/group-info.tsx');
+const newGroup=read('src/app/new-group.tsx');
 const musicSettings=read('src/app/music-settings.tsx');
 const promptMigration=read('supabase/migrations/20261119235000_ovrlee_aux_official_prompts.sql');
 
@@ -28,6 +29,18 @@ assert.match(chat,/visibleMessages=needle/,'Chat search must filter loaded histo
 assert.match(chat,/visibleMessages\.map/,'Chat search filter must affect results');
 assert.match(groupInfo,/Search messages →/,'Group details should expose chat search');
 assert.match(groupInfo,/search:'1'/,'Group search opens the chat search state');
+assert.match(newGroup,/select\('user_id,username,display_name,avatar_url'\)/,
+ 'New Group @search must query full member directory, not only mutuals');
+assert.match(newGroup,/eq\('onboarding_complete',true\)/,
+ 'Do not display half-created member accounts');
+assert.match(newGroup,/!hidden\.has\(member\.user_id\)/,
+ 'Group search must exclude blocked relationships');
+assert.match(newGroup,/const canAdd=mutualIds\.has\(item\.id\)/,
+ 'Selecting someone to add is restricted to mutual followers');
+assert.match(newGroup,/Follow each other to add/,
+ 'Non-mutual people can be found but must not be invited silently');
+assert.match(newGroup,/colors\.text/,
+ 'New Group search results must explicitly respect the current theme');
 
 assert.match(promptMigration,/post_kind in \('music','aux_prompt'\)/);
 assert.match(promptMigration,/enabled boolean not null default false/,
