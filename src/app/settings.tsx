@@ -126,6 +126,12 @@ export default function SettingsScreen(){
       <View style={{alignItems:'center',marginTop:38}}>
         <Text style={{color:colors.text,fontWeight:'900',letterSpacing:2}}>OVRLEE <Text style={{color:colors.accent}}>✦</Text></Text>
         <Text style={[styles.detail,{color:colors.secondary}]}>Music is better when it's shared.</Text>
+        <Pressable accessibilityRole="link" accessibilityLabel="GeoNames city data attribution"
+          onPress={()=>void Linking.openURL('https://www.geonames.org/about.html')}>
+          <Text style={{color:colors.secondary,fontSize:10,marginTop:15,textAlign:'center'}}>
+            City directory: GeoNames · CC BY 4.0
+          </Text>
+        </Pressable>
       </View>
     </ScrollView>
   </SafeAreaView>;
