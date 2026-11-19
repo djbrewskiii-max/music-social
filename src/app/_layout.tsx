@@ -58,6 +58,7 @@ function OVRLEERoot() {
         <Stack.Screen name="my-profile" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="chat" />
+        <Stack.Screen name="group-info" />
         <Stack.Screen name="create-post" />
         <Stack.Screen name="post" />
         <Stack.Screen name="share-song-reply" />
