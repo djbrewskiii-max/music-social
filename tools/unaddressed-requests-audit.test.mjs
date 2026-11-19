@@ -46,9 +46,13 @@ assert.match(myProfile,/post\.post_kind!=='aux_prompt'/,
  'Own profile must not show empty music art on Aux prompts');
 assert.match(memberProfile,/post\.post_kind==='aux_prompt' \? null/,
  'Viewed member profile must not show empty music art on Aux prompts');
-assert.match(activity,/post_kind==='aux_prompt'\?'THE AUX · QUESTION'/,
- 'Private saves and public Likes must not present an Aux question as a missing music track');
+assert.match(activity,/post_kind==='aux_prompt'\?\(item\.post\.body\|\|'Music question'\)/,
+ 'Private saves and public Likes show the actual question, not an invented category label');
 
 assert.match(feed,/REPLY WITH A SONG/,
  'Official questions must lead to existing Song Reply conversations');
 console.log('Previously requested features regression contract passed');
+
+for (const [file,source] of [['Home',feed],['thread',thread],['own profile',myProfile],['member profile',memberProfile],['saved activity',activity]]){
+ assert.doesNotMatch(source,/THE AUX ·|THE AUX\\b/i,file+' must not advertise a second feature name');
+}
