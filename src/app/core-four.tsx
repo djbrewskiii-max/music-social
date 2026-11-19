@@ -200,9 +200,9 @@ export default function CoreFourScreen() {
 
     </ScrollView>
     <View style={s.footer}>
-      <Pressable style={[s.save, (chosen.length !== 4 || saving) && s.disabled]}
+      <Pressable style={[s.save,{backgroundColor:colors.accent},(chosen.length !== 4 || saving) && s.disabled]}
         onPress={save} disabled={saving || chosen.length !== 4}>
-        <Text style={s.saveText}>{saving ? 'SAVING…' : isOnboarding?'NEXT: IN ROTATION →':'SAVE CORE FOUR'}</Text>
+        <Text style={[s.saveText,{color:colors.accentText}]}>{saving ? 'SAVING…' : isOnboarding?'NEXT: IN ROTATION →':'SAVE CORE FOUR'}</Text>
       </Pressable>
       {isOnboarding&&<Pressable accessibilityRole="button" disabled={saving}
         onPress={()=>void (async()=>{
