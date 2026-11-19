@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 
 const read=(path)=>readFileSync(new URL('../src/'+path,import.meta.url),'utf8');
 const direct=read('app/chat.tsx');
+const groupDetails=read('app/group-info.tsx');
 const inbox=read('app/messages.tsx');
 const show=read('app/show-chat.tsx');
 const feed=read('app/now.tsx');
@@ -23,7 +24,9 @@ assert.match(direct,/sendInFlight\.current = true/);
 assert.match(direct,/finally \{\s*sendInFlight\.current = false/);
 assert.match(direct,/setMessage\(typed\);\s*Alert\.alert/,
   'Restore text draft if DM insertion fails');
-assert.match(direct,/if \(leaveError\) \{\s*Alert\.alert/,
+assert.match(groupDetails,/rpc\('leave_group_chat'/,
+  'Leaving a group must use the protected membership RPC');
+assert.match(groupDetails,/if\(error\)\{Alert\.alert\('Could not leave group',error\.message\);return;\}/,
   'Leaving a group must not silently navigate away on failure');
 
 // Inbox should reload on screen focus, but not duplicate the initial query.
