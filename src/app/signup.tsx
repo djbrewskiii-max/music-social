@@ -29,6 +29,7 @@ export default function SignupScreen() {
   const [birthYear, setBirthYear] = useState('');
 
   const createAccount = async () => {
+    if(loading)return;
     // This client check requires a matching Supabase server-side signup hook.
     const y = Number(birthYear);
     const m = Number(birthMonth);
@@ -69,30 +70,31 @@ export default function SignupScreen() {
     }
 
     setLoading(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { beta_birth_date: birthDate, beta_age_policy: '18plus-2026-11' } },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      Alert.alert('Could not create account', error.message);
-      return;
+    try{
+      const {data,error}=await supabase.auth.signUp({
+        email:email.trim().toLowerCase(),
+        password,
+        options:{data:{beta_birth_date:birthDate,beta_age_policy:'18plus-2026-11'}},
+      });
+      if(error)throw error;
+      if(data.user){
+        // The checkpoint can be reconstructed from the auth session even if
+        // local storage fails. A partial Auth account stays invisible to others.
+        try{await setOnboardingStage(data.user.id,'setup-profile');}
+        catch(checkpointError){console.log('Initial setup checkpoint:',checkpointError);}
+      }
+      if(data.session){
+        router.replace('/setup-profile');
+        return;
+      }
+      Alert.alert('Check your email',
+        'Confirm your email, then sign in to finish your profile.');
+    }catch(error){
+      Alert.alert('Could not create account',
+        error instanceof Error?error.message:'Check your connection and try again.');
+    }finally{
+      setLoading(false);
     }
-
-    if (data.user) await setOnboardingStage(data.user.id,'setup-profile');
-    if (data.session) {
-      router.replace('/setup-profile');
-      return;
-    }
-
-    Alert.alert(
-      'Check your email',
-      'Your account was created, but your email still needs to be confirmed.'
-    );
   };
 
   return (
@@ -110,7 +112,7 @@ export default function SignupScreen() {
             </Text>
 
             <Text style={styles.subheading}>
-              Share your sound. Find your people.
+              Find your people through what you love listening to.
             </Text>
 
             <View style={styles.form}>
