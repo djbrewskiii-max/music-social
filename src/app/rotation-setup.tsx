@@ -159,9 +159,15 @@ export default function RotationSetupScreen(){
         </Pressable>
         <Pressable accessibilityRole="button" disabled={saving}
           onPress={()=>void (async()=>{
-            const {data:{user}}=await supabase.auth.getUser();
-            if(user)await setOnboardingStage(user.id,'connect-music');
-            router.replace('/connect-music');
+            try{
+              const {data:{user},error}=await supabase.auth.getUser();
+              if(error||!user)throw new Error('Sign in to continue.');
+              await setOnboardingStage(user.id,'connect-music');
+              router.replace('/connect-music');
+            }catch(error){
+              Alert.alert('Could not continue',
+                error instanceof Error?error.message:'Check your connection and retry.');
+            }
           })()} style={{padding:14,alignItems:'center'}}>
           <Text style={{color:colors.secondary,fontWeight:'700'}}>Add songs later</Text>
         </Pressable>
