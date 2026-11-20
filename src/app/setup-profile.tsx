@@ -77,15 +77,19 @@ export default function SetupProfileScreen() {
     setCheckingProfile(false);
   };
 
+  const cleanHandle=username.trim().replace(/^@/,'').toLowerCase();
+  const validUsername=/^[a-z0-9][a-z0-9._]{1,22}[a-z0-9]$/.test(cleanHandle)
+    && !cleanHandle.includes('..')
+    && !['nowuser','listener','admin','support','undefined','null','deleted'].includes(cleanHandle);
+
   const saveProfile = async () => {
-    if (
-      !displayName.trim() ||
-      !username.trim()
-    ) {
-      Alert.alert(
-        'Almost there',
-        'Enter a name and username.'
-      );
+    if(!displayName.trim()||displayName.trim().length>40){
+      Alert.alert('Name needed','Enter a name of 40 characters or fewer.');
+      return;
+    }
+    if(!validUsername){
+      Alert.alert('Username needed',
+        'Use 3–24 letters, numbers, dots or underscores.');
       return;
     }
 
@@ -108,10 +112,7 @@ export default function SetupProfileScreen() {
       return;
     }
 
-    const cleanUsername = username
-      .trim()
-      .replace(/^@/, '')
-      .toLowerCase();
+    const cleanUsername=cleanHandle;
 
     const { data: existingProfile, error: checkError } =
       await supabase
@@ -165,7 +166,8 @@ export default function SetupProfileScreen() {
 
     if (saveError) {
       setLoading(false);
-      Alert.alert('Could not save profile',saveError.message);
+      Alert.alert('Could not save profile',
+        saveError.code==='23505'?'That username is already taken. Try another.':saveError.message);
       return;
     }
 
@@ -187,7 +189,8 @@ export default function SetupProfileScreen() {
 
   const canContinue =
     displayName.trim().length > 0 &&
-    username.trim().length > 0 &&
+    displayName.trim().length <= 40 &&
+    validUsername &&
     !loading;
 
   if (checkingProfile) {
@@ -229,6 +232,7 @@ export default function SetupProfileScreen() {
                 style={styles.input}
                 placeholder="Your name"
                 placeholderTextColor="#555555"
+                maxLength={40}
                 value={displayName}
                 onChangeText={setDisplayName}
                 autoCorrect={false}
@@ -242,11 +246,16 @@ export default function SetupProfileScreen() {
                 style={styles.input}
                 placeholder="@username"
                 placeholderTextColor="#555555"
+                maxLength={25}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+              {!!username.trim()&&!validUsername&&<Text style={{
+                color:colors.secondary,fontSize:12,marginTop:7}}>
+                Use 3–24 letters, numbers, dots or underscores.
+              </Text>}
 
               <Text style={styles.label}>
                 CITY (OPTIONAL)
