@@ -126,7 +126,7 @@ function OVRLEERoot() {
       <OverlyIntro active={pathname === '/now'&&privateAccess} />
       {!isFirstRun&&!privateAccess&&<View
         pointerEvents="auto"
-        style={[StyleSheet.absoluteFillObject,{
+        style={[StyleSheet.absoluteFill,{
           zIndex:1000,alignItems:'center',justifyContent:'center',
           backgroundColor:colors.background,
         }]}
