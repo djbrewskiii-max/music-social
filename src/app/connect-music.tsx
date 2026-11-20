@@ -20,9 +20,17 @@ export default function ConnectMusicScreen() {
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [connecting, setConnecting] = useState(false);
   const completeSetup=async()=>{
-    const {data:{user}}=await supabase.auth.getUser();
-    if(user)await finishOnboarding(user.id);
+    const {data:{user},error}=await supabase.auth.getUser();
+    if(error||!user)throw new Error('Sign in to complete setup.');
+    await finishOnboarding(user.id);
     router.replace('/now');
+  };
+  const safelyCompleteSetup=async()=>{
+    try{await completeSetup();}
+    catch(error){
+      Alert.alert('Could not finish setup',
+        error instanceof Error?error.message:'Please try again.');
+    }
   };
   const connectSpotify = async () => {
     if(connecting)return;
@@ -33,7 +41,7 @@ export default function ConnectMusicScreen() {
       await setMusicProvider('spotify');
       await completeSetup();
     }catch(error){
-      Alert.alert('Could not select Spotify',error instanceof Error?error.message:'Try again.');
+      Alert.alert('Could not finish setup',error instanceof Error?error.message:'Try again.');
     }finally{setConnecting(false);}
   };
 
@@ -47,20 +55,20 @@ export default function ConnectMusicScreen() {
       console.log('Apple Music authorization:', result);
 
       if (result.status === AuthStatus.AUTHORIZED) {
-        await completeSetup();
+        await safelyCompleteSetup();
         return;
       }
 
       Alert.alert('Apple Music access not granted',
-        'You can still use OVRLEE and open songs in Apple Music.',[
-          {text:'Continue',onPress:()=>void completeSetup()},
+        'You can still open songs in Apple Music without library access.',[
+          {text:'Continue',onPress:()=>void safelyCompleteSetup()},
         ]);
     } catch (error) {
       console.error('Apple Music connection error:', error);
 
       Alert.alert('Apple Music access unavailable',
         'You can choose music manually and connect later.',[
-          {text:'Continue',onPress:()=>void completeSetup()},
+          {text:'Continue',onPress:()=>void safelyCompleteSetup()},
         ]);
     } finally {
       setConnecting(false);
