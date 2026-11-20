@@ -58,10 +58,12 @@ export default function SetupProfileScreen() {
       .maybeSingle();
 
     if (error) {
-      console.log(
-        'Existing profile check error:',
-        error.message
-      );
+      Alert.alert('Could not load your profile',
+        'Check your connection and try again.',[
+          {text:'Retry',onPress:()=>void loadExistingProfile()},
+          {text:'Sign in',onPress:()=>router.replace('/login')},
+        ]);
+      return;
     }
 
     if (data) {
@@ -161,24 +163,25 @@ export default function SetupProfileScreen() {
       saveError = error;
     }
 
-    setLoading(false);
-
     if (saveError) {
-      Alert.alert(
-        'Could not save profile',
-        saveError.message
-      );
-
+      setLoading(false);
+      Alert.alert('Could not save profile',saveError.message);
       return;
     }
 
-    // An earlier partial setup may have saved name/username without completing
-    // the five-artist journey. Only the server completion flag can unlock Home.
-    if(existingProfile?.onboarding_complete===true){
-      router.replace('/now');
-    }else{
-      await setOnboardingStage(user.id,'pick-artists');
-      router.replace('/pick-artists');
+    try{
+      // A persisted name/username is NOT evidence of completed setup.
+      if(existingProfile?.onboarding_complete===true){
+        router.replace('/now');
+      }else{
+        await setOnboardingStage(user.id,'pick-artists');
+        router.replace('/pick-artists');
+      }
+    }catch(error){
+      Alert.alert('Could not continue',
+        error instanceof Error?error.message:'Check your connection and retry.');
+    }finally{
+      setLoading(false);
     }
   };
 
