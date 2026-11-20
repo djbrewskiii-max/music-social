@@ -45,6 +45,25 @@ jobs:
       # Archived Spotify/ListenBrainz research tests remain under tools/
       # but are intentionally excluded from the active launch pipeline.
 
+  ios-js-bundle:
+    name: Export production-style iOS JavaScript bundle
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compile Expo iOS update bundle
+        run: npx expo export --platform ios --output-dir /tmp/ovrlee-qa-ios-export --clear
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://ebflucbdptxpboqjxaox.supabase.co
+          EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_SibnO1c3UEAxA9dxtZ622w_3vUrnW_5
+      - name: Verify bundle generated
+        run: test -d /tmp/ovrlee-qa-ios-export && find /tmp/ovrlee-qa-ios-export -type f | grep -q '.js'
+
   spotify-native-swift-parse:
     runs-on: macos-latest
     steps:
