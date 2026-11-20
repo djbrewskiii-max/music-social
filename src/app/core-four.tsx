@@ -152,8 +152,13 @@ export default function CoreFourScreen() {
     if (error) { Alert.alert('Could not save Core Four', error.message); return; }
     setChanged(false);
     if(isOnboarding){
-      await setOnboardingStage(userId,'rotation-setup');
-      router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+      try{
+        await setOnboardingStage(userId,'rotation-setup');
+        router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+      }catch(error){
+        Alert.alert('Could not continue',
+          error instanceof Error?error.message:'Check your connection and try again.');
+      }
     } else router.back();
   }
   if (loading) return <SafeAreaView style={[s.screen,{backgroundColor:colors.background}]}><ActivityIndicator color={GREEN} style={{ marginTop: 90 }} /></SafeAreaView>;
@@ -206,8 +211,14 @@ export default function CoreFourScreen() {
       </Pressable>
       {isOnboarding&&<Pressable accessibilityRole="button" disabled={saving}
         onPress={()=>void (async()=>{
-          if(userId)await setOnboardingStage(userId,'rotation-setup');
-          router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+          if(!userId)return;
+          try{
+            await setOnboardingStage(userId,'rotation-setup');
+            router.replace({pathname:'/rotation-setup',params:{onboarding:'1'}});
+          }catch(error){
+            Alert.alert('Could not continue',
+              error instanceof Error?error.message:'Try again.');
+          }
         })()}
         style={{alignItems:'center',paddingVertical:14}}>
         <Text style={{color:colors.secondary,fontWeight:'700'}}>Choose albums later</Text>
