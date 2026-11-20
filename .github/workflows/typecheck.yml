@@ -29,6 +29,7 @@ jobs:
       - run: node tools/post-track-parity.test.mjs
       - run: node tools/prelaunch-conversation-reliability.test.mjs
       - run: node tools/onboarding-first-run-audit.test.mjs
+      - run: node tools/first-run-identity-consistency.test.mjs
       - run: node tools/world-city-directory-contract.test.mjs
       - run: node --check scripts/import-geonames-cities.mjs
       - run: node tools/launch-account-group-appearance.test.mjs
