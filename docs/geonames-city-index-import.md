@@ -1,12 +1,16 @@
 # OVRLEE worldwide city directory — deployment and acceptance
 
-**State:** schema and app client are committed; hosted index exists but has **0 rows** until import. Do not call worldwide location support launched until a verified import and an on-device test.
+**State (November 19, 2026):** hosted Supabase directory has **34,180 populated cities across 244 countries**, about **12 MB including indexes**. Verified prefix lookups include Manchester CT/NH/MO, Accra GH, and multiple US Springfields. **Device-level acceptance is still outstanding.**
 
 ## License, privacy and approach
 
 The free data source is [GeoNames](https://www.geonames.org/export/) under [CC BY 4.0](https://www.geonames.org/about.html). The app credits GeoNames in Settings. OVRLEE hosts the dataset in Supabase and does not rely on GeoNames public web API requests or GPS. GeoNames provides city/administrative-center coordinates rather than home addresses; city selection is optional during signup.
 
-## One-time import
+## Source used for current production directory
+
+The initial live index was populated from a GeoNames **cities15000** text snapshot mirrored in [Stellarium's data repository](https://github.com/Stellarium/stellarium-data/blob/master/geonames/cities15000.txt), with admin-region and country labels derived from GeoNames `admin1CodesASCII.txt` and `countryInfo.txt`. The newest source row was modified **2026-10-23**. This is a dated snapshot, **not a live geocoder**, and includes roughly cities above 15,000 residents and capital/administrative exceptions, not every town or ZIP. Preserve GeoNames CC BY attribution in Settings. The import included an exact-ID reconciliation so old 2017-only entries were removed.
+
+## Refresh / fuller coverage
 
 1. Use a terminal with Node 20+ and the macOS `unzip` command available. Check the connected Supabase project you intend to populate. Estimate its free-plan database quota and read current billing/usage before proceeding.
 2. From the repository root, run `node scripts/import-geonames-cities.mjs`. This downloads official GeoNames `cities1000.zip`, `countryInfo.txt` and `admin1CodesASCII.txt`, inspects matches and **does not write any rows**.
@@ -21,7 +25,7 @@ The free data source is [GeoNames](https://www.geonames.org/export/) under [CC B
 - The app uses `supabase.rpc('search_world_cities')`, which is an indexed `SECURITY INVOKER` database function returning at most 50 matches to authenticated members.
 - `anon` has no raw table read access or function execution permission; `authenticated` may read but cannot insert/edit directory rows. Writes require the protected server-side service key.
 - The client retains a short offline directory as a fallback. No city result is treated as proof of the phone's current location.
-- The official `cities1000` dataset includes populated places with more than roughly 1,000 people and administrative centers. It is not every village, ZIP code or municipal boundary. A smaller settlement can remain absent; we must not promise universal coverage.
+- The **current hosted snapshot** is the `cities15000` edition (~34,180 cities); some towns below 15,000 population are absent. A future refresh via `scripts/import-geonames-cities.mjs` uses the larger official `cities1000` edition and would change coverage and storage costs. Check your plan quota before that expansion. It is not every village, ZIP code, county boundary or residential address.
 - The city search RPC handles prefixes and ASCII names. Alias/misspelling coverage, pagination and stronger rate limiting remain optional future improvements.
 
 ## Rollout gates
@@ -30,7 +34,8 @@ The free data source is [GeoNames](https://www.geonames.org/export/) under [CC B
 - [x] Indexed table, RLS and query RPC created in hosted Supabase
 - [x] Import script committed, defaults to dry run
 - [x] Query tested with synthetic Manchester CT, Manchester UK and Accra rows, rolled back
-- [ ] Real official GeoNames rows imported and reviewed (current hosted count: **0**)
-- [ ] Verify DB usage and search latency at full populated size
+- [x] Real GeoNames-derived `cities15000` snapshot imported and ID-reconciled: **34,180** cities / **244** countries, newest source modification October 23, 2026
+- [x] Database index footprint inspected (~12 MB); representative city searches returned the correct country/region
+- [ ] Run load/latency measurements on a realistic preview-device connection and confirm Supabase project plan/storage allowance
 - [ ] Test full real-world queries and light/dark/system screens on actual iPhone
 - [ ] Publish compatible preview OTA and complete device acceptance
