@@ -62,7 +62,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://ebflucbdptxpboqjxaox.supabase.co
           EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_SibnO1c3UEAxA9dxtZ622w_3vUrnW_5
       - name: Verify bundle generated
-        run: test -d /tmp/ovrlee-qa-ios-export && find /tmp/ovrlee-qa-ios-export -type f | grep -q '.js'
+        run: test -d /tmp/ovrlee-qa-ios-export && test -n "$(find /tmp/ovrlee-qa-ios-export -type f -print -quit)"
 
   spotify-native-swift-parse:
     runs-on: macos-latest
