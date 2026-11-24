@@ -38,6 +38,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import ProfileHelloSong from '../components/ProfileHelloSong';
 import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 
@@ -183,7 +184,7 @@ export default function MyProfileScreen(){
 }
 
 function MyProfileContent({authUserId}:{authUserId:string}) {
-  const {scheme}=useAppearance();
+  const {scheme, colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
   const [
@@ -1347,7 +1348,12 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
               </View>
             )}
 
+            {/* rotationTracks[0] is the top DNA song, not necessarily the pinned #1 — UnifiedRotation loads pins internally. */}
+            {rotationTracks[0] && <ProfileHelloSong song={rotationTracks[0].song} artist={rotationTracks[0].artist} id={rotationTracks[0].id} artworkUrl={rotationTracks[0].artworkUrl} />}
             <UnifiedRotation owner fallbackTracks={rotationTracks} hideHeading />
+            <Pressable accessibilityRole="button" accessibilityLabel="View your Taste Card" onPress={() => router.push('/taste-card')} style={{ marginTop: 2 }}>
+              <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>YOUR TASTE CARD →</Text>
+            </Pressable>
 
                         {!!statusText && (
               <Text
@@ -1720,6 +1726,9 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
           )}
           {profileTab === 'collections' && (
             <View style={{ marginTop: 24 }}>
+              <Pressable accessibilityRole="button" accessibilityLabel="View your On This Day memories" onPress={() => router.push('/nostalgia')} style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>ON THIS DAY →</Text>
+              </Pressable>
               <CollectionGrid posts={posts} username={profile?.username || ''} emptyText="You haven't made a collection yet." />
             </View>
           )}
