@@ -106,8 +106,23 @@ export function buildChainPlaylist(postId: string, title: string, replies: Chain
   };
 }
 
-/** Collection items for the shareable card, using the tracklist template. */
-export function chainPlaylistToCollectionItems(playlist: ChainPlaylist): CollectionItem[] {
+/**
+ * Collection items for the shareable card, using the tracklist template.
+ * The card colours follow the current appearance scheme instead of
+ * hard-coding the dark pair: Light gets a white card with chocolate ink
+ * (appearance.ts light text), Dark keeps the dark card with white ink.
+ * Defaults to 'dark', preserving the original card for callers that do
+ * not pass a scheme.
+ *
+ * Note: the tracklist template renders FIXED.cream in CollectionSlides
+ * and ignores item bg/ink, so the on-screen chain card is cream in both
+ * modes. These values are the card's own colours for any other template:
+ * a 'song' slide under theme="auto" takes item.bg as its background but
+ * paletteFor forces white ink, so do not render light-mode items as
+ * song slides without teaching paletteFor to honour item.ink first.
+ */
+export function chainPlaylistToCollectionItems(playlist: ChainPlaylist, scheme: 'light' | 'dark' = 'dark'): CollectionItem[] {
+  const light = scheme === 'light';
   return playlist.tracks.map((track) => ({
     kind: 'song' as const,
     id: track.catalogId || `${track.artist}::${track.song}`,
@@ -115,8 +130,8 @@ export function chainPlaylistToCollectionItems(playlist: ChainPlaylist): Collect
     artist: track.artist,
     album: '',
     artworkUrl: track.artworkUrl || '',
-    bg: '#1c1c1c',
-    ink: '#FFFFFF',
+    bg: light ? '#FFFFFF' : '#1c1c1c',
+    ink: light ? '#2E201B' : '#FFFFFF',
     note: `via ${track.repliedBy}`,
     sourceUrl: track.sourceUrl,
   }));
