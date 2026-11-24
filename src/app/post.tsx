@@ -3,6 +3,10 @@ import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artis
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import CollectionArtistDiscoveryLinks from '../components/CollectionArtistDiscoveryLinks';
 import PostMusicTrackCard from '../components/PostMusicTrackCard';
+import ChainPlaylistCard from '../components/ChainPlaylistCard';
+import SongDuelCard from '../components/SongDuelCard';
+import { buildChainPlaylist, type ChainReply } from '../chain-playlist';
+import type { DuelReply } from '../song-duel';
 import {firstPostTrack} from '../post-track';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
@@ -303,6 +307,34 @@ export default function PostDetailScreen() {
     replies.filter(r=>!visited.has(r.id)).forEach(r=>visit(r,0));
     return ordered;
   },[replies]);
+  const chainReplies=useMemo<ChainReply[]>(()=>replies
+    .filter((r)=>!!r.song_title&&!!r.song_artist)
+    .map((r)=>({
+      id:r.id,
+      userId:r.user_id,
+      displayName:r.displayName,
+      username:r.username,
+      songTitle:r.song_title!,
+      songArtist:r.song_artist!,
+      songArtworkUrl:r.song_artwork_url,
+      songCatalogId:r.song_catalog_id,
+      songSourceUrl:r.song_source_url,
+      createdAt:r.created_at,
+    })),[replies]);
+  const duelReplies=useMemo<DuelReply[]>(()=>replies
+    .filter((r)=>!!r.song_title&&!!r.song_artist)
+    .map((r)=>({
+      id:r.id,
+      userId:r.user_id,
+      displayName:r.displayName,
+      songTitle:r.song_title!,
+      songArtist:r.song_artist!,
+      songArtworkUrl:r.song_artwork_url,
+      createdAt:r.created_at,
+    })),[replies]);
+  const chainPlaylist=useMemo(()=>buildChainPlaylist(
+    postId, post?.body || post?.song_title || '', chainReplies,
+  ),[postId, post?.body, post?.song_title, chainReplies]);
   const respondTo=(target:Reply)=>{
     setReplyTo(target);
     threadRef.current?.scrollToEnd({animated:true});
@@ -510,6 +542,8 @@ export default function PostDetailScreen() {
               </View>
             </View>
           </View>)}
+          <ChainPlaylistCard playlist={chainPlaylist} />
+          <SongDuelCard postId={postId} replies={duelReplies} />
         </>}
       </ScrollView>
       {post && <View style={styles.replyComposer}>
