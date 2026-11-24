@@ -29,6 +29,8 @@ import {
 import { supabase } from '../supabase';
 import { normalizeArtist } from '../release-radar';
 import { useFirstListenFeed } from '../use-first-listen-feed';
+import FirstListenLivePanel from '../components/FirstListenLivePanel';
+import { getMusicProvider, type MusicProvider } from '../music-provider';
 
 const GREEN = '#39E75F';
 
@@ -65,6 +67,13 @@ export default function ReleasesScreen() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [opening, setOpening] = useState<string | null>(null);
+
+  const [musicProvider, setMusicProvider] = useState<MusicProvider>('apple_music');
+  useEffect(() => {
+    let live = true;
+    getMusicProvider().then(p=>{if(live)setMusicProvider(p);}).catch(()=>undefined);
+    return () => { live=false; };
+  }, []);
 
   const load = useCallback(async () => {
     setError('');
@@ -343,6 +352,8 @@ export default function ReleasesScreen() {
               </View>
               <Text style={styles.archiveArrow}>→</Text>
             </Pressable>
+
+            {live.length > 0 && <FirstListenLivePanel room={live[0]} provider={musicProvider} />}
 
             <View style={styles.calHead}>
               <Text style={styles.section}>Coming up everywhere</Text>
