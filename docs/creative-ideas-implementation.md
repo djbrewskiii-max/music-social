@@ -5,6 +5,30 @@ All work in this branch is code + migrations + docs only. Nothing was
 run, built or tested on a real iPhone. Nothing was applied to live
 Supabase. Do not claim device testing or App Store readiness.
 
+Update 2026-11-24 (single commit, "Mount creative ideas + Light/Dark
+theme"): mounting is now DONE — see the MOUNTED notes below — and the
+Light/Dark/System theme audit in code is DONE for every new screen and
+card. Theme was verified by reading the code only, not on a device:
+every new component/screen uses `useAppearance()` colours
+(`background` / `surface` / `raised` / `text` / `secondary` / `border`
+/ `accent` / `accentText`, Light = chocolate accent on pale surfaces,
+Dark = green accent on black surfaces, System follows the device), and
+the mounted host screens (`now`, `post`, `first-listen`,
+`my-profile`, `profile`, `listeners`, `releases`, `concerts`) already
+run their dark-first styles through `themedStyleSheet(baseStyles,
+scheme)`. The only hard-coded greens left in the new code are the
+LIVE/online status greens, deliberately `#16843E` in Light and
+`#39E75F` in Dark (see `src/theme-style.ts` status-green convention).
+No Light/System toggle was added — the repo defers a full design-token
+pass, and the existing `AppearanceProvider` (system/light/dark,
+`src/appearance.tsx`) is what the new UI follows. Two device checks
+remain: (1) Concert Buddy pill tap — the row was restructured in this
+update so the pill is no longer nested inside the show-chat Pressable,
+but confirm on a phone that tapping it opens Concert Buddy only, not
+show-chat; (2) Hello Song uses the top DNA song (`rotationTracks[0]`),
+not necessarily the pinned #1 — `UnifiedRotation` loads pins
+internally (comment already in `my-profile.tsx` / `profile.tsx`).
+
 ## What was built, in priority order
 
 ### 1. Daily Drop — BUILT, migration NOT applied, auto-posting OFF
@@ -20,9 +44,11 @@ Supabase. Do not claim device testing or App Store readiness.
   publications table, `ovrlee_publish_daily_drop(date)` modelled on
   the existing Aux publisher. **NOT APPLIED.**
 - `docs/daily-drop-v1.md` — acceptance test and the enablement gates.
-- Still to do: mount `DailyDropCard` at the top of the home feed
-  (`src/app/now.tsx`), and a moderator decision to publish manually
+- Still to do: a moderator decision to publish manually
   2–3 times a week before any automatic schedule is enabled.
+- MOUNTED 2026-11-24: `DailyDropCard` at the top of the home feed
+  (`src/app/now.tsx`, shown only when a Drop exists for today).
+  Theme: the card uses `useAppearance()` colours only.
 
 ### 2. Chain Playlist + shareable card — BUILT
 - `src/chain-playlist.ts` — loads a post's Song Replies, builds a
@@ -36,9 +62,12 @@ Supabase. Do not claim device testing or App Store readiness.
   exported with the existing `captureSlides` / `saveSlides` helpers.
 - `docs/chain-playlist-v1.md`
 - No migration needed: the playlist is derived live from `post_replies`.
-- Still to do: mount `ChainPlaylistCard` under the replies on
-  `src/app/post.tsx` (and optionally in the feed). Deliberately left
-  as a small follow-up, not a large edit to post.tsx in this branch.
+- MOUNTED 2026-11-24: `ChainPlaylistCard` under the replies on
+  `src/app/post.tsx`. Theme: card and `/chain-playlist` screen use
+  `useAppearance()` colours only; the export slide is the existing
+  `CollectionSlides` tracklist template, which renders `FIXED.cream`
+  in both modes (a deliberate, readable cream card — see the note in
+  `src/chain-playlist.ts` about `item.bg`/`item.ink` and song slides).
 
 ### 3. First Listen Live — BUILT, migration NOT applied
 - `src/first-listen-live.ts` — LIVE window (first 48 hours), recap
@@ -55,9 +84,13 @@ Supabase. Do not claim device testing or App Store readiness.
   `first_listen_rsvps` and `first_listen_room_prompts`, with RLS.
   Prompts deliberately have no client INSERT policy. **NOT APPLIED.**
 - `docs/first-listen-live-v1.md`
-- Still to do: mount the panel in the releases shelf and on the room
-  screen (`src/app/first-listen.tsx`). Apple Music party sync is the
-  existing listening-party system, unchanged.
+- MOUNTED 2026-11-24: the panel is on the releases shelf
+  (`src/app/releases.tsx`, first live room) and on the room screen
+  (`src/app/first-listen.tsx`, after `ListeningPartyPanel`). Apple
+  Music party sync is the existing listening-party system, unchanged.
+  Theme: panel and `/first-listen-live` screen use `useAppearance()`
+  colours; LIVE status stays green in both modes (`#16843E` Light /
+  `#39E75F` Dark), never the brand accent.
 
 ### 4. Song Duel — BUILT, migration NOT applied
 - `src/song-duel.ts` + `src/components/SongDuelCard.tsx` — "Which one
@@ -66,7 +99,10 @@ Supabase. Do not claim device testing or App Store readiness.
   now", tie goes to the earliest reply. No loser shaming.
 - `supabase/migrations/20261123000200_song_duels.sql` —
   `song_duel_votes` with RLS. **NOT APPLIED.**
-- Still to do: mount the card on the post detail screen.
+- MOUNTED 2026-11-24: the card is on the post detail screen
+  (`src/app/post.tsx`, under `ChainPlaylistCard`). Theme: the card
+  uses `useAppearance()` colours only; the leader line uses the brand
+  accent, the rest secondary text.
 
 ### 5. Taste Twin of the Week — BUILT, no migration
 - `src/taste-twin.ts` — scoring identical to Orbit in `now.tsx`
@@ -74,6 +110,10 @@ Supabase. Do not claim device testing or App Store readiness.
 - `src/components/TasteTwinCard.tsx` + `src/app/taste-twin.tsx` —
   one introduction a week, with a prompt and a "Say hello with a song"
   action into the existing chat flow. No compatibility percentage.
+- MOUNTED 2026-11-24: `TasteTwinCard` on the listeners screen
+  (`src/app/listeners.tsx`), and the `/taste-twin` screen is
+  theme-aware via `useAppearance()`. Theme: card and screen use
+  `useAppearance()` colours only.
 - Blind version (hide names, match by song only) is NOT built — it
   needs a design decision first.
 
@@ -81,8 +121,12 @@ Supabase. Do not claim device testing or App Store readiness.
 - `src/components/ProfileHelloSong.tsx` — top In Rotation song with
   the existing 30-second `SongPreviewButton` and "This is me right
   now." Renders nothing with no track.
-- Still to do: pass the first In Rotation track from `my-profile.tsx`
-  / `profile.tsx` (one-line wiring per screen).
+- MOUNTED 2026-11-24: the first In Rotation track is passed from
+  both `my-profile.tsx` and `profile.tsx`. Theme: the component uses
+  `useAppearance()` colours only, and its `SongPreviewButton` is
+  theme-aware (`#F1E5DE` button in Light / `#14251A` in Dark).
+  Device check: `rotationTracks[0]` is the top DNA song, not
+  necessarily the pinned #1 — `UnifiedRotation` loads pins internally.
 
 ### 7. One-tap Now Playing — BUILT
 - `src/now-playing-post.ts` + `src/app/now-playing.tsx` — reads the
@@ -98,6 +142,16 @@ Supabase. Do not claim device testing or App Store readiness.
   same artist. Nobody is presented as "going" unless they said so.
   Starting a chat goes through the existing new-group flow (mutuals
   only); nothing auto-adds anyone.
+- MOUNTED 2026-11-24: a CONCERT BUDDY pill on each tour-date row in
+  `src/app/concerts.tsx`, next to SHOW CHAT. Theme: the pill uses the
+  host screen's `themedStyleSheet` styles, so its border/text recolour
+  in Light mode; the tour-loading spinner on that row is now
+  scheme-aware green (`#16843E` Light / `#39E75F` Dark).
+  Device check: the row was restructured in the same update — the
+  pill is no longer nested inside the show-chat Pressable (the date
+  area and SHOW CHAT are now separate Pressables that open show-chat,
+  the pill opens `/concert-buddy` only) — confirm on a phone that
+  tapping CONCERT BUDDY does not also open show-chat.
 - `supabase/migrations/20261123000300_concert_buddy_meetups.sql` —
   meetup proposals (public place, proposer only). **NOT APPLIED.**
   No screen in this branch writes to it yet.
@@ -107,11 +161,20 @@ Supabase. Do not claim device testing or App Store readiness.
   `music_dna` top artists/songs and the profile, exported with the
   existing `captureSlides` / `saveSlides` helpers. Nothing claims
   streams or listens.
+- MOUNTED 2026-11-24: "YOUR TASTE CARD →" link on `my-profile.tsx`
+  and "MY TASTE CARD →" on `profile.tsx` (the screen always shows
+  the signed-in viewer's own card, not the profile being viewed).
+  Theme: the screen uses `useAppearance()` colours only; the exported
+  card view uses `colors.raised` / `colors.text`, so it exports in
+  the current scheme.
 
 ### 10. Nostalgia / memory — BUILT
 - `src/nostalgia.ts` + `src/app/nostalgia.tsx` — posts made on this
   day in a previous year, with real dates and reply counts. Only real
   posts; nothing invented.
+- MOUNTED 2026-11-24: "ON THIS DAY →" link on the collections tab
+  of `my-profile.tsx`. Theme: the screen uses `useAppearance()`
+  colours only.
 
 ### 11. Artist rooms — PARTIAL, deliberately
 - `src/artist-rooms.ts` — the shape of an artist-hosted First Listen
@@ -120,14 +183,16 @@ Supabase. Do not claim device testing or App Store readiness.
   or ticketing. Start with one local / independent artist a month in
   an ordinary First Listen room, with the artist as host.
 
-## What was NOT changed
-- No changes to `src/app/now.tsx`, `src/app/post.tsx`,
-  `src/app/first-listen.tsx`, `src/app/my-profile.tsx` or
-  `src/app/profile.tsx` in this branch. The new cards and panels are
-  built and usable at their own routes; mounting them in the feed,
-  post detail, room and profile screens is a small, deliberate
-  follow-up once each has been seen on a real phone. This keeps the
-  branch from breaking Song Replies, onboarding or First Listen.
+## What changed in this branch (mounts, 2026-11-24)
+- Mounts only, in `src/app/now.tsx` (Daily Drop), `src/app/post.tsx`
+  (Chain Playlist + Song Duel), `src/app/first-listen.tsx` and
+  `src/app/releases.tsx` (First Listen Live panel),
+  `src/app/my-profile.tsx` and `src/app/profile.tsx` (Hello Song,
+  Taste Card link, Nostalgia link on own profile),
+  `src/app/listeners.tsx` (Taste Twin) and `src/app/concerts.tsx`
+  (Concert Buddy pill, plus the row restructure above). No changes
+  were made to Song Replies, onboarding or First Listen logic — the
+  mounts only render the new cards/panels in those screens.
 - No new native modules. No new dependencies.
 - No Spotify sync, no Spotify scraping, no experimental public-profile
   reader in the launch path. Spotify is follow-along / links out,
@@ -152,7 +217,9 @@ yet") instead of crashing.
    cadence exist.
 3. Which surface gets the new cards first: feed top (Daily Drop),
    post detail (Chain Playlist + Song Duel), releases shelf
-   (First Listen Live), or profile (Hello Song)?
+   (First Listen Live), or profile (Hello Song)? — MOUNTED on all
+   four surfaces on 2026-11-24, so this is now a review question
+   (is the order/placement right?) rather than a build question.
 4. Artist rooms: is one local / independent artist a month the right
    start, and who moderates that room?
 5. Concert Buddy: is "people near you who posted about this artist"
@@ -161,12 +228,14 @@ yet") instead of crashing.
 
 ## Not verified
 - Nothing in this branch was run, built, typechecked on a device, or
-  tested on a real iPhone. TypeScript correctness, navigation, theme
-  (Light / Dark / System), preview playback, share-sheet export and
-  Supabase RLS all still need the repo's normal checks
-  (`npx tsc --noEmit`, lint, and the two-phone device acceptance in
+  tested on a real iPhone. TypeScript correctness, navigation,
+  preview playback, share-sheet export and Supabase RLS all still
+  need the repo's normal checks (`npx tsc --noEmit`, lint, and the
+  two-phone device acceptance in
   `docs/launch-command-center-20261117.md`) before any of it reaches
-  testers.
+  testers. Theme (Light / Dark / System) was audited in code only on
+  2026-11-24 (see the header note) — it still needs to be seen on a
+  real phone in Light, Dark and System.
 - Do not claim App Store readiness. The launch gates in
   `docs/launch-gates-20261115.md` (trust, safety, legal, TestFlight)
   are unchanged by this branch.
