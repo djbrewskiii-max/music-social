@@ -33,6 +33,7 @@ import {
 
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
+import DailyDropCard from '../components/DailyDropCard';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
@@ -54,7 +55,7 @@ type PostRow = {
   created_at: string;
   user_id: string;
   body: string | null;
-  post_kind?: 'music' | 'aux_prompt';
+  post_kind?: 'music' | 'aux_prompt' | 'daily_drop';
   song_title: string;
   artist_name: string;
   album_name: string | null;
@@ -1211,6 +1212,13 @@ export default function NowScreen() {
       orbitPerson,
     ]);
 
+  // Today's Daily Drop question, if the feed has one. Daily Drop posts use
+  // post_kind 'daily_drop' after migration; 'aux_prompt' is the existing
+  // fallback kind in the feed.
+  const dailyDrop = posts.find(
+    (post) => post.post_kind === 'daily_drop' || post.post_kind === 'aux_prompt',
+  );
+
   const refresh = async () => {
     setRefreshing(true);
     await loadFeed();
@@ -1943,6 +1951,14 @@ export default function NowScreen() {
             </View>
             <View style={styles.feedComposerPlus}><Text style={styles.feedComposerPlusText}>+</Text></View>
           </Pressable>
+
+          {dailyDrop && (
+            <DailyDropCard
+              postId={dailyDrop.id}
+              question={dailyDrop.body ?? ''}
+              replyCount={dailyDrop.replyCount}
+            />
+          )}
 
           {firstConversation&&posts.some(p=>p.id===firstConversation.postId)&&(
             <View style={{marginHorizontal:20,marginBottom:14,flexDirection:'row',
