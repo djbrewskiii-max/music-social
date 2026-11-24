@@ -33,6 +33,7 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import ProfileHelloSong from '../components/ProfileHelloSong';
 import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 import { sharedTasteNames, type TasteEvidence, tasteKey } from '../music-taste-evidence';
@@ -172,7 +173,7 @@ export default function ProfileScreen(){
 }
 
 function ProfileContent() {
-  const {scheme}=useAppearance();
+  const {scheme, colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const brandAccent=scheme==='light'?'#3B2218':'#39E75F';
   const { userId } =
@@ -1467,7 +1468,13 @@ function ProfileContent() {
             </View>
           )}
 
+          {/* rotationTracks[0] is the top DNA song, not necessarily the pinned #1 — UnifiedRotation loads pins internally. */}
+          {rotationTracks[0] && <ProfileHelloSong song={rotationTracks[0].song} artist={rotationTracks[0].artist} id={rotationTracks[0].id} artworkUrl={rotationTracks[0].artworkUrl} />}
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
+          {/* /taste-card always shows the signed-in viewer's own card, not this profile's. */}
+          <Pressable accessibilityRole="button" accessibilityLabel="View my Taste Card" onPress={() => router.push('/taste-card')} style={{ marginTop: 2 }}>
+            <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>MY TASTE CARD →</Text>
+          </Pressable>
                   </View>
 
           </>
