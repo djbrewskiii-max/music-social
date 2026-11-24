@@ -17,7 +17,7 @@ import { supabase } from '../supabase';
   tracks in the listener's own music service, one tap at a time.
 */
 export default function ChainPlaylistScreen() {
-  const { colors } = useAppearance();
+  const { colors, scheme } = useAppearance();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams<{ postId?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
@@ -78,7 +78,7 @@ export default function ChainPlaylistScreen() {
     );
   }
 
-  const items = chainPlaylistToCollectionItems(playlist);
+  const items = chainPlaylistToCollectionItems(playlist, scheme);
   const slides = buildSlides('tracklist', { title: playlist.title, caption: 'A conversation in songs — made on OVRLEE', items, photos: [] });
 
   return (
