@@ -13,7 +13,12 @@ import { countRsvps, isLiveWindow, loadMyRsvp, toggleRsvp } from '../first-liste
   Music party sync is the existing listening-party system, not this panel.
 */
 export default function FirstListenLivePanel({ room, provider }: { room: ReleaseRoom; provider: 'apple_music' | 'spotify' }) {
-  const { colors } = useAppearance();
+  const { colors, scheme } = useAppearance();
+  // Live/online status stays green in both modes (theme-style.ts
+  // status-green convention): readable dark green on light screens,
+  // bright green on dark screens. Brand accent is chocolate in Light
+  // mode, so it must never carry the LIVE state.
+  const liveGreen = scheme === 'light' ? '#16843E' : '#39E75F';
   const [going, setGoing] = useState(false);
   const [count, setCount] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -54,7 +59,7 @@ export default function FirstListenLivePanel({ room, provider }: { room: Release
   return (
     <View style={[styles.panel, { backgroundColor: colors.raised, borderColor: colors.border }]}>
       <View style={styles.top}>
-        <Text style={[styles.status, { color: colors.accent }]}>
+        <Text style={[styles.status, { color: live ? liveGreen : colors.accent }]}>
           {live ? '● LIVE NOW' : open ? 'OUT NOW' : countdown(room.opens_at, now)}
         </Text>
         <Text style={[styles.count, { color: colors.secondary }]}>
