@@ -19,7 +19,11 @@ import { supabase } from '../supabase';
   screen says so, and never claims synced Spotify audio.
 */
 export default function FirstListenLiveScreen() {
-  const { colors } = useAppearance();
+  const { colors, scheme } = useAppearance();
+  // Live status stays green in both modes (theme-style.ts status-green
+  // convention). Only the LIVE line gets it; countdown and recap lines
+  // keep the normal text colour, and brand accent is untouched.
+  const liveGreen = scheme === 'light' ? '#16843E' : '#39E75F';
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const params = useLocalSearchParams<{ roomId?: string }>();
   const roomId = typeof params.roomId === 'string' ? params.roomId : '';
@@ -86,7 +90,7 @@ export default function FirstListenLiveScreen() {
         <Text style={styles.eyebrow}>FIRST LISTEN LIVE</Text>
         <Text style={styles.title}>{room.album_title}</Text>
         <Text style={styles.artist}>{room.artist_name}</Text>
-        <Text style={styles.status}>{live ? '● LIVE NOW — everyone is listening together' : recapMode ? 'Recap — the room has closed' : countdown(room.opens_at, now)}</Text>
+        <Text style={[styles.status, live && { color: liveGreen }]}>{live ? '● LIVE NOW — everyone is listening together' : recapMode ? 'Recap — the room has closed' : countdown(room.opens_at, now)}</Text>
         <FirstListenLivePanel room={room} provider={provider} />
         {live && (
           <>
