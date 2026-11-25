@@ -135,7 +135,7 @@ jobs:
           fi
           CHANGED="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
           printf '%s\n' "$CHANGED"
-          NATIVE="$(printf '%s\n' "$CHANGED" | grep -E '^(app\\.json|eas\\.json|package\\.json|package-lock\\.json|plugins/|now-spotify/|now-shazam/|patches/)' || true)"
+          NATIVE="$(printf '%s\n' "$CHANGED" | grep -E '^(app\.json|eas\.json|package\.json|package-lock\.json|plugins/|now-spotify/|now-shazam/|patches/)' || true)"
           if [ -n "$NATIVE" ]; then
             echo "::error::Native dependency/config change requires a new EAS preview binary."
             echo "$NATIVE"
