@@ -17,9 +17,11 @@ assert.match(musicSettings,/provider==='spotify'&&<Pressable/,
 assert.match(musicSettings,/provider==='spotify'&&<Text/,
  'Spotify-specific limitations must not clutter an Apple Music account');
 
-assert.match(feed,/const activeMusicPeople=listeningPeople.filter/,
+assert.match(feed,/const activeMusicPeople\s*=\s*listeningPeople\.filter/,
  'Home should derive the genuine listening cohort, not show every online member');
-assert.match(feed,/activeMusicPeople.length>0&&\(/,
+assert.match(feed,/return tier !== 'here_now' && !!song\?\.trim\(\) && !!artist\?\.trim\(\)/,
+ 'Do not display an unverified or empty music presence card');
+assert.match(feed,/activeMusicPeople\.length\s*>\s*0\s*&&\s*\(/,
  'Do not show a sparse Who\'s Here section when no music is actually playing');
 assert.match(feed,/activeMusicPeople.map/,
  'Only verified listening candidates should be rendered in the presence row');
