@@ -33,6 +33,9 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import ProfileHelloSong from '../components/ProfileHelloSong';
+import OnRepeatCard from '../components/OnRepeatCard';
+import { loadOnRepeatTracks, onRepeatToMusicTracks, onRepeatWeekKey, type OnRepeatTrack } from '../on-repeat';
 import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 import { sharedTasteNames, type TasteEvidence, tasteKey } from '../music-taste-evidence';
@@ -172,7 +175,7 @@ export default function ProfileScreen(){
 }
 
 function ProfileContent() {
-  const {scheme}=useAppearance();
+  const {scheme, colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const brandAccent=scheme==='light'?'#3B2218':'#39E75F';
   const { userId } =
@@ -247,6 +250,12 @@ function ProfileContent() {
     useState(false);
 
   const [
+    onRepeatTracks,
+    setOnRepeatTracks,
+  ] =
+    useState<OnRepeatTrack[]>([]);
+
+  const [
     loading,
     setLoading,
   ] =
@@ -254,6 +263,17 @@ function ProfileContent() {
 
   useEffect(() => {
     loadProfile();
+  }, [userId]);
+
+  // Their declared On Repeat, shown read-only. A missing on_repeat
+  // table (migration not applied yet) just leaves the list empty.
+  useEffect(() => {
+    if (typeof userId !== 'string' || !userId) { setOnRepeatTracks([]); return; }
+    let alive = true;
+    loadOnRepeatTracks(userId, onRepeatWeekKey()).then((tracks) => {
+      if (alive) setOnRepeatTracks(tracks);
+    }).catch(() => {});
+    return () => { alive = false; };
   }, [userId]);
 
   const loadProfile =
@@ -1028,10 +1048,15 @@ function ProfileContent() {
         )
       : [];
 
+  // On Repeat fills In Rotation when Music DNA is empty — their
+  // declared songs, on the same footing as Apple DNA.
+  const helloFromOnRepeat = topSongs.length === 0 && onRepeatTracks.length > 0;
   const rotationTracks =
     topSongs.length > 0
       ? topSongs
-      : recentTracks;
+      : helloFromOnRepeat
+        ? onRepeatToMusicTracks(onRepeatTracks)
+        : recentTracks;
 
   const now =
     Date.now();
@@ -1467,7 +1492,14 @@ function ProfileContent() {
             </View>
           )}
 
+          {/* rotationTracks[0] is the top DNA song, not necessarily the pinned #1 — UnifiedRotation loads pins internally. */}
+          {rotationTracks[0] && <ProfileHelloSong song={rotationTracks[0].song} artist={rotationTracks[0].artist} id={rotationTracks[0].id} artworkUrl={rotationTracks[0].artworkUrl} tierLabel={helloFromOnRepeat ? 'ON REPEAT · DECLARED BY YOU' : undefined} />}
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
+          <OnRepeatCard tracks={onRepeatTracks} />
+          {/* /taste-card always shows the signed-in viewer's own card, not this profile's. */}
+          <Pressable accessibilityRole="button" accessibilityLabel="View my Taste Card" onPress={() => router.push('/taste-card')} style={{ marginTop: 2 }}>
+            <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>MY TASTE CARD →</Text>
+          </Pressable>
                   </View>
 
           </>

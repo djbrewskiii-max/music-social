@@ -38,6 +38,9 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
+import ProfileHelloSong from '../components/ProfileHelloSong';
+import OnRepeatCard from '../components/OnRepeatCard';
+import { loadOnRepeatTracks, onRepeatToMusicTracks, onRepeatWeekKey, type OnRepeatTrack } from '../on-repeat';
 import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
 
@@ -183,7 +186,7 @@ export default function MyProfileScreen(){
 }
 
 function MyProfileContent({authUserId}:{authUserId:string}) {
-  const {scheme}=useAppearance();
+  const {scheme, colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
   const [profileTab, setProfileTab] = useState<'posts' | 'collections' | 'shows'>('posts');
   const [
@@ -255,6 +258,12 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
   ] =
     useState(false);
 
+  const [
+    onRepeatTracks,
+    setOnRepeatTracks,
+  ] =
+    useState<OnRepeatTrack[]>([]);
+
   useFocusEffect(
     useCallback(() => {
       loadProfile(
@@ -263,6 +272,18 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
 
       setHasLoadedOnce(true);
     }, [hasLoadedOnce])
+  );
+
+  // On Repeat is declared taste, loaded separately so a missing
+  // on_repeat table (migration not applied yet) never blocks the profile.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      loadOnRepeatTracks(authUserId, onRepeatWeekKey()).then((tracks) => {
+        if (alive) setOnRepeatTracks(tracks);
+      }).catch(() => {});
+      return () => { alive = false; };
+    }, [authUserId])
   );
 
   const loadProfile =
@@ -911,6 +932,10 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
       .toUpperCase() ||
     '?';
 
+  // On Repeat fills In Rotation when Music DNA is empty — a Spotify
+  // member's declared songs, on the same footing as Apple DNA.
+  const helloFromOnRepeat =
+    musicDNA.topSongs.length === 0 && onRepeatTracks.length > 0;
   const rotationTracks =
     musicDNA.topSongs
       .length > 0
@@ -918,10 +943,12 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
           0,
           5
         )
-      : musicDNA.recentTracks.slice(
-          0,
-          5
-        );
+      : helloFromOnRepeat
+        ? onRepeatToMusicTracks(onRepeatTracks)
+        : musicDNA.recentTracks.slice(
+            0,
+            5
+          );
 
   if (loading || !profile || profile.user_id!==authUserId) {
     return (
@@ -1347,7 +1374,13 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
               </View>
             )}
 
+            {/* rotationTracks[0] is the top DNA song, not necessarily the pinned #1 — UnifiedRotation loads pins internally. */}
+            {rotationTracks[0] && <ProfileHelloSong song={rotationTracks[0].song} artist={rotationTracks[0].artist} id={rotationTracks[0].id} artworkUrl={rotationTracks[0].artworkUrl} tierLabel={helloFromOnRepeat ? 'ON REPEAT · DECLARED BY YOU' : undefined} />}
             <UnifiedRotation owner fallbackTracks={rotationTracks} hideHeading />
+            <OnRepeatCard tracks={onRepeatTracks} onEdit={() => router.push('/on-repeat')} />
+            <Pressable accessibilityRole="button" accessibilityLabel="View your Taste Card" onPress={() => router.push('/taste-card')} style={{ marginTop: 2 }}>
+              <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>YOUR TASTE CARD →</Text>
+            </Pressable>
 
                         {!!statusText && (
               <Text
@@ -1720,6 +1753,9 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
           )}
           {profileTab === 'collections' && (
             <View style={{ marginTop: 24 }}>
+              <Pressable accessibilityRole="button" accessibilityLabel="View your On This Day memories" onPress={() => router.push('/nostalgia')} style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>ON THIS DAY →</Text>
+              </Pressable>
               <CollectionGrid posts={posts} username={profile?.username || ''} emptyText="You haven't made a collection yet." />
             </View>
           )}

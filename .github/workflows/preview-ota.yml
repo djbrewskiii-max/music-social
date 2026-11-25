@@ -1,0 +1,82 @@
+# Publish preview OTA
+#
+# Auto-publishes a JavaScript/assets-only EAS Update to the iOS `preview`
+# channel whenever code is pushed to `claude-build`.
+#
+# It does NOT publish to beta or production, does NOT merge anything,
+# and does NOT build a new binary. A new binary is still needed when
+# native code, plugins, entitlements, or the runtime version change —
+# the `native-change guard` step below fails the job in that case.
+#
+# Setup (one time, see docs/auto-ota-setup.md):
+#   1. Merge the feature branch into `claude-build` via a pull request.
+#   2. Create an Expo access token and save it as a GitHub repository
+#      secret named EXPO_TOKEN.
+#   3. Confirm the iPhone app is the preview build, runtime 1.0.0.
+#
+# After that: push to `claude-build`, then force-close and reopen
+# OVRLEE twice on the iPhone to receive the update.
+
+name: Publish preview OTA
+
+on:
+  push:
+    branches:
+      - claude-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-preview:
+    name: Publish preview OTA (iOS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out claude-build
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Require EXPO_TOKEN secret
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::EXPO_TOKEN secret is missing or empty. Add it in GitHub: Settings > Secrets and variables > Actions > New repository secret, name EXPO_TOKEN, value = an Expo access token (expo.dev Settings > Access Tokens). See docs/auto-ota-setup.md."
+            exit 1
+          fi
+
+      - name: Native-change guard (OTA is JS/assets only)
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+          else
+            CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}" || true)
+          fi
+          echo "Changed files:"
+          echo "$CHANGED"
+          NATIVE=$(echo "$CHANGED" | grep -E '^(app\.json|eas\.json|package\.json|package-lock\.json|plugins/|now-spotify/|now-shazam/|patches/)' || true)
+          if [ -n "$NATIVE" ]; then
+            echo "::error::Native change detected — OTA will not apply it. Changed native files:"
+            echo "$NATIVE"
+            echo "Build and install a new EAS preview binary instead (npx eas-cli@latest build --platform ios --profile preview), then re-run this workflow for JS-only changes."
+            exit 1
+          fi
+
+      - name: Set up Node 22.23.3
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.3"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Publish preview update to Expo (iOS only)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx eas-cli@latest update --channel preview --environment preview --platform ios --message "OVRLEE preview ${{ github.sha }}" --non-interactive
