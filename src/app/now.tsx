@@ -1663,7 +1663,13 @@ export default function NowScreen() {
       sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
       hasOnRepeat: !!person.onRepeatSong,
     });
-    return tier !== 'here_now';
+    const song = tier === 'verified_live' ? person.song_title :
+      tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
+    const artist = tier === 'verified_live' ? person.artist_name :
+      tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
+    // Never render a blank/fake listening card: only real track+artist
+    // evidence with an honest verified/shared/declared status is eligible.
+    return tier !== 'here_now' && !!song?.trim() && !!artist?.trim();
   });
 
   if (loading) {
