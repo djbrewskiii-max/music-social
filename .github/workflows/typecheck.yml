@@ -1,10 +1,22 @@
 name: OVRLEE Quality Checks
 
+# Single source of truth: a preview may only publish from this workflow after
+# ALL required quality, iOS JS bundle and native parse jobs have succeeded.
 on:
   push:
     branches: [claude-build]
   pull_request:
-    branches: [main]
+    branches: [main, claude-build]
+  workflow_dispatch:
+    inputs:
+      confirm_preview:
+        description: "Also publish this tested claude-build commit to the existing iOS preview channel?"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
 
 jobs:
   typecheck:
@@ -13,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.3'
           cache: npm
       - run: npm ci
       - name: Generate Expo Router route types
@@ -35,6 +47,7 @@ jobs:
       - run: node tools/launch-account-group-appearance.test.mjs
       - run: node tools/unaddressed-requests-audit.test.mjs
       - run: node tools/group-push-mute-contract.test.mjs
+      - run: node tools/preview-deployment-gate.test.mjs
       - run: node tools/beta-release-config.test.mjs
       - run: node tools/beta-ui-brand.test.mjs
       - run: node --experimental-strip-types tools/spotify-oembed.test.mjs
@@ -70,3 +83,91 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parse the existing native Spotify bridge
         run: xcrun swiftc -frontend -parse now-spotify/ios/NowSpotifyModule.swift
+
+  publish-preview:
+    name: Publish verified iOS OTA preview
+    needs: [typecheck, ios-js-bundle, spotify-native-swift-parse]
+    if: >-
+      github.ref == 'refs/heads/claude-build' &&
+      (github.event_name == 'push' || inputs.confirm_preview == true)
+    runs-on: ubuntu-latest
+    environment: preview
+    concurrency:
+      group: ovrlee-ios-preview-publish
+      cancel-in-progress: false
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: https://ebflucbdptxpboqjxaox.supabase.co
+      EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_SibnO1c3UEAxA9dxtZ622w_3vUrnW_5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # No stale queued workflow may overwrite a newer preview publication.
+      - name: Check tested commit is still the branch head
+        id: latest
+        run: |
+          HEAD_SHA="$(git ls-remote origin refs/heads/claude-build | cut -f1)"
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::Unable to determine current branch head."
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::Skipping superseded commit $GITHUB_SHA; latest is $HEAD_SHA"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject native changes incompatible with OTA preview
+        if: steps.latest.outputs.publish == 'true'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              echo "::error::No trustworthy push base for native compatibility check."
+              exit 1
+            fi
+          else
+            # Manual dispatch must not bypass a native-code change.
+            BEFORE="$(git rev-parse "$GITHUB_SHA^")"
+          fi
+          CHANGED="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
+          printf '%s\n' "$CHANGED"
+          NATIVE="$(printf '%s\n' "$CHANGED" | grep -E '^(app\\.json|eas\\.json|package\\.json|package-lock\\.json|plugins/|now-spotify/|now-shazam/|patches/)' || true)"
+          if [ -n "$NATIVE" ]; then
+            echo "::error::Native dependency/config change requires a new EAS preview binary."
+            echo "$NATIVE"
+            exit 1
+          fi
+
+      - name: Require Expo deployment credential
+        if: steps.latest.outputs.publish == 'true'
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN repository/environment secret is missing."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.latest.outputs.publish == 'true'
+        with:
+          node-version: '22.23.3'
+          cache: npm
+      - run: npm ci
+        if: steps.latest.outputs.publish == 'true'
+      - name: Verify connected Expo preview identity
+        if: steps.latest.outputs.publish == 'true'
+        run: |
+          npx eas-cli@latest whoami
+          npx eas-cli@latest channel:view preview
+      - name: Publish verified commit to iOS preview only
+        if: steps.latest.outputs.publish == 'true'
+        run: >-
+          npx eas-cli@latest update
+          --channel preview
+          --environment preview
+          --platform ios
+          --message "OVRLEE tested preview ${{ github.sha }}"
+          --non-interactive
