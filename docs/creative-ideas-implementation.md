@@ -1,5 +1,7 @@
 # OVRLEE — Creative ideas: implementation status (branch roman/creative-ideas-1)
 
+**Update 2026-11-25 — Song Duel and Chain Playlist CUT at Chanel's request.** Song Duel was "corny" ("we're trying to be cool"); Chain Playlist's "Play this conversation" just opened a link to the first song, so it made no sense as a playlist. Both were removed from post detail (`src/app/post.tsx` mounts, imports and memos deleted) and their code files deleted (`src/components/SongDuelCard.tsx`, `src/components/ChainPlaylistCard.tsx`, `src/song-duel.ts`, `src/chain-playlist.ts`, `src/app/chain-playlist.tsx`). The `song_duel_votes` table in Supabase was left alone. The sections below describing them are historical only.
+
 Base: `claude-build`. Branch: `roman/creative-ideas-1`.
 All work in this branch is code + migrations + docs only. Nothing was
 run, built or tested on a real iPhone. Nothing was applied to live
