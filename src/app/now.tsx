@@ -49,6 +49,8 @@ import { reconcileExistingMusicConnection } from '../music-connection-registry';
 import { activityMusicSeeds, listeningMusicSeeds, mergeMusicSeeds, musicPostAffinity, musicSuggestionSeeds } from '../music-suggestion-signals';
 import { getMusicProvider, trackLink, resolveTrackLink, type MusicProvider } from '../music-provider';
 import { openMusicCard } from '../music-card';
+import { listeningTierFor, listeningTierLabel } from '../listening-tiers';
+import { loadOnRepeatForUsers, mergeOnRepeatIntoDNA, onRepeatWeekKey } from '../on-repeat';
 
 type PostRow = {
   id: string;
@@ -139,6 +141,10 @@ type ListeningPerson = PresenceRow & {
   sharedSong: string | null;
   sharedArtist: string | null;
   sharedArtwork: string | null;
+  sharedAt: string | null;
+  onRepeatSong: string | null;
+  onRepeatArtist: string | null;
+  onRepeatArtwork: string | null;
 };
 
 type TopArtist = {
@@ -426,6 +432,17 @@ export default function NowScreen() {
       const dnaByUser = new Map<string, MusicDNA>(
         ((dnaResult.data || []) as MusicDNA[]).map((row) => [row.user_id, row])
       );
+      // On Repeat feeds matching on the same footing as Music DNA: a
+      // Spotify member with no Apple DNA still matches on the songs
+      // they declared this week. Declared, never verified.
+      const onRepeatByUser = await loadOnRepeatForUsers(
+        [currentUserId, ...eligible.map((p) => p.user_id)],
+        onRepeatWeekKey()
+      );
+      const myDNAWithRepeat = mergeOnRepeatIntoDNA(
+        (myDNAResult.data as MusicDNA | null) || null,
+        onRepeatByUser.get(currentUserId) || []
+      );
       const profilesById = new Map(profiles.filter((p) => p.user_id).map((p) => [p.user_id!, p]));
       const mutualsById = new Map<string, Set<string>>();
       for (const edge of networkResult.data || []) {
@@ -436,8 +453,11 @@ export default function NowScreen() {
       }
       const candidates: OrbitPerson[] = eligible.map((profile) => {
         const comparison = compareMusicDNA(
-          (myDNAResult.data as MusicDNA | null) || null,
-          dnaByUser.get(profile.user_id) || null
+          myDNAWithRepeat,
+          mergeOnRepeatIntoDNA(
+            dnaByUser.get(profile.user_id) || null,
+            onRepeatByUser.get(profile.user_id) || []
+          )
         );
         const mutualIds = [...(mutualsById.get(profile.user_id) || new Set<string>())];
         return {
@@ -558,12 +578,19 @@ export default function NowScreen() {
           .gte('created_at',new Date(now-7*86400000).toISOString())
           .order('created_at',{ascending:false}).limit(120);
         const latestShare=new Map<string,{
-          song_title:string;artist_name:string;artwork_url:string|null;
+          song_title:string;artist_name:string;artwork_url:string|null;created_at:string;
         }>();
         for(const item of recentPosts||[]){
           if(!latestShare.has(item.user_id) && item.song_title && item.artist_name)
             latestShare.set(item.user_id,item);
         }
+        // This week's declared On Repeat for everyone present, so a
+        // Spotify member shows up with a song even without verified
+        // live playback. Declared taste only — never "live".
+        const onRepeatByUser = await loadOnRepeatForUsers(
+          presenceRows.map((presence) => presence.user_id),
+          onRepeatWeekKey()
+        );
 
         const people:
           ListeningPerson[] =
@@ -611,6 +638,10 @@ export default function NowScreen() {
                 sharedSong:latestShare.get(presence.user_id)?.song_title||null,
                 sharedArtist:latestShare.get(presence.user_id)?.artist_name||null,
                 sharedArtwork:latestShare.get(presence.user_id)?.artwork_url||null,
+                sharedAt:latestShare.get(presence.user_id)?.created_at||null,
+                onRepeatSong:onRepeatByUser.get(presence.user_id)?.[0]?.song||null,
+                onRepeatArtist:onRepeatByUser.get(presence.user_id)?.[0]?.artist||null,
+                onRepeatArtwork:onRepeatByUser.get(presence.user_id)?.[0]?.artworkUrl||null,
               };
             }
           );
@@ -1626,9 +1657,14 @@ export default function NowScreen() {
   // Sparse beta cohorts should not see a giant, empty or generic presence
   // billboard. Only show actual consented music presence when a valid song
   // and artist exist; all other discovery stays in For You / Find People.
-  const activeMusicPeople=listeningPeople.filter(person=>
-    person.listeningNow && !!person.song_title?.trim() && !!person.artist_name?.trim()
-  );
+  const activeMusicPeople = listeningPeople.filter((person) => {
+    const tier = listeningTierFor({
+      verifiedLive: person.listeningNow,
+      sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
+      hasOnRepeat: !!person.onRepeatSong,
+    });
+    return tier !== 'here_now';
+  });
 
   if (loading) {
     return (
@@ -1770,7 +1806,7 @@ export default function NowScreen() {
                     styles.listeningSectionTitle
                   }
                 >
-                  Listening now
+                  In the moment
                 </Text>
               </View>
 
@@ -1795,7 +1831,7 @@ export default function NowScreen() {
                     {
                       activeMusicPeople.length
                     }{' '}
-                    LISTENING
+                    ACTIVE
                   </Text>
                 </View>
               )}
@@ -1845,9 +1881,14 @@ export default function NowScreen() {
                         .toUpperCase() ||
                       '?';
 
-                    const song = person.listeningNow ? person.song_title : person.sharedSong;
-                    const artist = person.listeningNow ? person.artist_name : person.sharedArtist;
-                    const artwork = person.listeningNow ? person.artwork_url : person.sharedArtwork;
+                    const tier = listeningTierFor({
+                      verifiedLive: person.listeningNow,
+                      sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
+                      hasOnRepeat: !!person.onRepeatSong,
+                    });
+                    const song = tier === 'verified_live' ? person.song_title : tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
+                    const artist = tier === 'verified_live' ? person.artist_name : tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
+                    const artwork = tier === 'verified_live' ? person.artwork_url : tier === 'shared_just_now' ? person.sharedArtwork : person.onRepeatArtwork;
                     const hasSong = !!song?.trim() && !!artist?.trim();
 
                     return (
@@ -1882,8 +1923,8 @@ export default function NowScreen() {
                             <View style={styles.compactTrackInfo}>
                               <Text style={styles.presenceSong} numberOfLines={1}>{song}</Text>
                               <Text style={styles.presenceArtist} numberOfLines={1}>{artist}</Text>
-                              <Text style={[styles.presenceStatusText,person.listeningNow?styles.presenceStatusLive:styles.presenceStatusOnline]} numberOfLines={1}>
-                                {person.listeningNow ? '● LISTENING NOW' : '♫ RECENTLY SHARED'}
+                              <Text style={[styles.presenceStatusText,tier === 'verified_live' ? styles.presenceStatusLive : styles.presenceStatusOnline]} numberOfLines={1}>
+                                {listeningTierLabel(tier)}
                               </Text>
                             </View>
                           </View>

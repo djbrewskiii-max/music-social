@@ -21,6 +21,8 @@ export type NowPlayingTrack = {
   artist: string;
   album?: string;
   artworkUrl?: string;
+  /** The link the track was shared from (e.g. an open.spotify.com track link). */
+  sourceUrl?: string | null;
 };
 
 let native: { getSystemPlaybackState: () => Promise<{ currentSong?: { id?: string; title?: string; artistName?: string; albumTitle?: string; artworkUrl?: string }; isPlaying?: boolean; playbackStatus?: string; playbackRate?: number }> } | null = null;
@@ -68,6 +70,38 @@ export async function publishNowPlayingPost(track: NowPlayingTrack): Promise<str
       artwork_url: track.artworkUrl || null,
       apple_music_id: track.id || null,
       music_items: [{ id: track.id || '', song: track.song, artist: track.artist, album: track.album || '', artworkUrl: track.artworkUrl || '', kind: 'song', sourceUrl: null }],
+      photo_url: null,
+      photo_urls: [],
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  if (!data?.id) throw new Error('Published post was not returned.');
+  return data.id;
+}
+
+/**
+ * Publish a song shared from Spotify (or Apple Music) as a post.
+ * The body is honest: "Shared just now ♫" — a shared link proves the
+ * member shared the song, not that they are listening to it right
+ * now. Never use publishNowPlayingPost() for a shared link: its
+ * "Listening now ♫" body would claim a verified live listen OVRLEE
+ * cannot verify for Spotify. Returns the new post id.
+ */
+export async function publishSharedTrackPost(track: NowPlayingTrack): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sign in to post.');
+  const { data, error } = await supabase
+    .from('posts')
+    .insert({
+      user_id: user.id,
+      body: 'Shared just now ♫',
+      song_title: track.song,
+      artist_name: track.artist,
+      album_name: track.album || null,
+      artwork_url: track.artworkUrl || null,
+      apple_music_id: track.id || null,
+      music_items: [{ id: track.id || '', song: track.song, artist: track.artist, album: track.album || '', artworkUrl: track.artworkUrl || '', kind: 'song', sourceUrl: track.sourceUrl || null }],
       photo_url: null,
       photo_urls: [],
     })

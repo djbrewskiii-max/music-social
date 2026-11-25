@@ -200,18 +200,41 @@ internally (comment already in `my-profile.tsx` / `profile.tsx`).
 - No live Supabase changes. All four migrations in this branch are
   committed only; none is applied.
 
+## Spotify parity v1 (2026-11-24, one single push)
+See `docs/spotify-parity-v1.md`. No Spotify permission needed:
+- **On Repeat** — a member declares up to 3 songs "On Repeat this
+  week" (`src/on-repeat.ts`, `src/app/on-repeat.tsx`,
+  `src/components/OnRepeatCard.tsx`). It fills In Rotation and the
+  Hello Song when Music DNA is empty, and merges into Orbit / Taste
+  Twin matching on the same footing as Apple DNA. Labelled
+  everywhere as declared, never verified.
+- **Spotify Now Playing share** — paste a Spotify link on
+  `/now-playing` and one tap posts it as "Shared just now"
+  (`src/spotify-share.ts`, `publishSharedTrackPost()`). Never
+  "Listening now": a shared link is not a verified live listen.
+- **Honest Listening Now tiers** (`src/listening-tiers.ts`) —
+  VERIFIED LIVE (Apple only, actually verified), SHARED JUST NOW
+  (posted within the hour), ON REPEAT (declared this week), HERE
+  NOW. The feed section is now "In the moment" and shows all three
+  song tiers, not only verified-live people.
+- No OAuth, no synced Spotify playback, no experimental
+  public-profile reader. Those are phase 2, not in this batch.
+
 ## Migrations in this branch (all NOT applied — need Chanel's approval)
 1. `20261123000000_daily_drop.sql` — `daily_drop` post kind, config
    (off), templates, publisher.
 2. `20261123000100_first_listen_live.sql` — RSVPs, room prompts.
 3. `20261123000200_song_duels.sql` — duel votes.
 4. `20261123000300_concert_buddy_meetups.sql` — meetup proposals.
+5. `20261124000000_on_repeat.sql` — `on_repeat_tracks` (declared
+   On Repeat, max 3 per week, owner-only writes). Until applied,
+   On Repeat loads return [] and saves surface an error.
 Until each is applied, the code that reads its table logs an error
 and degrades gracefully (empty state / "No votes yet" / "No one in
 yet") instead of crashing.
 
 ## Decisions still needed from Chanel
-1. Approve (or defer) applying the four migrations above, one by one.
+1. Approve (or defer) applying the five migrations above, one by one.
 2. Daily Drop cadence: manual 2–3 times a week to start, or daily?
    Automatic posting stays off until a moderator and a response
    cadence exist.

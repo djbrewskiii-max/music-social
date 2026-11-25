@@ -16,11 +16,18 @@ export default function ProfileHelloSong({
   artist,
   id,
   artworkUrl,
+  tierLabel,
 }: {
   song: string;
   artist: string;
   id?: string | null;
   artworkUrl?: string | null;
+  /**
+   * Honest tier label for the song, e.g. "ON REPEAT · DECLARED BY YOU".
+   * Shown only when provided — a Hello Song with no tier claim shows
+   * no tier at all, rather than implying a verified live listen.
+   */
+  tierLabel?: string | null;
 }) {
   const { colors } = useAppearance();
   if (!song.trim() || !artist.trim()) return null;
@@ -37,6 +44,9 @@ export default function ProfileHelloSong({
         <Text style={[styles.label, { color: colors.accent }]}>THIS IS ME RIGHT NOW</Text>
         <Text style={[styles.song, { color: colors.text }]} numberOfLines={1}>{song}</Text>
         <Text style={[styles.artist, { color: colors.secondary }]} numberOfLines={1}>{artist}</Text>
+        {tierLabel ? (
+          <Text style={[styles.tier, { color: colors.secondary }]} numberOfLines={1}>{tierLabel}</Text>
+        ) : null}
       </View>
       <SongPreviewButton song={song} artist={artist} id={id} kind="song" />
     </View>
@@ -52,4 +62,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.1, marginBottom: 3 },
   song: { fontSize: 15, fontWeight: '700' },
   artist: { fontSize: 13, marginTop: 1 },
+  tier: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginTop: 3 },
 });
