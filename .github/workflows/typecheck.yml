@@ -162,8 +162,24 @@ jobs:
         run: |
           npx eas-cli@latest whoami
           npx eas-cli@latest channel:view preview
-      - name: Publish verified commit to iOS preview only
+      - name: Recheck branch head immediately before upload
+        id: before-upload
         if: steps.latest.outputs.publish == 'true'
+        run: |
+          HEAD_SHA="$(git ls-remote origin refs/heads/claude-build | cut -f1)"
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::Cannot verify which commit is currently approved."
+            exit 1
+          fi
+          if [ "$HEAD_SHA" != "$GITHUB_SHA" ]; then
+            echo "::notice::A newer commit arrived during setup; this older update will not publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish verified commit to iOS preview only
+        if: steps.latest.outputs.publish == 'true' && steps.before-upload.outputs.publish == 'true'
         run: >-
           npx eas-cli@latest update
           --channel preview
