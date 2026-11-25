@@ -1,75 +1,74 @@
-# Auto OTA setup — push to `claude-build`, it appears on your app
+# OVRLEE preview publishing — fully gated GitHub Actions
 
-This is the one-time setup for the GitHub Actions workflow in
-`.github/workflows/preview-ota.yml`. After setup, any push to
-`claude-build` automatically typechecks and publishes a JavaScript /
-assets-only EAS Update to the iOS **preview** channel. No VS Code,
-no manual `npm run publish:preview` step.
+## Verified setup (November 25, 2026)
 
-It does **not** run yet. The workflow only runs on a push to
-`claude-build` (or a manual run), after the three steps below are done.
+OVRLEE already has a working Expo EAS preview publisher. The connected GitHub
+Actions Expo credential was confirmed working in run 45601980232, which published
+the iOS preview update for commit `420cd330`. No password or token needs to be
+sent in chat.
 
-## What you still have to do (3 steps)
+**Important correction:** That original publisher ran independently of the full
+OVRLEE quality suite and published despite regression tests failing. It has now
+been retired, along with the second manually dispatched publishing workflow.
+There is exactly **one canonical workflow**:
+`.github/workflows/typecheck.yml` (OVRLEE Quality Checks).
 
-### 1. Merge `roman/creative-ideas-1` into `claude-build` via a pull request
+## Normal laptop-free path
 
-- On github.com, open
-  `djbrewskiii-max/music-social`, go to **Pull requests > New pull request**.
-- Base: `claude-build`, compare: `roman/creative-ideas-1`.
-- Review the diff first. Do **not** merge until you have reviewed it.
-- Merge the PR. That push to `claude-build` is what will trigger the
-  workflow — so do steps 2 and 3 **before** merging, or the first run
-  will fail on the missing token.
+1. ChatGPT can commit approved changes through the connected GitHub integration
+   to a development branch. Review changes and merge into `claude-build`.
+2. A push to `claude-build` starts the quality workflow.
+3. All of these jobs must succeed **on that exact commit**:
+   - TypeScript check, Expo typed route generation, and all launch regression tests
+   - Production-style Expo iOS JavaScript export
+   - Native Spotify Swift syntax parsing
+4. Only then is the `publish-preview` job eligible to run.
+   - It rejects a commit no longer at the tip of `claude-build`.
+   - It rejects native/plugin/dependency configuration changes in the push,
+     which require a new installed EAS preview binary.
+   - It uses GitHub's protected `preview` environment and `EXPO_TOKEN`.
+   - It verifies the Expo identity/channel before sending an **iOS-only**
+     `eas update --channel preview --environment preview`.
+5. On the iPhone, verify the app is the compatible **preview** build with runtime
+   `1.0.0` under Settings → Version & updates. Reopen the app after a
+   successful publish to fetch/apply an update. Confirm the installed update ID.
 
-### 2. Create an Expo access token and save it as `EXPO_TOKEN`
+**Failed or skipped checks mean nothing is published.** A green publisher is not
+equivalent to real iPhone interaction tests, so Light/Dark/System, signup, chat,
+profile, music and privacy acceptance still require real devices.
 
-- Go to expo.dev, **Settings > Access Tokens**, create a new token.
-  Copy it — Expo only shows it once.
-- In GitHub, go to the repo **Settings > Secrets and variables >
-  Actions > New repository secret**.
-- Name: `EXPO_TOKEN`
-- Value: paste the Expo token.
-- Save. Nobody should paste the token in chat, in a file, or in the
-  workflow — it lives only in that GitHub secret.
+## Manual approval and limits
 
-### 3. Confirm the iPhone app is the preview build, runtime 1.0.0
+The quality workflow has an optional `workflow_dispatch` input
+`confirm_preview`. Manual publication is allowed only for the
+`claude-build` branch after **all three quality jobs pass**. If GitHub's Actions
+UI does not expose manual dispatch because this workflow file is not installed
+on the default branch, use the normal merge/push path; do not recreate a
+standalone publisher that skips checks.
 
-- In OVRLEE on your iPhone, go to **Settings > Version & updates**.
-- It must say channel **preview** and runtime **1.0.0**.
-- A development, beta, or production build will **not** receive
-  preview updates. If yours is not the preview build, build and
-  install a new internal preview first:
-  `npx eas-cli@latest build --platform ios --profile preview`
-  (that is a separate, manual step — not done by this workflow).
+The publishing job has concurrency protection so preview publications don't
+overlap. It also skips superseded commits. Normal pushes are still automatic
+after all gates; beta, TestFlight, production, and EAS native builds are **not**
+part of this workflow.
 
-## After setup — how it works
+### Important native compatibility boundary
 
-1. Push to `claude-build` (or merge a PR into it).
-2. GitHub Actions runs: typecheck (`npx tsc --noEmit`), then
-   `eas update --channel preview --environment preview --platform ios`.
-3. On the iPhone, force-close OVRLEE completely and reopen it twice.
-   The first launch may download the update; a later launch applies it.
-   **Settings > Version & updates** shows the channel / runtime and
-   has a manual **Check for updates** action.
+The native-change guard compares the commit's push range with its predecessor.
+It does **not** independently prove that every existing installed preview
+binary has the same native modules, plugins, entitlements or release version.
+If native code was changed previously while an OTA failed, first install a
+compatible EAS preview binary before resuming OTA updates.
 
-## Limits — read these
+For a native-code change, build and distribute the correct preview binary
+using the authorized EAS build workflow. Do not attempt to work around the
+guard or upload native binaries with an Expo OTA update.
 
-- **OTA is JavaScript / assets only.** It cannot change native code,
-  plugins, entitlements, or the runtime version. The workflow has a
-  native-change guard: if a push touches `app.json`, `eas.json`,
-  `package.json` / `package-lock.json`, `plugins/`, `now-spotify/`,
-  `now-shazam/`, or `patches/`, the job fails with
-  "Native change detected — needs a new EAS build, OTA will not apply".
-  Build and install a new preview binary in that case.
-- **Typecheck failure blocks the publish.** Nothing is published
-  until `npx tsc --noEmit` passes.
-- **Preview only, never beta / production.** The workflow hard-codes
-  `--channel preview`. It never publishes to beta or production.
-- **Database migrations are still separate.** A push does not apply
-  Supabase migrations. The On Repeat migration
-  (`supabase/migrations/20261124000000_on_repeat.sql`) and the four
-  creative-ideas migrations are committed only, not applied — apply
-  them in Supabase separately when Chanel approves.
-- **The workflow has not run yet.** No EAS publish has happened from
-  this workflow. The first run happens on the first push to
-  `claude-build` after the merge and after `EXPO_TOKEN` is saved.
+Database migrations, access policies, Apple developer setup and TestFlight
+submission are separate authorized release steps. Never put service-role
+credentials, Expo tokens or Apple signing secrets into the repository or chat.
+
+## Useful links
+
+- [All OVRLEE GitHub Actions](https://github.com/djbrewskiii-max/music-social/actions)
+- [Quality workflow](https://github.com/djbrewskiii-max/music-social/actions/workflows/typecheck.yml)
+- [Published iOS preview update from November 25](https://expo.dev/accounts/brewskiii/projects/music-social/updates/d52c6634-c4a1-472c-baa3-3e3b896ee6e9)
