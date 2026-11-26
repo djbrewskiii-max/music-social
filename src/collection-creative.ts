@@ -34,6 +34,7 @@ export type MotionItem = {
 export type MotionScene = {
   key: string;
   image: string | null;
+  photoIndex: number | null; // null means album art instead of a user photo
   song: string;
   artist: string;
   note: string;
@@ -53,6 +54,7 @@ export function buildMotionScenes(items: readonly MotionItem[], photos: readonly
     return {
       key: String(track.id || track.song) + '-' + index,
       image,
+      photoIndex: index < photos.length ? index : null,
       song: track.song,
       artist: track.artist,
       note: track.note || '',
