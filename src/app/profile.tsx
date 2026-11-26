@@ -94,7 +94,7 @@ type PostRow = {
   created_at: string;
   user_id: string;
   body: string | null;
-  post_kind?: 'music' | 'aux_prompt';
+  post_kind?: 'music' | 'aux_prompt' | 'daily_drop';
   song_title: string;
   artist_name: string;
   album_name: string | null;
@@ -1802,7 +1802,7 @@ function ProfileContent() {
 
                     {post.collection ? (
                       <CollectionPreview post={{ ...post, music_items: post.music_items || [], collection: post.collection }} username={profile.username || ''} slideWidth={160} />
-                    ) : post.post_kind==='aux_prompt' ? null : (<View
+                    ) : (post.post_kind==='aux_prompt' || post.post_kind==='daily_drop') ? null : (<View
                       style={
                         styles.postMusic
                       }
