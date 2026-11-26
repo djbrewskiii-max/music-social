@@ -1,6 +1,7 @@
 import { decode } from 'base64-arraybuffer';
 
 import { artworkUrl } from './apple-catalog';
+import type { MotionStyle } from './collection-creative';
 import { supabase } from './supabase';
 
 /*
@@ -35,6 +36,8 @@ export type CollectionItem = {
 export type PhotoFocus = { x: number; y: number; zoom?: number };
 
 export type CollectionMeta = {
+  motionStyle?: MotionStyle; // optional animation preset; older Collections remain compatible
+  promptSourcePostId?: string | null; // link back to an inspiring question when present
   photoFocus?: PhotoFocus[]; // photo crop/zoom settings, indexed by photo slot
   photoAspects?: number[]; // original width/height of the photos, for adaptive layouts
   template: Template;
@@ -161,6 +164,8 @@ async function uploadPhoto(userId: string, photo: LocalPhoto) {
 }
 
 export async function publishCollection(input: {
+  motionStyle?: MotionStyle;
+  promptSourcePostId?: string | null;
   template: Template;
   theme?: string;
   titleFont?: 'serif' | 'bold';
@@ -185,6 +190,8 @@ export async function publishCollection(input: {
 
   const first = input.items[0];
   const meta: CollectionMeta = {
+    motionStyle: input.motionStyle || 'film',
+    promptSourcePostId: input.promptSourcePostId || null,
     template: input.template,
     theme: input.theme || 'auto',
     titleFont: input.titleFont || 'serif',
@@ -240,6 +247,8 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
 /* -------------------------------- drafts -------------------------------- */
 
 export type DraftData = {
+  motionStyle?: MotionStyle;
+  promptSourcePostId?: string | null;
   template: Template;
   coverArtId?: string | null;
   theme: string;
@@ -264,6 +273,8 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
     photos.push({ uri: photo.uri, url, aspect: photo.aspect });
   }
   const data: DraftData = {
+    motionStyle: input.motionStyle || 'film',
+    promptSourcePostId: input.promptSourcePostId || null,
     template: input.template,
     coverArtId: input.coverArtId || null,
     theme: input.theme,
