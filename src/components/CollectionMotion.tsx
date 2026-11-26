@@ -18,7 +18,7 @@ type Props = {
 };
 
 const DEVICE = Dimensions.get('window');
-const FRAME_W = Math.max(220, Math.min(DEVICE.width - 32, (DEVICE.height - 190) * 9 / 16, 420));
+const FRAME_W = Math.max(200, Math.min(DEVICE.width - 32, (DEVICE.height - 285) * 9 / 16, 420));
 const FRAME_H = FRAME_W * 16 / 9;
 
 /**
