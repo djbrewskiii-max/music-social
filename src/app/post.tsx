@@ -34,7 +34,7 @@ const photoList = (post: Post): string[] => Array.isArray(post.photo_urls) && po
 export default function PostDetailScreen() {
   const {scheme,colors}=useAppearance();
   const styles=useMemo(()=>themedStyleSheet(baseStyles,scheme),[scheme]);
-  const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string; sharedUrl?: string }>();
+  const params = useLocalSearchParams<{ postId?: string; songReply?: string; focusReplyId?: string; sharedUrl?: string; motion?: string }>();
   const postId = typeof params.postId === 'string' ? params.postId : '';
   const [post, setPost] = useState<Post | null>(null);
   const [resolvedPrimaryArtist,setResolvedPrimaryArtist]=useState<string|null>(null);
@@ -97,6 +97,9 @@ export default function PostDetailScreen() {
   const [viewer, setViewer] = useState<number | null>(null);
   const [collectionViewer, setCollectionViewer] = useState<number | null>(null);
   const [motionOpen, setMotionOpen] = useState(false);
+  useEffect(() => {
+    if (params.motion === '1' && post?.collection) setMotionOpen(true);
+  }, [params.motion, post?.id]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
