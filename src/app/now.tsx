@@ -1655,13 +1655,12 @@ export default function NowScreen() {
       sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
       hasOnRepeat: !!person.onRepeatSong,
     });
-    const song = tier === 'verified_live' ? person.song_title :
-      tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
-    const artist = tier === 'verified_live' ? person.artist_name :
-      tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
-    // Never render a blank/fake listening card: only real track+artist
-    // evidence with an honest verified/shared/declared status is eligible.
-    return tier !== 'here_now' && !!song?.trim() && !!artist?.trim();
+    const song = tier === 'verified_live' ? person.song_title : person.sharedSong;
+    const artist = tier === 'verified_live' ? person.artist_name : person.sharedArtist;
+    // This is a moment in time, not a weekly curated list. Show only
+    // verified live playback or a song genuinely shared in the past hour.
+    return (tier === 'verified_live' || tier === 'shared_just_now')
+      && !!song?.trim() && !!artist?.trim();
   });
 
   if (loading) {
@@ -1884,9 +1883,9 @@ export default function NowScreen() {
                       sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
                       hasOnRepeat: !!person.onRepeatSong,
                     });
-                    const song = tier === 'verified_live' ? person.song_title : tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
-                    const artist = tier === 'verified_live' ? person.artist_name : tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
-                    const artwork = tier === 'verified_live' ? person.artwork_url : tier === 'shared_just_now' ? person.sharedArtwork : person.onRepeatArtwork;
+                    const song = tier === 'verified_live' ? person.song_title : person.sharedSong;
+                    const artist = tier === 'verified_live' ? person.artist_name : person.sharedArtist;
+                    const artwork = tier === 'verified_live' ? person.artwork_url : person.sharedArtwork;
                     const hasSong = !!song?.trim() && !!artist?.trim();
 
                     return (
