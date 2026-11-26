@@ -3,6 +3,8 @@ import {
   Animated, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { useAppearance } from '../appearance';
+import type { PhotoFocus } from '../collection';
+import PhotoFrame from './PhotoFrame';
 import {
   buildMotionScenes, MOTION_STYLES, type MotionItem, type MotionStyle,
 } from '../collection-creative';
@@ -13,6 +15,8 @@ type Props = {
   title: string;
   items: readonly MotionItem[];
   photos: readonly string[];
+  photoFocus?: readonly PhotoFocus[];
+  photoAspects?: readonly number[];
   styleKey?: MotionStyle;
   onStyleChange?: (style: MotionStyle) => void;
 };
@@ -23,7 +27,7 @@ type Props = {
  * music mixing: the real track controls remain in the post, provided by the
  * approved music-service playback flow. This viewer is deliberately visual-only.
  */
-export default function CollectionMotion({ visible, onClose, title, items, photos, styleKey = 'film', onStyleChange }: Props) {
+export default function CollectionMotion({ visible, onClose, title, items, photos, photoFocus, photoAspects, styleKey = 'film', onStyleChange }: Props) {
   const { scheme, colors } = useAppearance();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   // Leave room for safe areas, the style picker and playback controls on short iPhones.
@@ -101,7 +105,10 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
                 transform: [{ translateX: imageX }, { scale: imageScale }],
               }]}>
                 {scene.image
-                  ? <Image source={{ uri: scene.image }} style={styles.art} resizeMode="cover" />
+                  ? scene.photoIndex !== null
+                    ? <PhotoFrame uri={scene.image} style={styles.art}
+                        focus={photoFocus?.[scene.photoIndex]} aspect={photoAspects?.[scene.photoIndex]} />
+                    : <Image source={{ uri: scene.image }} style={styles.art} resizeMode="cover" />
                   : <View style={[styles.art, styles.fallback]}><Text style={styles.fallbackText}>♫</Text></View>}
               </Animated.View>
             )}
