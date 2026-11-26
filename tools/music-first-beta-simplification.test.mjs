@@ -45,6 +45,16 @@ assert.doesNotMatch(card,/\|\| 'nowuser'/,
   'Do not generate ghost handles on exported identity cards');
 assert.match(card,/!profile\?\.onboarding_complete/,
   'Only fully created identities are shareable');
+assert.match(card,/from\('music_taste_artists'\)/,
+  'Spotify and Apple shareable cards use five user-chosen favorite artists');
+assert.match(card,/from\('profile_rotation_pins'\)/,
+  'Shareable songs come from manually chosen In Rotation');
+assert.match(card,/topArtists: favorites.length\?favorites:dnaArtists/,
+  'Chosen artists take precedence over inferred library taste');
+assert.match(card,/topSongs: pins.length\?pins:dnaSongs/,
+  'Pinned songs take precedence over inferred streaming data');
+assert.match(read('src/taste-card.ts'),/topArtists: \(input.topArtists \|\| \[\]\)\.slice\(0, 5\)/,
+  'All five selected artists should fit into the share card');
 
 // Official questions use native post and Song Replies, not a new hero surface.
 assert.match(home,/post\.post_kind==='aux_prompt' \|\| post\.post_kind==='daily_drop'/);
