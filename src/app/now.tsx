@@ -33,7 +33,6 @@ import {
 
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
-import DailyDropCard from '../components/DailyDropCard';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
@@ -1243,13 +1242,6 @@ export default function NowScreen() {
       orbitPerson,
     ]);
 
-  // Today's Daily Drop question, if the feed has one. Daily Drop posts use
-  // post_kind 'daily_drop' after migration; 'aux_prompt' is the existing
-  // fallback kind in the feed.
-  const dailyDrop = posts.find(
-    (post) => post.post_kind === 'daily_drop' || post.post_kind === 'aux_prompt',
-  );
-
   const refresh = async () => {
     setRefreshing(true);
     await loadFeed();
@@ -1998,14 +1990,6 @@ export default function NowScreen() {
             </View>
             <View style={styles.feedComposerPlus}><Text style={styles.feedComposerPlusText}>+</Text></View>
           </Pressable>
-
-          {dailyDrop && (
-            <DailyDropCard
-              postId={dailyDrop.id}
-              question={dailyDrop.body ?? ''}
-              replyCount={dailyDrop.replyCount}
-            />
-          )}
 
           {firstConversation&&posts.some(p=>p.id===firstConversation.postId)&&(
             <View style={{marginHorizontal:20,marginBottom:14,flexDirection:'row',
@@ -2855,7 +2839,7 @@ export default function NowScreen() {
                         <Text style={styles.body}>{post.body}</Text>
                       </Pressable>
                     )}
-                    {post.post_kind==='aux_prompt'&&<Pressable
+                    {(post.post_kind==='aux_prompt' || post.post_kind==='daily_drop')&&<Pressable
                       accessibilityRole="button" accessibilityLabel="Reply to the OVRLEE question with a song"
                       onPress={()=>openPost(post.id)}
                       style={{alignSelf:'flex-start',borderRadius:22,borderWidth:1,
@@ -2909,7 +2893,7 @@ export default function NowScreen() {
                         </View>
                       );
                     })()}
-                    {post.post_kind==='aux_prompt' || post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
+                    {(post.post_kind==='aux_prompt' || post.post_kind==='daily_drop') || post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
                       <View style={styles.collectionContainer}>
                         <Text style={styles.collectionHeading}>
                           COLLECTION · {post.music_items.length} TRACKS
@@ -2949,7 +2933,7 @@ export default function NowScreen() {
                       />
                     )}
 
-                    {!post.collection && post.post_kind!=='aux_prompt'&&<PostArtistDiscoveryLink
+                    {!post.collection && post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop'&&<PostArtistDiscoveryLink
                       credit={post.artist_name || ''}
                       primaryArtist={primaryArtists[String(post.apple_music_id||post.music_items?.[0]?.id||'')]?.name}
                       song={post.song_title}
