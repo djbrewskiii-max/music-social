@@ -3,7 +3,7 @@ import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
 import { isSameCollectionSong } from '../collection-selection';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +25,8 @@ import {
 
 import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, PhotoFocus, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
 import PhotoReframeEditor from '../components/PhotoReframeEditor';
+import CollectionMotion from '../components/CollectionMotion';
+import { COLLECTION_IDEAS, type MotionStyle } from '../collection-creative';
 import Slide, { buildSlides, photoSlotAspect, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
@@ -37,10 +39,11 @@ const SCREEN_H = Dimensions.get('window').height;
 // The live canvas: as big as fits while leaving room for the toolbar.
 const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16));
 
-type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
+type Sheet = null | 'songs' | 'photos' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
 
 export default function StudioScreen() {
   const { scheme, colors } = useAppearance();
+  const { prompt, sourcePostId } = useLocalSearchParams<{ prompt?: string; sourcePostId?: string }>();
   const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const accent = colors.accent;
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
@@ -48,6 +51,11 @@ export default function StudioScreen() {
   const [template, setTemplate] = useState<Template>('liner');
   const [theme, setTheme] = useState<ThemeKey>('auto');
   const [titleFont, setTitleFont] = useState<'serif' | 'bold'>('serif');
+  const [motionStyle, setMotionStyle] = useState<MotionStyle>('film');
+  const [motionOpen, setMotionOpen] = useState(false);
+  const [promptSourcePostId, setPromptSourcePostId] = useState<string | null>(null);
+  const [inspirationText, setInspirationText] = useState('');
+  const seededFromPrompt = useRef<string | null>(null);
   const [coverArtId, setCoverArtId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -77,7 +85,20 @@ export default function StudioScreen() {
   const pager = useRef<FlatList>(null);
 
   const config = TEMPLATES.find((t) => t.key === template)!;
-  const maxPhotos = template === 'moodboard' ? 5 : 1;
+  const maxPhotos = 5; // all layouts may use additional photos in motion
+
+  // A question in the feed can become a member's own Collection, not a new post type.
+  useEffect(() => {
+    if (typeof prompt !== 'string' || !prompt.trim()) return;
+    const promptKey = `${typeof sourcePostId === 'string' ? sourcePostId : ''}:${prompt}`;
+    if (seededFromPrompt.current === promptKey) return;
+    seededFromPrompt.current = promptKey;
+    setTitle('my answer in songs');
+    setCaption(''); // never post somebody else's question as the member's own words
+    setInspirationText(prompt.trim().slice(0, 300));
+    setPromptSourcePostId(typeof sourcePostId === 'string' ? sourcePostId : null);
+    setPicking(false);
+  }, [prompt, sourcePostId]);
 
   useEffect(() => {
     (async () => {
@@ -100,7 +121,7 @@ export default function StudioScreen() {
     if (savingDraft) return;
     setSavingDraft(true);
     try {
-      const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+      const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus });
       setDraftId(saved.id);
       setPhotos(saved.photos);
       if (thenLeave) router.back();
@@ -117,7 +138,7 @@ export default function StudioScreen() {
     if (picking || postedId || !hasWork) return;
     const timer = setTimeout(async () => {
       try {
-        const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+        const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus });
         if (!draftId) setDraftId(saved.id);
         // Swap in uploaded photo urls without disturbing what's on screen.
         if (saved.photos.some((p, i) => p.url && !photos[i]?.url)) setPhotos(saved.photos);
@@ -127,7 +148,7 @@ export default function StudioScreen() {
     }, 4000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
+  }, [template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
 
   const leave = () => {
     if (!hasWork || postedId) return router.back();
@@ -151,6 +172,9 @@ export default function StudioScreen() {
     setTemplate(data.template);
     setTheme((data.theme as ThemeKey) || 'auto');
     setTitleFont(data.titleFont || 'serif');
+    setMotionStyle(data.motionStyle || 'film');
+    setPromptSourcePostId(data.promptSourcePostId || null);
+    setInspirationText(data.inspirationText || '');
     setCoverArtId(data.coverArtId || null);
     setTitle(data.title || '');
     setCaption(data.caption || '');
@@ -208,7 +232,7 @@ export default function StudioScreen() {
   // image bytes; use that stable local preview for the slide renderer.
   // Publishing still uses the original photo records and upload pipeline.
   const previewPhotos=useMemo(() => photos.map(photo=>
-    photo.base64 ? 'data:image/jpeg;base64,'+photo.base64 : photo.uri
+    photo.base64 ? `data:${photo.mimeType || 'image/jpeg'};base64,${photo.base64}` : photo.uri
   ),[photos]);
 
   const editingSlides = useMemo(
@@ -228,7 +252,7 @@ export default function StudioScreen() {
       setItems((prev) => prev.filter((i) => !isSameCollectionSong(i,item)));
       return;
     }
-    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    const usedPhotos = photos.length;
     const songLimit = Math.min(config.maxSongs, 10 - Math.max(usedPhotos, config.minPhotos));
     if (items.length >= songLimit) {
       Alert.alert('That’s the max', `${config.name} fits up to ${songLimit} songs with your photos (10 combined items).`);
@@ -279,6 +303,25 @@ export default function StudioScreen() {
       return next;
     });
 
+  const removePhoto = (slot: number) => {
+    setPhotos(previous => previous.filter((_, i) => i !== slot));
+    setPhotoFocus(previous => previous.filter((_, i) => i !== slot));
+  };
+  const movePhoto = (slot: number, delta: number) => {
+    const target = slot + delta;
+    if (target < 0 || target >= photos.length) return;
+    setPhotos(previous => {
+      const next = [...previous];
+      [next[slot], next[target]] = [next[target], next[slot]];
+      return next;
+    });
+    setPhotoFocus(previous => {
+      const next = Array.from({ length: photos.length }, (_, i) => previous[i] || { x: 50, y: 50, zoom: 1 });
+      [next[slot], next[target]] = [next[target], next[slot]];
+      return next;
+    });
+  };
+
   const pickPhoto = async (slot: number) => {
     // Liner Notes cover: your photo, or any album cover in the collection.
     if (template === 'liner' && slot === 0) {
@@ -303,7 +346,12 @@ export default function StudioScreen() {
   };
 
   const choosePhotos = async (slot: number, room: number) => {
-    if (room <= 0) return;
+    const replacing = slot < photos.length;
+    const available = Math.min(room, 10 - items.length - photos.length + (replacing ? 1 : 0));
+    if (available <= 0) {
+      Alert.alert('Collection is full', 'You can include up to 10 songs and photos combined.');
+      return;
+    }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Photos access needed', 'Allow Photos access to add your photos.');
@@ -311,15 +359,15 @@ export default function StudioScreen() {
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: room > 1,
-      selectionLimit: room,
+      allowsMultipleSelection: available > 1,
+      selectionLimit: available,
       quality: 0.85,
       base64: true,
     });
     if (picked.canceled) return;
     const added = picked.assets
       .filter((a) => !!a.base64)
-      .slice(0, room)
+      .slice(0, available)
       .map((a) => ({ uri: a.uri, base64: a.base64!, mimeType: a.mimeType || 'image/jpeg', aspect: a.width && a.height ? a.width / a.height : 1 }));
     setPhotos((prev) => {
       const next = [...prev];
@@ -339,7 +387,7 @@ export default function StudioScreen() {
     if (!items.length) return 'Add at least one song.';
     if (template === 'wall' && items.length < 4) return 'An album wall needs at least 4 albums.';
     if (photos.length < config.minPhotos) return `${config.name} needs ${config.minPhotos === 1 ? 'a photo' : `${config.minPhotos} photos`}.`;
-    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    const usedPhotos = photos.length;
     if (items.length + usedPhotos > 10) return 'Your collection can have at most 10 combined photos and music items. Remove one to continue.';
     return '';
   };
@@ -350,7 +398,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+      const id = await publishCollection({ template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
       setPostedId(id);
       if (draftId) await deleteDraft(draftId);
       Alert.alert('Collection published', 'Your collection is now a post in For You and on your profile. Want to save its slides for sharing elsewhere?', [
@@ -429,6 +477,27 @@ export default function StudioScreen() {
               <Text style={[styles.label, { marginTop: 22 }]}>NEW COLLECTION</Text>
             </View>
           )}
+          <Text style={[styles.label, { marginTop: 2, color: colors.secondary }]}>START WITH AN IDEA</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 15 }}>
+            {COLLECTION_IDEAS.map(idea => <Pressable key={idea.key} accessibilityRole="button"
+              accessibilityLabel={`Create ${idea.name} collection`}
+              onPress={() => {
+                setTemplate(idea.template);
+                setTitle(idea.example);
+                setCaption('');
+                setPhotos([]);
+                setPromptSourcePostId(null);
+                setInspirationText('');
+                setPicking(false);
+              }}
+              style={{ width: 224, padding: 15, borderWidth: 1, borderColor: colors.border,
+                borderRadius: 17, backgroundColor: colors.surface }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 16 }}>{idea.name}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, lineHeight: 18, marginTop: 8 }}>{idea.detail}</Text>
+              <Text style={{ color: colors.text, fontStyle: 'italic', fontSize: 12, marginTop: 12 }} numberOfLines={2}>“{idea.example}”</Text>
+            </Pressable>)}
+          </ScrollView>
+          <Text style={[styles.label, { marginTop: 10, color: colors.secondary }]}>OR PICK A LOOK</Text>
           {TEMPLATES.map((t) => {
             const demo = buildSlides(t.key, {
               title: t.key === 'wall' ? 'my people know.' : t.key === 'moodboard' ? 'songs for the summer' : t.key === 'tracklist' ? 'on repeat' : 'songs i’d play you on a long drive',
@@ -441,7 +510,7 @@ export default function StudioScreen() {
                 key={t.key}
                 onPress={() => {
                   setTemplate(t.key);
-                  setPhotos((prev) => prev.slice(0, t.key === 'moodboard' ? 5 : 1));
+                  // Keep photos while changing looks; every layout can use them in motion.
                   setPicking(false);
                 }}
                 style={({ pressed }) => [styles.templateCard, pressed && { opacity: 0.8 }]}
@@ -489,7 +558,7 @@ export default function StudioScreen() {
               key={t.key}
               onPress={() => {
                 setTemplate(t.key);
-                setPhotos((prev) => prev.slice(0, t.key === 'moodboard' ? 5 : 1));
+                // Keep photos while changing looks; every layout can use them in motion.
                 setPage(0);
                 pager.current?.scrollToOffset({ offset: 0, animated: false });
               }}
@@ -501,6 +570,15 @@ export default function StudioScreen() {
         </ScrollView>
       </View>
 
+      {!!inspirationText && <Pressable accessibilityRole="button" accessibilityLabel="Read inspiring question"
+        onPress={() => Alert.alert('Make yours', inspirationText)}
+        style={{ marginHorizontal: 20, marginBottom: 4, paddingVertical: 9, paddingHorizontal: 12,
+          backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+          borderRadius: 11 }}>
+        <Text numberOfLines={1} style={{ color: colors.secondary, fontSize: 12 }}>
+          ↳ Making your own take on: {inspirationText}
+        </Text>
+      </Pressable>}
       <FlatList
         ref={pager}
         data={editingSlides}
@@ -548,7 +626,7 @@ export default function StudioScreen() {
           <Text style={styles.toolIcon}>♪</Text>
           <Text style={styles.toolText}>Songs {items.length ? `· ${items.length}` : ''}</Text>
         </Pressable>
-        <Pressable onPress={() => pickPhoto(photos.length < maxPhotos ? photos.length : 0)} style={styles.tool}>
+        <Pressable onPress={() => setSheet('photos')} style={styles.tool}>
           <Text style={styles.toolIcon}>▣</Text>
           <Text style={styles.toolText}>Photos {photos.length ? `· ${photos.length}` : ''}</Text>
         </Pressable>
@@ -590,7 +668,15 @@ export default function StudioScreen() {
         </View>
       )}
 
+      {photos.length > 0 && template !== 'moodboard' && <Text style={{ color: colors.secondary,
+        fontSize: 11, textAlign: 'center', marginTop: 6, marginHorizontal: 22 }}>
+        {template === 'tracklist' ? 'Photos appear in motion; your tracklist stays clean.' : 'Extra photos appear in motion; your static layout stays the same.'}
+      </Text>}
       <View style={styles.finalRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Watch Collection in motion"
+          onPress={() => setMotionOpen(true)} disabled={!items.length} style={[styles.secondaryBtn, !items.length && { opacity: 0.4 }]}>
+          <Text style={styles.secondaryText}>▶ WATCH</Text>
+        </Pressable>
         <Pressable onPress={() => exportNow()} disabled={exporting} style={[styles.secondaryBtn, exporting && { opacity: 0.5 }]}>
           {exporting ? <ActivityIndicator color={accent} /> : <Text style={styles.secondaryText}>SAVE SLIDES</Text>}
         </Pressable>
@@ -607,6 +693,11 @@ export default function StudioScreen() {
           </View>
         ))}
       </View>
+
+      <CollectionMotion visible={motionOpen} onClose={() => setMotionOpen(false)} title={title}
+        items={items} photos={previewPhotos} photoFocus={photoFocus}
+        photoAspects={photos.map(p => p.aspect || 1)}
+        styleKey={motionStyle} onStyleChange={setMotionStyle} />
 
       <PhotoReframeEditor
         uri={reframingSlot !== null ? photos[reframingSlot]?.uri || null : null}
@@ -659,6 +750,69 @@ export default function StudioScreen() {
                   style={{ padding: 12, opacity: i === items.length - 1 ? 0.2 : 1 }}><Text style={{ color: accent, fontSize: 24 }}>↓</Text></Pressable>
               </View>
             ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Arrange every montage photo, including those not used by the still layout. */}
+      <Modal visible={sheet === 'photos'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Photos</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close photo manager"
+              onPress={() => setSheet(null)}><Text style={styles.done}>Done</Text></Pressable>
+          </View>
+          <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 19, marginHorizontal: 20, marginBottom: 12 }}>
+            {template === 'moodboard'
+              ? 'Arrange the photos in your moodboard and motion.'
+              : 'The first photo shapes your static look. All selected photos play in motion.'}
+          </Text>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 45 }}>
+            {photos.map((_, i) => <View key={i}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 9,
+                borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Image source={{ uri: previewPhotos[i] }} resizeMode="cover"
+                style={{ width: 58, height: 75, backgroundColor: colors.raised, borderRadius: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontWeight: '800', fontSize: 13 }}>Photo {i + 1}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Replace photo ${i + 1}`}
+                  onPress={() => void choosePhotos(i, 1)} style={{ paddingVertical: 6 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 12 }}>Replace</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Reframe photo ${i + 1}`}
+                  onPress={() => { setSheet(null); setTimeout(() => setReframingSlot(i), 320); }} style={{ paddingVertical: 3 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 12 }}>Reframe</Text>
+                </Pressable>
+              </View>
+              <View style={{ alignItems: 'center', gap: 4 }}>
+                <View style={{ flexDirection: 'row' }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Move photo ${i + 1} earlier`}
+                    disabled={i === 0} onPress={() => movePhoto(i, -1)}
+                    style={{ padding: 10, opacity: i === 0 ? 0.3 : 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 19 }}>↑</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Move photo ${i + 1} later`}
+                    disabled={i === photos.length - 1} onPress={() => movePhoto(i, 1)}
+                    style={{ padding: 10, opacity: i === photos.length - 1 ? 0.3 : 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 19 }}>↓</Text>
+                  </Pressable>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Remove photo ${i + 1}`}
+                  onPress={() => removePhoto(i)} style={{ padding: 8 }}>
+                  <Text style={{ color: '#B65C5C', fontSize: 12, fontWeight: '800' }}>REMOVE</Text>
+                </Pressable>
+              </View>
+            </View>)}
+            {photos.length < maxPhotos && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Add photos to Collection"
+                disabled={items.length + photos.length >= 10}
+                onPress={() => void choosePhotos(photos.length, maxPhotos - photos.length)}
+                style={{ backgroundColor: colors.raised, borderWidth: 1, borderColor: colors.border,
+                  borderRadius: 14, alignItems: 'center', padding: 15, marginTop: 18,
+                  opacity: items.length + photos.length >= 10 ? 0.4 : 1 }}>
+                <Text style={{ color: colors.text, fontSize: 13, fontWeight: '900' }}>＋ ADD PHOTOS · {photos.length}/{maxPhotos}</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
