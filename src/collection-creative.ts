@@ -54,7 +54,7 @@ export function buildMotionScenes(items: readonly MotionItem[], photos: readonly
     return {
       key: String(track.id || track.song) + '-' + index,
       image,
-      photoIndex: index < photos.length ? index : null,
+      photoIndex: photos[index] ? index : null,
       song: track.song,
       artist: track.artist,
       note: track.note || '',
