@@ -18,6 +18,8 @@ const items = [
 const scenes = buildMotionScenes(items, ['my-photo.jpg', 'my-photo-2.jpg']);
 assert.equal(scenes.length, 3);
 assert.deepEqual(scenes.map(scene => scene.image), ['my-photo.jpg', 'my-photo-2.jpg', 'art3.jpg']);
+assert.deepEqual(scenes.map(scene => scene.photoIndex), [0, 1, null],
+  'Photo-specific crop info must not be applied to fallback album art');
 assert.deepEqual(scenes.map(scene => scene.song), ['First', 'Second', 'Third']);
 assert.equal(scenes[0].note, 'the moment');
 assert.deepEqual(buildMotionScenes([], ['photo.jpg']), [], 'No Collection without music');
@@ -37,6 +39,8 @@ assert.match(studio, /CollectionMotion visible=\{motionOpen\}/);
 assert.match(studio, /saveDraft\(draftId, \{ template, theme, titleFont, motionStyle/);
 assert.match(studio, /setCaption\(''\); \/\/ never post somebody else's question/,
   'Remixing a question should not publish the question as the user's own caption');
+assert.doesNotMatch(studio, /setPhotos\(\(prev\) => prev\.slice\(0, t\.key ===/,
+  'Switching a layout should never discard pictures already selected for motion');
 assert.match(studio, /const maxPhotos = 5/,
   'Every static layout can contribute multiple photos to the motion view');
 assert.match(studio, /10 - items\.length - photos\.length/,
@@ -51,6 +55,8 @@ assert.match(post, /Create your own Collection inspired by this post/,
   'Member-generated Collections may inspire each other');
 assert.match(post, /promptSourcePostId/);
 assert.match(motion, /Visual preview/);
+assert.match(motion, /PhotoFrame uri=\{scene\.image\}/,
+  'Motion must honor the same photo crop settings as static Collections');
 assert.match(motion, /useWindowDimensions/,
   'Motion viewer should respond to the actual screen size');
 assert.doesNotMatch(motion, /Audio\.Sound|playAsync\(|setAudioSource\(/,
