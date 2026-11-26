@@ -33,8 +33,6 @@ import CollectionGrid from '../components/CollectionGrid';
 import CollectionPreview from '../components/CollectionPreview';
 import type { CollectionMeta } from '../collection';
 import UnifiedRotation from '../components/UnifiedRotation';
-import ProfileHelloSong from '../components/ProfileHelloSong';
-import OnRepeatCard from '../components/OnRepeatCard';
 import { loadOnRepeatTracks, onRepeatToMusicTracks, onRepeatWeekKey, type OnRepeatTrack } from '../on-repeat';
 import SpotifyShowcaseSection from '../components/SpotifyShowcaseSection';
 
@@ -1492,14 +1490,9 @@ function ProfileContent() {
             </View>
           )}
 
-          {/* rotationTracks[0] is the top DNA song, not necessarily the pinned #1 — UnifiedRotation loads pins internally. */}
-          {rotationTracks[0] && <ProfileHelloSong song={rotationTracks[0].song} artist={rotationTracks[0].artist} id={rotationTracks[0].id} artworkUrl={rotationTracks[0].artworkUrl} tierLabel={helloFromOnRepeat ? 'ON REPEAT · DECLARED BY YOU' : undefined} />}
+          {/* The visitor sees this member's chosen rotation only.
+              Their own shareable card is available in their Settings. */}
           <UnifiedRotation userId={typeof userId === 'string' ? userId : null} fallbackTracks={rotationTracks} hideHeading />
-          <OnRepeatCard tracks={onRepeatTracks} />
-          {/* /taste-card always shows the signed-in viewer's own card, not this profile's. */}
-          <Pressable accessibilityRole="button" accessibilityLabel="View my Taste Card" onPress={() => router.push('/taste-card')} style={{ marginTop: 2 }}>
-            <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1 }}>MY TASTE CARD →</Text>
-          </Pressable>
                   </View>
 
           </>
