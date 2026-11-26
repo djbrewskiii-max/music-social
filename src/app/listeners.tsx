@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 
 import BottomNav from '../components/BottomNav';
-import TasteTwinCard from '../components/TasteTwinCard';
-import { pickTasteTwin, tasteTwinWeekKey } from '../taste-twin';
 import { supabase } from '../supabase';
 import { sharedTasteNames, tasteKey, type TasteEvidence } from '../music-taste-evidence';
 
@@ -77,11 +75,6 @@ export default function ListenersScreen() {
 
   const [loading, setLoading] =
     useState(true);
-
-  const weekKey = tasteTwinWeekKey();
-  // Listeners carry no avatar URL or mutual-follow count, so the Twin card
-  // renders without an avatar photo and scores on shared taste only.
-  const twin = useMemo(() => pickTasteTwin(listeners.map(l => ({ userId: l.user_id || '', displayName: l.display_name || 'Listener', username: l.username || '', city: l.city, avatarUrl: null, sharedArtists: l.sharedArtists, sharedTracks: l.sharedTracks.map(t => t.song), mutualCount: 0 }))), [listeners]);
 
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
@@ -553,8 +546,6 @@ export default function ListenersScreen() {
               Based on the artists you choose.
             </Text>
           </View>
-
-          {!loading && twin && <TasteTwinCard twin={twin} weekKey={weekKey} />}
 
           {loading ? (
             <View style={styles.loading}>
