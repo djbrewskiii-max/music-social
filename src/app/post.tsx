@@ -2,6 +2,7 @@ import {useAppearance} from '../appearance';
 import {applePrimaryArtist, isCombinedArtistCredit} from '../apple-primary-artist';
 import PostArtistDiscoveryLink from '../components/PostArtistDiscoveryLink';
 import CollectionArtistDiscoveryLinks from '../components/CollectionArtistDiscoveryLinks';
+import CollectionMotion from '../components/CollectionMotion';
 import PostMusicTrackCard from '../components/PostMusicTrackCard';
 import {firstPostTrack} from '../post-track';
 import SongPreviewButton from '../components/SongPreviewButton';
@@ -95,6 +96,7 @@ export default function PostDetailScreen() {
   const [error, setError] = useState('');
   const [viewer, setViewer] = useState<number | null>(null);
   const [collectionViewer, setCollectionViewer] = useState<number | null>(null);
+  const [motionOpen, setMotionOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
@@ -349,6 +351,12 @@ export default function PostDetailScreen() {
               <View style={{ marginBottom: 20 }}>
                 <Text style={styles.collectionTitle}>{post.collection.title}</Text>
                 {!!post.body && <Text style={styles.caption}>{post.body}</Text>}
+                <Pressable accessibilityRole="button" accessibilityLabel="Watch this Collection in motion"
+                  onPress={() => setMotionOpen(true)}
+                  style={{ borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface,
+                    borderRadius: 12, paddingVertical: 12, paddingHorizontal: 15, marginVertical: 10, alignSelf: 'flex-start' }}>
+                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>▶ WATCH IN MOTION</Text>
+                </Pressable>
                 <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6 }}>
                   {slides.map((spec, i) => (
                     <Pressable key={i} accessibilityLabel={`View collection slide ${i + 1} of ${slides.length}`} onPress={() => setCollectionViewer(i)} style={{ width: slideW, borderRadius: 10, overflow: 'hidden' }}>
@@ -380,6 +388,13 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
+          {(post.post_kind === 'aux_prompt' || post.post_kind === 'daily_drop') && !!post.body &&
+            <Pressable accessibilityRole="button" accessibilityLabel="Make your own Collection in response to this question"
+              onPress={() => router.push({ pathname: '/studio', params: { prompt: post.body || '', sourcePostId: post.id } })}
+              style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+                borderRadius: 12, padding: 15, marginBottom: 17, alignItems: 'center' }}>
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: '900' }}>＋ MAKE YOURS</Text>
+            </Pressable>}
           {post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop' && (music.length === 1 ? (
             <PostMusicTrackCard
               track={singleTrack!}
@@ -580,6 +595,9 @@ export default function PostDetailScreen() {
         </View>
       </View>}
     </KeyboardAvoidingView>
+    {post?.collection && <CollectionMotion visible={motionOpen} onClose={() => setMotionOpen(false)}
+      title={post.collection.title} items={itemsFromPost(post)} photos={photos}
+      styleKey={post.collection.motionStyle || 'film'} />}
     <Modal visible={collectionViewer !== null} onRequestClose={() => setCollectionViewer(null)} animationType="fade" statusBarTranslucent>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
         <View style={{ paddingHorizontal: 18, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
