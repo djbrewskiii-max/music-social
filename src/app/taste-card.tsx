@@ -29,12 +29,18 @@ export default function TasteCardScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace('/login'); return; }
     const [{ data: profile }, { data: dna }] = await Promise.all([
-      supabase.from('profiles').select('display_name, username, city').eq('user_id', user.id).maybeSingle(),
+      supabase.from('profiles').select('display_name, username, city, onboarding_complete').eq('user_id', user.id).maybeSingle(),
       supabase.from('music_dna').select('top_artists, top_songs').eq('user_id', user.id).maybeSingle(),
     ]);
+    // A shareable identity must be real, never a ghost handle.
+    if (!profile?.onboarding_complete || !profile?.display_name?.trim() || !profile?.username?.trim()) {
+      setCard(null);
+      setLoading(false);
+      return;
+    }
     setCard(buildTasteCard({
-      displayName: (profile as any)?.display_name || 'Listener',
-      username: (profile as any)?.username || 'nowuser',
+      displayName: profile.display_name,
+      username: profile.username,
       city: (profile as any)?.city || null,
       topArtists: (((dna as any)?.top_artists as any[]) || []).map((a) => String(a.name || '')).filter(Boolean),
       topSongs: (((dna as any)?.top_songs as any[]) || []).map((t) => ({ song: String(t.song || ''), artist: String(t.artist || '') })).filter((t) => t.song && t.artist),
@@ -72,6 +78,18 @@ export default function TasteCardScreen() {
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>TASTE CARD</Text>
+        {!card&&<View style={{gap:12,paddingVertical:25}}>
+          <Text style={{color:colors.text,fontSize:18,fontWeight:'800'}}>Your music identity comes first.</Text>
+          <Text style={{color:colors.secondary,fontSize:14}}>
+            Finish your profile before creating a card to share.
+          </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Complete your profile"
+            onPress={()=>router.push('/setup-profile')}
+            style={{alignSelf:'flex-start',padding:12,borderRadius:14,
+              borderWidth:1,borderColor:colors.border}}>
+            <Text style={{color:colors.accent,fontWeight:'900'}}>COMPLETE PROFILE →</Text>
+          </Pressable>
+        </View>}
         {card && (
           <View ref={cardRef} style={[styles.card, { backgroundColor: colors.raised, borderColor: colors.border }]}>
             <Text style={[styles.cardMonth, { color: colors.accent }]}>{card.monthLabel.toUpperCase()}</Text>
