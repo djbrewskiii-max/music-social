@@ -94,7 +94,7 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
             styleKey === 'archive' && styles.archiveFrame,
             styleKey === 'editorial' && styles.editorialFrame]}>
             {scene && (
-              <Animated.View key={scene.key} style={[StyleSheet.absoluteFillObject, {
+              <Animated.View key={scene.key} style={[StyleSheet.absoluteFill, {
                 opacity,
                 transform: [{ translateX: imageX }, { scale: imageScale }],
               }]}>
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   art: { width: '100%', height: '100%' },
   fallback: { justifyContent: 'center', alignItems: 'center' },
   fallbackText: { color: '#EEDCCB', fontSize: 90 },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,11,10,0.30)' },
+  shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15,11,10,0.30)' },
   editorialShade: { backgroundColor: 'rgba(12,10,10,0.23)' },
   archiveStamp: { position: 'absolute', right: 15, top: 46, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', padding: 7 },
   filmStamp: { position: 'absolute', right: 15, top: 52 },
