@@ -9,7 +9,7 @@ import { supabase } from '../supabase';
 
 type Tab = 'saved' | 'likes' | 'replies';
 type ActionRow = { post_id: string; created_at: string; reply_id?: string; reply_body?: string };
-type PostRow = { id: string; user_id: string; body: string | null; post_kind?: 'music' | 'aux_prompt'; song_title: string; artist_name: string; artwork_url: string | null; photo_url: string | null };
+type PostRow = { id: string; user_id: string; body: string | null; post_kind?: 'music' | 'aux_prompt' | 'daily_drop'; song_title: string; artist_name: string; artwork_url: string | null; photo_url: string | null };
 type Item = ActionRow & { post: PostRow; author: string };
 
 const accent = '#39E75F';
@@ -134,11 +134,11 @@ export default function PostCollectionsScreen() {
           style={styles.item}>
           {item.post.artwork_url || item.post.photo_url
             ? <Image source={{uri:item.post.artwork_url || item.post.photo_url || ''}} style={styles.art}/>
-            : <View style={[styles.art,styles.artFallback]}><Text style={styles.musicNote}>{item.post.post_kind==='aux_prompt'?'?':'♫'}</Text></View>}
+            : <View style={[styles.art,styles.artFallback]}><Text style={styles.musicNote}>{(item.post.post_kind==='aux_prompt' || item.post.post_kind==='daily_drop')?'?':'♫'}</Text></View>}
           <View style={styles.itemCopy}>
-            <Text style={styles.song} numberOfLines={1}>{item.post.post_kind==='aux_prompt'?(item.post.body||'Music question'):item.post.song_title || 'Music conversation'}</Text>
+            <Text style={styles.song} numberOfLines={1}>{(item.post.post_kind==='aux_prompt' || item.post.post_kind==='daily_drop')?(item.post.body||'Music question'):item.post.song_title || 'Music conversation'}</Text>
             <Text style={styles.artist} numberOfLines={1}>{item.post.artist_name || item.author}</Text>
-            <Text style={styles.caption} numberOfLines={2}>{item.reply_body || (item.post.post_kind==='aux_prompt'?'Reply with a song':item.post.body) || `Posted by ${item.author}`}</Text>
+            <Text style={styles.caption} numberOfLines={2}>{item.reply_body || ((item.post.post_kind==='aux_prompt' || item.post.post_kind==='daily_drop')?'Reply with a song':item.post.body) || `Posted by ${item.author}`}</Text>
             <Text style={styles.age}>{elapsed(item.created_at)}</Text>
           </View>
           {own && tab === 'saved'
