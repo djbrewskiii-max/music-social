@@ -1,6 +1,7 @@
 import { decode } from 'base64-arraybuffer';
 
 import { artworkUrl } from './apple-catalog';
+import type { MotionStyle } from './collection-creative';
 import { supabase } from './supabase';
 
 /*
@@ -35,6 +36,8 @@ export type CollectionItem = {
 export type PhotoFocus = { x: number; y: number; zoom?: number };
 
 export type CollectionMeta = {
+  motionStyle?: MotionStyle; // optional animation preset; older Collections remain compatible
+  promptSourcePostId?: string | null; // link back to an inspiring question when present
   photoFocus?: PhotoFocus[]; // photo crop/zoom settings, indexed by photo slot
   photoAspects?: number[]; // original width/height of the photos, for adaptive layouts
   template: Template;
@@ -161,6 +164,8 @@ async function uploadPhoto(userId: string, photo: LocalPhoto) {
 }
 
 export async function publishCollection(input: {
+  motionStyle?: MotionStyle;
+  promptSourcePostId?: string | null;
   template: Template;
   theme?: string;
   titleFont?: 'serif' | 'bold';
@@ -175,9 +180,10 @@ export async function publishCollection(input: {
   if (!user) throw new Error('Not signed in');
   if (!input.items.length) throw new Error('Add at least one song.');
 
-  // Only upload the photos this template actually shows (switching templates
-  // in the editor keeps earlier photos around in case you switch back).
-  const usable = input.template === 'tracklist' || (input.template === 'liner' && input.coverArtId) ? 0 : input.template === 'moodboard' ? 5 : 1;
+  // Motion can use every chosen photo, even when the static layout only uses
+  // the first image (or no image at all for Tracklist). Keep both experiences
+  // backed by the same posted assets, without making an additional video file.
+  const usable = 5;
   const photoCount = Math.min(input.photos.length, usable);
   if (input.items.length + photoCount > 10) throw new Error('A collection can contain at most 10 music and photo items combined.');
   const photoUrls: string[] = [];
@@ -185,6 +191,8 @@ export async function publishCollection(input: {
 
   const first = input.items[0];
   const meta: CollectionMeta = {
+    motionStyle: input.motionStyle || 'film',
+    promptSourcePostId: input.promptSourcePostId || null,
     template: input.template,
     theme: input.theme || 'auto',
     titleFont: input.titleFont || 'serif',
@@ -240,6 +248,9 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
 /* -------------------------------- drafts -------------------------------- */
 
 export type DraftData = {
+  motionStyle?: MotionStyle;
+  promptSourcePostId?: string | null;
+  inspirationText?: string; // draft-only reference to the source question
   template: Template;
   coverArtId?: string | null;
   theme: string;
@@ -264,6 +275,9 @@ export async function saveDraft(draftId: string | null, input: Omit<DraftData, '
     photos.push({ uri: photo.uri, url, aspect: photo.aspect });
   }
   const data: DraftData = {
+    motionStyle: input.motionStyle || 'film',
+    promptSourcePostId: input.promptSourcePostId || null,
+    inspirationText: input.inspirationText?.slice(0, 300) || '',
     template: input.template,
     coverArtId: input.coverArtId || null,
     theme: input.theme,

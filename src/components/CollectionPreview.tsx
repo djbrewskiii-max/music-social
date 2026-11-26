@@ -57,6 +57,12 @@ export default function CollectionPreview({
           </Pressable>
         ))}
       </ScrollView>
+      <Pressable accessibilityRole="button" accessibilityLabel="Watch this Collection in motion"
+        onPress={() => router.push({ pathname: '/post', params: { postId: post.id, motion: '1' } })}
+        style={{ alignSelf: 'flex-start', paddingVertical: 9, paddingHorizontal: 13, marginTop: 11,
+          borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 999 }}>
+        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800' }}>▶ Watch in motion</Text>
+      </Pressable>
       {/* The music itself, right in the feed: the first few, then "see all". */}
       <View style={styles.tracks}>
         {items.slice(0, 3).map((it, i) => {
