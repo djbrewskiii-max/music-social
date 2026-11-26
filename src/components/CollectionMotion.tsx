@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Dimensions, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View,
+  Animated, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, useWindowDimensions,
 } from 'react-native';
 import { useAppearance } from '../appearance';
 import {
@@ -17,9 +17,6 @@ type Props = {
   onStyleChange?: (style: MotionStyle) => void;
 };
 
-const DEVICE = Dimensions.get('window');
-const FRAME_W = Math.max(200, Math.min(DEVICE.width - 32, (DEVICE.height - 285) * 9 / 16, 420));
-const FRAME_H = FRAME_W * 16 / 9;
 
 /**
  * In-app animated Collection viewer. No video uploads or automatic copyrighted
@@ -28,6 +25,11 @@ const FRAME_H = FRAME_W * 16 / 9;
  */
 export default function CollectionMotion({ visible, onClose, title, items, photos, styleKey = 'film', onStyleChange }: Props) {
   const { scheme, colors } = useAppearance();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // Leave room for safe areas, the style picker and playback controls on short iPhones.
+  const frameWidth = Math.min(screenWidth - 32, 420, Math.max(150, (screenHeight - 285) * 9 / 16));
+  const frameHeight = frameWidth * 16 / 9;
+  const compact = frameWidth < 250;
   const scenes = useMemo(() => buildMotionScenes(items, photos), [items, photos]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -90,7 +92,7 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
           </Pressable>
         </View>
         <View style={styles.stage}>
-          <View style={[styles.frame, { width: FRAME_W, height: FRAME_H },
+          <View style={[styles.frame, { width: frameWidth, height: frameHeight },
             styleKey === 'archive' && styles.archiveFrame,
             styleKey === 'editorial' && styles.editorialFrame]}>
             {scene && (
@@ -110,10 +112,11 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
               <Text style={styles.wordmark}>ovrlee.</Text>
               <Text style={styles.frameCount}>{String(index + 1).padStart(2, '0')} / {String(scenes.length).padStart(2, '0')}</Text>
             </View>
-            <View style={styles.bottom}>
-              <Text style={[styles.sceneSong, styleKey === 'editorial' && styles.editorialSong]} numberOfLines={2}>{scene?.song || 'Your music'}</Text>
-              <Text style={styles.sceneArtist} numberOfLines={1}>{scene?.artist}</Text>
-              {!!scene?.note && <Text style={styles.note} numberOfLines={3}>{scene.note}</Text>}
+            <View style={[styles.bottom, compact && { bottom: 14, left: 13, right: 13 }]}>
+              <Text style={[styles.sceneSong, styleKey === 'editorial' && styles.editorialSong,
+                compact && { fontSize: styleKey === 'editorial' ? 24 : 23, lineHeight: 27 }]} numberOfLines={2}>{scene?.song || 'Your music'}</Text>
+              <Text style={[styles.sceneArtist, compact && { fontSize: 12, marginTop: 3 }]} numberOfLines={1}>{scene?.artist}</Text>
+              {!!scene?.note && <Text style={[styles.note, compact && { fontSize: 12, lineHeight: 17, marginTop: 7 }]} numberOfLines={compact ? 2 : 3}>{scene.note}</Text>}
               <View style={styles.progressRow}>
                 {scenes.map((s, i) => <View key={s.key} style={[styles.segment,
                   { backgroundColor: i <= index ? '#F4E9DB' : 'rgba(255,255,255,0.38)' }]} />)}
