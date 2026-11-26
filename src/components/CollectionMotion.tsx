@@ -119,7 +119,7 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
               <Text style={styles.wordmark}>ovrlee.</Text>
               <Text style={styles.frameCount}>{String(index + 1).padStart(2, '0')} / {String(scenes.length).padStart(2, '0')}</Text>
             </View>
-            {index === 0 && !!title.trim() && <Text numberOfLines={2}
+            {index === 0 && frameHeight >= 350 && !!title.trim() && <Text numberOfLines={2}
               style={[styles.collectionOverlayTitle, compact && { fontSize: 19, lineHeight: 23, top: 58 }]}>
               {title}
             </Text>}
