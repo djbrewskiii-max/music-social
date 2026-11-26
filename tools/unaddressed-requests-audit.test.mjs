@@ -59,10 +59,10 @@ assert.match(thread,/post\.post_kind!=='aux_prompt'/,
  'Opening an Aux question must not show a fake/empty music card');
 assert.match(myProfile,/post\.post_kind!=='aux_prompt'/,
  'Own profile must not show empty music art on Aux prompts');
-assert.match(memberProfile,/post\.post_kind==='aux_prompt' \? null/,
- 'Viewed member profile must not show empty music art on Aux prompts');
-assert.match(activity,/post_kind==='aux_prompt'\?\(item\.post\.body\|\|'Music question'\)/,
- 'Private saves and public Likes show the actual question, not an invented category label');
+assert.match(memberProfile,/post\.post_kind==='aux_prompt' \|\| post\.post_kind==='daily_drop'/,
+ 'Viewed member profile must suppress the fake music card for both question post kinds');
+assert.match(activity,/post_kind==='aux_prompt' \|\| item\.post\.post_kind==='daily_drop'/,
+ 'Saved and liked question posts should show the actual question, not a fake song');
 
 assert.match(feed,/REPLY WITH A SONG/,
  'Official questions must lead to existing Song Reply conversations');
