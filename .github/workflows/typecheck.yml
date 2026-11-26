@@ -4,7 +4,7 @@ name: OVRLEE Quality Checks
 # ALL required quality, iOS JS bundle and native parse jobs have succeeded.
 on:
   push:
-    branches: [claude-build, feature/expressive-collections-motion-20261126]
+    branches: [claude-build, 'feature/**']
   pull_request:
     branches: [main, claude-build]
   workflow_dispatch:
