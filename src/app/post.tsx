@@ -366,6 +366,12 @@ export default function PostDetailScreen() {
                     borderRadius: 12, paddingVertical: 12, paddingHorizontal: 15, marginVertical: 10, alignSelf: 'flex-start' }}>
                   <Text style={{ color: colors.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>▶ WATCH IN MOTION</Text>
                 </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Create your own Collection inspired by this post"
+                  onPress={() => router.push({ pathname: '/studio',
+                    params: { prompt: post.collection?.title || '', sourcePostId: post.id } })}
+                  style={{ alignSelf: 'flex-start', paddingVertical: 10, paddingHorizontal: 8, marginBottom: 6 }}>
+                  <Text style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>＋ Make yours</Text>
+                </Pressable>
                 <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 6 }}>
                   {slides.map((spec, i) => (
                     <Pressable key={i} accessibilityLabel={`View collection slide ${i + 1} of ${slides.length}`} onPress={() => setCollectionViewer(i)} style={{ width: slideW, borderRadius: 10, overflow: 'hidden' }}>
