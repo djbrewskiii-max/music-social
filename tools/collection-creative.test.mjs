@@ -41,6 +41,12 @@ assert.match(studio, /setCaption\(''\); \/\/ never post somebody else's question
   'Remixing a question should not publish the question as the user's own caption');
 assert.doesNotMatch(studio, /setPhotos\(\(prev\) => prev\.slice\(0, t\.key ===/,
   'Switching a layout should never discard pictures already selected for motion');
+assert.match(studio, /setSheet\('photos'\)/,
+  'Photos toolbar must open the multi-photo manager');
+assert.match(studio, /const movePhoto = /,
+  'Members can rearrange photo order without reuploading');
+assert.match(studio, /const removePhoto = /,
+  'Members can remove any photo from a motion sequence');
 assert.match(studio, /const maxPhotos = 5/,
   'Every static layout can contribute multiple photos to the motion view');
 assert.match(studio, /10 - items\.length - photos\.length/,
