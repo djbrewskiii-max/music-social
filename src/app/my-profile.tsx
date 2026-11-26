@@ -96,7 +96,7 @@ type PostRow = {
   id: string;
   created_at: string;
   body: string | null;
-  post_kind?: 'music' | 'aux_prompt';
+  post_kind?: 'music' | 'aux_prompt' | 'daily_drop';
   song_title: string;
   artist_name: string;
   artwork_url: string | null;
@@ -1674,7 +1674,7 @@ function MyProfileContent({authUserId}:{authUserId:string}) {
                         <Text style={{ color: brandAccent, fontSize: 11, fontWeight: '800', marginBottom: 8 }}>
                           COLLECTION · {post.music_items.length} TRACKS
                         </Text>}
-                      {!post.collection && post.post_kind!=='aux_prompt' && (<View
+                      {!post.collection && post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop' && (<View
                         style={
                           styles.postMusic
                         }
