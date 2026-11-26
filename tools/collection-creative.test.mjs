@@ -35,10 +35,24 @@ const motion = read('src/components/CollectionMotion.tsx');
 assert.match(studio, /COLLECTION_IDEAS\.map/);
 assert.match(studio, /CollectionMotion visible=\{motionOpen\}/);
 assert.match(studio, /saveDraft\(draftId, \{ template, theme, titleFont, motionStyle/);
+assert.match(studio, /setCaption\(''\); \/\/ never post somebody else's question/,
+  'Remixing a question should not publish the question as the user's own caption');
+assert.match(studio, /const maxPhotos = 5/,
+  'Every static layout can contribute multiple photos to the motion view');
+assert.match(studio, /10 - items\.length - photos\.length/,
+  'Photos cannot silently exceed the total media limit');
 assert.match(meta, /motionStyle: input\.motionStyle \|\| 'film'/);
+assert.match(meta, /const usable = 5;/,
+  'All layouts retain up to five photos for cinematic playback');
+assert.match(meta, /inspirationText: input\.inspirationText\?/,
+  'Drafts retain their original question without copying it to public captions');
 assert.match(post, /MAKE YOURS/);
+assert.match(post, /Create your own Collection inspired by this post/,
+  'Member-generated Collections may inspire each other');
 assert.match(post, /promptSourcePostId/);
 assert.match(motion, /Visual preview/);
+assert.match(motion, /useWindowDimensions/,
+  'Motion viewer should respond to the actual screen size');
 assert.doesNotMatch(motion, /Audio\.Sound|playAsync\(|setAudioSource\(/,
   'Do not silently auto-mix commercial recordings without rights approval');
 console.log('Creative Collection and motion-preview contracts passed');
