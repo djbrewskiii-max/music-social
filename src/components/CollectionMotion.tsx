@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Dimensions, Image, Modal, Pressable, SafeAreaView, StyleSheet, Text, View,
+  Animated, Dimensions, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { useAppearance } from '../appearance';
 import {
@@ -14,6 +14,7 @@ type Props = {
   items: readonly MotionItem[];
   photos: readonly string[];
   styleKey?: MotionStyle;
+  onStyleChange?: (style: MotionStyle) => void;
 };
 
 const DEVICE = Dimensions.get('window');
@@ -25,7 +26,7 @@ const FRAME_H = FRAME_W * 16 / 9;
  * music mixing: the real track controls remain in the post, provided by the
  * approved music-service playback flow. This viewer is deliberately visual-only.
  */
-export default function CollectionMotion({ visible, onClose, title, items, photos, styleKey = 'film' }: Props) {
+export default function CollectionMotion({ visible, onClose, title, items, photos, styleKey = 'film', onStyleChange }: Props) {
   const { scheme, colors } = useAppearance();
   const scenes = useMemo(() => buildMotionScenes(items, photos), [items, photos]);
   const [index, setIndex] = useState(0);
@@ -120,6 +121,15 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
             </View>
           </View>
         </View>
+        {onStyleChange && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stylesRow}>
+          {MOTION_STYLES.map(option => <Pressable key={option.key} accessibilityRole="button"
+            accessibilityState={{ selected: option.key === styleKey }}
+            onPress={() => onStyleChange(option.key)}
+            style={[styles.styleChip, { borderColor: option.key === styleKey ? colors.accent : colors.border,
+              backgroundColor: option.key === styleKey ? colors.raised : colors.surface }]}>
+            <Text style={{ color: colors.text, fontSize: 12, fontWeight: option.key === styleKey ? '900' : '600' }}>{option.name}</Text>
+          </Pressable>)}
+        </ScrollView>}
         <View style={styles.controls}>
           <Pressable accessibilityRole="button" accessibilityLabel="Previous scene" onPress={() => seek(-1)} style={styles.control}>
             <Text style={[styles.controlText, { color: accent }]}>‹</Text>
@@ -169,6 +179,8 @@ const styles = StyleSheet.create({
   note: { color: '#F5EEE6', fontSize: 17, marginTop: 13, fontStyle: 'italic', lineHeight: 23 },
   progressRow: { flexDirection: 'row', gap: 4, marginTop: 22 },
   segment: { flex: 1, height: 3, borderRadius: 3 },
+  stylesRow: { gap: 8, paddingHorizontal: 20, marginTop: 8, paddingVertical: 4 },
+  styleChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 8 },
   control: { paddingHorizontal: 22, paddingVertical: 8 },
   controlText: { fontSize: 36 },
