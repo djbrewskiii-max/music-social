@@ -358,7 +358,7 @@ export default function PostDetailScreen() {
                   accessibilityLabel="Open the question that inspired this Collection"
                   onPress={() => router.push({ pathname: '/post', params: { postId: post.collection?.promptSourcePostId || '' } })}
                   style={{ marginVertical: 8, alignSelf: 'flex-start' }}>
-                  <Text style={{ color: colors.secondary, fontSize: 12, textDecorationLine: 'underline' }}>Inspired by a music question · See original</Text>
+                  <Text style={{ color: colors.secondary, fontSize: 12, textDecorationLine: 'underline' }}>Inspired by a post · See original</Text>
                 </Pressable>}
                 <Pressable accessibilityRole="button" accessibilityLabel="Watch this Collection in motion"
                   onPress={() => setMotionOpen(true)}
