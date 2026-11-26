@@ -166,7 +166,6 @@ async function uploadPhoto(userId: string, photo: LocalPhoto) {
 export async function publishCollection(input: {
   motionStyle?: MotionStyle;
   promptSourcePostId?: string | null;
-  inspirationText?: string; // draft-only reference to the source question
   template: Template;
   theme?: string;
   titleFont?: 'serif' | 'bold';
@@ -251,6 +250,7 @@ export function itemsFromPost(post: { music_items: any[] | null; collection: Col
 export type DraftData = {
   motionStyle?: MotionStyle;
   promptSourcePostId?: string | null;
+  inspirationText?: string; // draft-only reference to the source question
   template: Template;
   coverArtId?: string | null;
   theme: string;
