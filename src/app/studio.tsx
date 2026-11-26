@@ -768,7 +768,7 @@ export default function StudioScreen() {
               : 'The first photo shapes your static look. All selected photos play in motion.'}
           </Text>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 45 }}>
-            {photos.map((photo, i) => <View key={i}
+            {photos.map((_, i) => <View key={i}
               style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 9,
                 borderBottomWidth: 1, borderBottomColor: colors.border }}>
               <Image source={{ uri: previewPhotos[i] }} resizeMode="cover"
@@ -780,7 +780,7 @@ export default function StudioScreen() {
                   <Text style={{ color: colors.secondary, fontSize: 12 }}>Replace</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel={`Reframe photo ${i + 1}`}
-                  onPress={() => { setSheet(null); setReframingSlot(i); }} style={{ paddingVertical: 3 }}>
+                  onPress={() => { setSheet(null); setTimeout(() => setReframingSlot(i), 320); }} style={{ paddingVertical: 3 }}>
                   <Text style={{ color: colors.secondary, fontSize: 12 }}>Reframe</Text>
                 </Pressable>
               </View>
