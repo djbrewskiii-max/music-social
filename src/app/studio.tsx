@@ -54,6 +54,7 @@ export default function StudioScreen() {
   const [motionStyle, setMotionStyle] = useState<MotionStyle>('film');
   const [motionOpen, setMotionOpen] = useState(false);
   const [promptSourcePostId, setPromptSourcePostId] = useState<string | null>(null);
+  const [inspirationText, setInspirationText] = useState('');
   const seededFromPrompt = useRef(false);
   const [coverArtId, setCoverArtId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -84,14 +85,15 @@ export default function StudioScreen() {
   const pager = useRef<FlatList>(null);
 
   const config = TEMPLATES.find((t) => t.key === template)!;
-  const maxPhotos = template === 'moodboard' ? 5 : 1;
+  const maxPhotos = 5; // all layouts may use additional photos in motion
 
   // A question in the feed can become a member's own Collection, not a new post type.
   useEffect(() => {
     if (seededFromPrompt.current || typeof prompt !== 'string' || !prompt.trim()) return;
     seededFromPrompt.current = true;
     setTitle('my answer in songs');
-    setCaption(prompt.trim().slice(0, 300));
+    setCaption(''); // never post somebody else's question as the member's own words
+    setInspirationText(prompt.trim().slice(0, 300));
     setPromptSourcePostId(typeof sourcePostId === 'string' ? sourcePostId : null);
     setPicking(false);
   }, [prompt, sourcePostId]);
@@ -117,7 +119,7 @@ export default function StudioScreen() {
     if (savingDraft) return;
     setSavingDraft(true);
     try {
-      const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
+      const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus });
       setDraftId(saved.id);
       setPhotos(saved.photos);
       if (thenLeave) router.back();
@@ -134,7 +136,7 @@ export default function StudioScreen() {
     if (picking || postedId || !hasWork) return;
     const timer = setTimeout(async () => {
       try {
-        const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
+        const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus });
         if (!draftId) setDraftId(saved.id);
         // Swap in uploaded photo urls without disturbing what's on screen.
         if (saved.photos.some((p, i) => p.url && !photos[i]?.url)) setPhotos(saved.photos);
@@ -144,7 +146,7 @@ export default function StudioScreen() {
     }, 4000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
+  }, [template, theme, titleFont, motionStyle, promptSourcePostId, inspirationText, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
 
   const leave = () => {
     if (!hasWork || postedId) return router.back();
@@ -170,6 +172,7 @@ export default function StudioScreen() {
     setTitleFont(data.titleFont || 'serif');
     setMotionStyle(data.motionStyle || 'film');
     setPromptSourcePostId(data.promptSourcePostId || null);
+    setInspirationText(data.inspirationText || '');
     setCoverArtId(data.coverArtId || null);
     setTitle(data.title || '');
     setCaption(data.caption || '');
@@ -247,7 +250,7 @@ export default function StudioScreen() {
       setItems((prev) => prev.filter((i) => !isSameCollectionSong(i,item)));
       return;
     }
-    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    const usedPhotos = photos.length;
     const songLimit = Math.min(config.maxSongs, 10 - Math.max(usedPhotos, config.minPhotos));
     if (items.length >= songLimit) {
       Alert.alert('That’s the max', `${config.name} fits up to ${songLimit} songs with your photos (10 combined items).`);
@@ -322,7 +325,12 @@ export default function StudioScreen() {
   };
 
   const choosePhotos = async (slot: number, room: number) => {
-    if (room <= 0) return;
+    const replacing = slot < photos.length;
+    const available = Math.min(room, 10 - items.length - photos.length + (replacing ? 1 : 0));
+    if (available <= 0) {
+      Alert.alert('Collection is full', 'You can include up to 10 songs and photos combined.');
+      return;
+    }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Photos access needed', 'Allow Photos access to add your photos.');
@@ -330,15 +338,15 @@ export default function StudioScreen() {
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: room > 1,
-      selectionLimit: room,
+      allowsMultipleSelection: available > 1,
+      selectionLimit: available,
       quality: 0.85,
       base64: true,
     });
     if (picked.canceled) return;
     const added = picked.assets
       .filter((a) => !!a.base64)
-      .slice(0, room)
+      .slice(0, available)
       .map((a) => ({ uri: a.uri, base64: a.base64!, mimeType: a.mimeType || 'image/jpeg', aspect: a.width && a.height ? a.width / a.height : 1 }));
     setPhotos((prev) => {
       const next = [...prev];
@@ -358,7 +366,7 @@ export default function StudioScreen() {
     if (!items.length) return 'Add at least one song.';
     if (template === 'wall' && items.length < 4) return 'An album wall needs at least 4 albums.';
     if (photos.length < config.minPhotos) return `${config.name} needs ${config.minPhotos === 1 ? 'a photo' : `${config.minPhotos} photos`}.`;
-    const usedPhotos = template === 'tracklist' || (template === 'liner' && coverArtId) ? 0 : photos.length;
+    const usedPhotos = photos.length;
     if (items.length + usedPhotos > 10) return 'Your collection can have at most 10 combined photos and music items. Remove one to continue.';
     return '';
   };
@@ -458,6 +466,7 @@ export default function StudioScreen() {
                 setCaption('');
                 setPhotos([]);
                 setPromptSourcePostId(null);
+                setInspirationText('');
                 setPicking(false);
               }}
               style={{ width: 224, padding: 15, borderWidth: 1, borderColor: colors.border,
@@ -540,6 +549,15 @@ export default function StudioScreen() {
         </ScrollView>
       </View>
 
+      {!!inspirationText && <Pressable accessibilityRole="button" accessibilityLabel="Read inspiring question"
+        onPress={() => Alert.alert('Make yours', inspirationText)}
+        style={{ marginHorizontal: 20, marginBottom: 4, paddingVertical: 9, paddingHorizontal: 12,
+          backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1,
+          borderRadius: 11 }}>
+        <Text numberOfLines={1} style={{ color: colors.secondary, fontSize: 12 }}>
+          ↳ Making your own take on: {inspirationText}
+        </Text>
+      </Pressable>}
       <FlatList
         ref={pager}
         data={editingSlides}
@@ -589,7 +607,7 @@ export default function StudioScreen() {
         </Pressable>
         <Pressable onPress={() => pickPhoto(photos.length < maxPhotos ? photos.length : 0)} style={styles.tool}>
           <Text style={styles.toolIcon}>▣</Text>
-          <Text style={styles.toolText}>Photos {photos.length ? `· ${photos.length}` : ''}</Text>
+          <Text style={styles.toolText}>{template === 'tracklist' ? 'Photos for motion' : 'Photos'} {photos.length ? `· ${photos.length}` : ''}</Text>
         </Pressable>
         <Pressable onPress={() => setSheet('text')} style={styles.tool}>
           <Text style={styles.toolIcon}>Aa</Text>
@@ -629,6 +647,10 @@ export default function StudioScreen() {
         </View>
       )}
 
+      {photos.length > 1 && template !== 'moodboard' && <Text style={{ color: colors.secondary,
+        fontSize: 11, textAlign: 'center', marginTop: 6, marginHorizontal: 22 }}>
+        Extra photos appear in motion; your static layout stays the same.
+      </Text>}
       <View style={styles.finalRow}>
         <Pressable accessibilityRole="button" accessibilityLabel="Watch Collection in motion"
           onPress={() => setMotionOpen(true)} disabled={!items.length} style={[styles.secondaryBtn, !items.length && { opacity: 0.4 }]}>
