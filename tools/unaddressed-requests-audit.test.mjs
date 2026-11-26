@@ -19,8 +19,10 @@ assert.match(musicSettings,/provider==='spotify'&&<Text/,
 
 assert.match(feed,/const activeMusicPeople\s*=\s*listeningPeople\.filter/,
  'Home should derive the genuine listening cohort, not show every online member');
-assert.match(feed,/return tier !== 'here_now' && !!song\?\.trim\(\) && !!artist\?\.trim\(\)/,
- 'Do not display an unverified or empty music presence card');
+assert.match(feed,/tier === 'verified_live' \|\| tier === 'shared_just_now'/,
+ 'In the moment only includes verified live or recently shared tracks, not weekly lists');
+assert.match(feed,/!!song\?\.trim\(\) && !!artist\?\.trim\(\)/,
+ 'Never display a missing-track listening card');
 assert.match(feed,/activeMusicPeople\.length\s*>\s*0\s*&&\s*\(/,
  'Do not show a sparse Who\'s Here section when no music is actually playing');
 assert.match(feed,/activeMusicPeople.map/,
