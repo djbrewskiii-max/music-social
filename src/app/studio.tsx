@@ -3,7 +3,7 @@ import { useAppearance } from '../appearance';
 import { themedStyleSheet } from '../theme-style';
 import { isSameCollectionSong } from '../collection-selection';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +25,8 @@ import {
 
 import { CollectionItem, deleteDraft, Draft, listDrafts, LocalPhoto, PhotoFocus, publishCollection, saveDraft, searchMusic, Template, TEMPLATES } from '../collection';
 import PhotoReframeEditor from '../components/PhotoReframeEditor';
+import CollectionMotion from '../components/CollectionMotion';
+import { COLLECTION_IDEAS, type MotionStyle } from '../collection-creative';
 import Slide, { buildSlides, photoSlotAspect, SLIDE_H, SLIDE_W, ThemeKey, THEMES } from '../components/CollectionSlides';
 import { completeItem, loadPosted, loadRecent, loadRotation, MusicSource } from '../my-music';
 import { captureSlides, saveSlides } from '../export-slides';
@@ -41,6 +43,7 @@ type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | 'arrange' | { note: n
 
 export default function StudioScreen() {
   const { scheme, colors } = useAppearance();
+  const { prompt, sourcePostId } = useLocalSearchParams<{ prompt?: string; sourcePostId?: string }>();
   const styles = useMemo(() => themedStyleSheet(baseStyles, scheme), [scheme]);
   const accent = colors.accent;
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular_Italic: require('../../assets/fonts/InstrumentSerif-Italic.ttf') });
@@ -48,6 +51,10 @@ export default function StudioScreen() {
   const [template, setTemplate] = useState<Template>('liner');
   const [theme, setTheme] = useState<ThemeKey>('auto');
   const [titleFont, setTitleFont] = useState<'serif' | 'bold'>('serif');
+  const [motionStyle, setMotionStyle] = useState<MotionStyle>('film');
+  const [motionOpen, setMotionOpen] = useState(false);
+  const [promptSourcePostId, setPromptSourcePostId] = useState<string | null>(null);
+  const seededFromPrompt = useRef(false);
   const [coverArtId, setCoverArtId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -79,6 +86,16 @@ export default function StudioScreen() {
   const config = TEMPLATES.find((t) => t.key === template)!;
   const maxPhotos = template === 'moodboard' ? 5 : 1;
 
+  // A question in the feed can become a member's own Collection, not a new post type.
+  useEffect(() => {
+    if (seededFromPrompt.current || typeof prompt !== 'string' || !prompt.trim()) return;
+    seededFromPrompt.current = true;
+    setTitle('my answer in songs');
+    setCaption(prompt.trim().slice(0, 300));
+    setPromptSourcePostId(typeof sourcePostId === 'string' ? sourcePostId : null);
+    setPicking(false);
+  }, [prompt, sourcePostId]);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -100,7 +117,7 @@ export default function StudioScreen() {
     if (savingDraft) return;
     setSavingDraft(true);
     try {
-      const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+      const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
       setDraftId(saved.id);
       setPhotos(saved.photos);
       if (thenLeave) router.back();
@@ -117,7 +134,7 @@ export default function StudioScreen() {
     if (picking || postedId || !hasWork) return;
     const timer = setTimeout(async () => {
       try {
-        const saved = await saveDraft(draftId, { template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+        const saved = await saveDraft(draftId, { template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
         if (!draftId) setDraftId(saved.id);
         // Swap in uploaded photo urls without disturbing what's on screen.
         if (saved.photos.some((p, i) => p.url && !photos[i]?.url)) setPhotos(saved.photos);
@@ -127,7 +144,7 @@ export default function StudioScreen() {
     }, 4000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
+  }, [template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus, picking, postedId]);
 
   const leave = () => {
     if (!hasWork || postedId) return router.back();
@@ -151,6 +168,8 @@ export default function StudioScreen() {
     setTemplate(data.template);
     setTheme((data.theme as ThemeKey) || 'auto');
     setTitleFont(data.titleFont || 'serif');
+    setMotionStyle(data.motionStyle || 'film');
+    setPromptSourcePostId(data.promptSourcePostId || null);
     setCoverArtId(data.coverArtId || null);
     setTitle(data.title || '');
     setCaption(data.caption || '');
@@ -350,7 +369,7 @@ export default function StudioScreen() {
     if (posting) return;
     setPosting(true);
     try {
-      const id = await publishCollection({ template, theme, titleFont, coverArtId, title, caption, items, photos, photoFocus });
+      const id = await publishCollection({ template, theme, titleFont, motionStyle, promptSourcePostId, coverArtId, title, caption, items, photos, photoFocus });
       setPostedId(id);
       if (draftId) await deleteDraft(draftId);
       Alert.alert('Collection published', 'Your collection is now a post in For You and on your profile. Want to save its slides for sharing elsewhere?', [
@@ -429,6 +448,26 @@ export default function StudioScreen() {
               <Text style={[styles.label, { marginTop: 22 }]}>NEW COLLECTION</Text>
             </View>
           )}
+          <Text style={[styles.label, { marginTop: 2, color: colors.secondary }]}>START WITH AN IDEA</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 15 }}>
+            {COLLECTION_IDEAS.map(idea => <Pressable key={idea.key} accessibilityRole="button"
+              accessibilityLabel={`Create ${idea.name} collection`}
+              onPress={() => {
+                setTemplate(idea.template);
+                setTitle(idea.example);
+                setCaption('');
+                setPhotos([]);
+                setPromptSourcePostId(null);
+                setPicking(false);
+              }}
+              style={{ width: 224, padding: 15, borderWidth: 1, borderColor: colors.border,
+                borderRadius: 17, backgroundColor: colors.surface }}>
+              <Text style={{ color: colors.text, fontWeight: '900', fontSize: 16 }}>{idea.name}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12, lineHeight: 18, marginTop: 8 }}>{idea.detail}</Text>
+              <Text style={{ color: colors.text, fontStyle: 'italic', fontSize: 12, marginTop: 12 }} numberOfLines={2}>“{idea.example}”</Text>
+            </Pressable>)}
+          </ScrollView>
+          <Text style={[styles.label, { marginTop: 10, color: colors.secondary }]}>OR PICK A LOOK</Text>
           {TEMPLATES.map((t) => {
             const demo = buildSlides(t.key, {
               title: t.key === 'wall' ? 'my people know.' : t.key === 'moodboard' ? 'songs for the summer' : t.key === 'tracklist' ? 'on repeat' : 'songs i’d play you on a long drive',
@@ -591,6 +630,10 @@ export default function StudioScreen() {
       )}
 
       <View style={styles.finalRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Watch Collection in motion"
+          onPress={() => setMotionOpen(true)} disabled={!items.length} style={[styles.secondaryBtn, !items.length && { opacity: 0.4 }]}>
+          <Text style={styles.secondaryText}>▶ WATCH</Text>
+        </Pressable>
         <Pressable onPress={() => exportNow()} disabled={exporting} style={[styles.secondaryBtn, exporting && { opacity: 0.5 }]}>
           {exporting ? <ActivityIndicator color={accent} /> : <Text style={styles.secondaryText}>SAVE SLIDES</Text>}
         </Pressable>
@@ -607,6 +650,9 @@ export default function StudioScreen() {
           </View>
         ))}
       </View>
+
+      <CollectionMotion visible={motionOpen} onClose={() => setMotionOpen(false)} title={title}
+        items={items} photos={previewPhotos} styleKey={motionStyle} onStyleChange={setMotionStyle} />
 
       <PhotoReframeEditor
         uri={reframingSlot !== null ? photos[reframingSlot]?.uri || null : null}
