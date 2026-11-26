@@ -28,9 +28,19 @@ export default function TasteCardScreen() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace('/login'); return; }
-    const [{ data: profile }, { data: dna }] = await Promise.all([
+    const [
+      { data: profile },
+      { data: dna },
+      { data: favoriteArtists },
+      { data: selectedSongs },
+    ] = await Promise.all([
       supabase.from('profiles').select('display_name, username, city, onboarding_complete').eq('user_id', user.id).maybeSingle(),
       supabase.from('music_dna').select('top_artists, top_songs').eq('user_id', user.id).maybeSingle(),
+      supabase.from('music_taste_artists').select('artist_name')
+        .eq('user_id', user.id).eq('source', 'favorite')
+        .order('artist_name').limit(10),
+      supabase.from('profile_rotation_pins').select('song,artist,position')
+        .eq('user_id',user.id).order('position',{ascending:true}).limit(5),
     ]);
     // A shareable identity must be real, never a ghost handle.
     if (!profile?.onboarding_complete || !profile?.display_name?.trim() || !profile?.username?.trim()) {
@@ -38,12 +48,23 @@ export default function TasteCardScreen() {
       setLoading(false);
       return;
     }
+    // Taste is a deliberate choice, not an inferred streaming claim.
+    // Prefer the five artists picked at signup and pinned In Rotation songs
+    // for BOTH Spotify and Apple Music, falling back to Music DNA when absent.
+    const favorites=(favoriteArtists||[]).map(a=>a.artist_name).filter(Boolean);
+    const pins=(selectedSongs||[]).map(t=>({song:t.song,artist:t.artist}))
+      .filter(t=>t.song&&t.artist);
+    const dnaArtists=(((dna as any)?.top_artists as any[])||[])
+      .map(a=>String(a.name||'')).filter(Boolean);
+    const dnaSongs=(((dna as any)?.top_songs as any[])||[])
+      .map(t=>({song:String(t.song||''),artist:String(t.artist||'')}))
+      .filter(t=>t.song&&t.artist);
     setCard(buildTasteCard({
       displayName: profile.display_name,
       username: profile.username,
-      city: (profile as any)?.city || null,
-      topArtists: (((dna as any)?.top_artists as any[]) || []).map((a) => String(a.name || '')).filter(Boolean),
-      topSongs: (((dna as any)?.top_songs as any[]) || []).map((t) => ({ song: String(t.song || ''), artist: String(t.artist || '') })).filter((t) => t.song && t.artist),
+      city: profile.city || null,
+      topArtists: favorites.length?favorites:dnaArtists,
+      topSongs: pins.length?pins:dnaSongs,
     }));
     setLoading(false);
   }, []);
@@ -97,13 +118,13 @@ export default function TasteCardScreen() {
             <Text style={[styles.cardHandle, { color: colors.secondary }]}>@{card.username}{card.city ? ` · ${card.city}` : ''}</Text>
             {card.topArtists.length > 0 && (
               <>
-                <Text style={[styles.cardSection, { color: colors.text }]}>Top artists</Text>
+                <Text style={[styles.cardSection, { color: colors.text }]}>Favorite artists</Text>
                 {card.topArtists.map((a) => <Text key={a} style={[styles.cardLine, { color: colors.text }]}>· {a}</Text>)}
               </>
             )}
             {card.topSongs.length > 0 && (
               <>
-                <Text style={[styles.cardSection, { color: colors.text }]}>Top songs</Text>
+                <Text style={[styles.cardSection, { color: colors.text }]}>Your songs</Text>
                 {card.topSongs.map((s) => <Text key={`${s.artist}-${s.song}`} style={[styles.cardLine, { color: colors.text }]}>· {s.song} — {s.artist}</Text>)}
               </>
             )}
