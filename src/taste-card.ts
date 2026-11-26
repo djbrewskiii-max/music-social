@@ -39,7 +39,7 @@ export function buildTasteCard(input: {
     username: input.username,
     city: input.city || null,
     monthLabel: monthLabel(),
-    topArtists: (input.topArtists || []).slice(0, 4),
+    topArtists: (input.topArtists || []).slice(0, 5),
     topSongs: (input.topSongs || []).slice(0, 3),
     coreFour: (input.coreFour || []).slice(0, 4),
     inRotation: (input.inRotation || []).slice(0, 5),
@@ -51,8 +51,8 @@ export function tasteCardShareText(card: TasteCardData): string {
   const lines = [
     `${card.displayName} (@${card.username}) — ${card.monthLabel} in songs`,
     '',
-    ...(card.topArtists.length ? [`Top artists: ${card.topArtists.join(', ')}`] : []),
-    ...(card.topSongs.length ? [`Top songs: ${card.topSongs.map((s) => `${s.song} — ${s.artist}`).join('; ')}`] : []),
+    ...(card.topArtists.length ? [`Favorite artists: ${card.topArtists.join(', ')}`] : []),
+    ...(card.topSongs.length ? [`Songs: ${card.topSongs.map((s) => `${s.song} — ${s.artist}`).join('; ')}`] : []),
     '',
     'Made on OVRLEE',
   ];
