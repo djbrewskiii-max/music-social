@@ -119,6 +119,10 @@ export default function CollectionMotion({ visible, onClose, title, items, photo
               <Text style={styles.wordmark}>ovrlee.</Text>
               <Text style={styles.frameCount}>{String(index + 1).padStart(2, '0')} / {String(scenes.length).padStart(2, '0')}</Text>
             </View>
+            {index === 0 && !!title.trim() && <Text numberOfLines={2}
+              style={[styles.collectionOverlayTitle, compact && { fontSize: 19, lineHeight: 23, top: 58 }]}>
+              {title}
+            </Text>}
             <View style={[styles.bottom, compact && { bottom: 14, left: 13, right: 13 }]}>
               <Text style={[styles.sceneSong, styleKey === 'editorial' && styles.editorialSong,
                 compact && { fontSize: styleKey === 'editorial' ? 24 : 23, lineHeight: 27 }]} numberOfLines={2}>{scene?.song || 'Your music'}</Text>
@@ -182,6 +186,9 @@ const styles = StyleSheet.create({
   topline: { position: 'absolute', left: 18, right: 18, top: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   wordmark: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: -0.8 },
   frameCount: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  collectionOverlayTitle: { position: 'absolute', left: 20, right: 20, top: 64,
+    color: '#F9F1E7', fontSize: 28, lineHeight: 31, fontStyle: 'italic', fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 8 },
   bottom: { position: 'absolute', left: 20, right: 20, bottom: 24 },
   sceneSong: { color: '#FFFFFF', fontSize: 34, lineHeight: 38, fontWeight: '800', letterSpacing: -0.7 },
   editorialSong: { fontSize: 39, lineHeight: 42, fontWeight: '900', textTransform: 'uppercase' },
