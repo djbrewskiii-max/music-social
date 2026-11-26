@@ -674,7 +674,9 @@ export default function StudioScreen() {
       </View>
 
       <CollectionMotion visible={motionOpen} onClose={() => setMotionOpen(false)} title={title}
-        items={items} photos={previewPhotos} styleKey={motionStyle} onStyleChange={setMotionStyle} />
+        items={items} photos={previewPhotos} photoFocus={photoFocus}
+        photoAspects={photos.map(p => p.aspect || 1)}
+        styleKey={motionStyle} onStyleChange={setMotionStyle} />
 
       <PhotoReframeEditor
         uri={reframingSlot !== null ? photos[reframingSlot]?.uri || null : null}
