@@ -7,6 +7,7 @@ const member=read('src/app/profile.tsx');
 const rotation=read('src/components/UnifiedRotation.tsx');
 const settings=read('src/app/settings.tsx');
 const card=read('src/app/taste-card.tsx');
+const nowPlaying=read('src/app/now-playing.tsx');
 const discover=read('src/app/listeners.tsx');
 const concerts=read('src/app/concerts.tsx');
 const releases=read('src/app/releases.tsx');
@@ -33,6 +34,10 @@ for (const profile of [own,member]) {
   assert.doesNotMatch(profile,/MY TASTE CARD\s*→|YOUR TASTE CARD\s*→/,
     'A share action should not be a permanent second profile card');
 }
+assert.doesNotMatch(nowPlaying,/router\.push\('\/on-repeat'\)/,
+  'Spotify Now Playing must not send members into a second weekly curation flow');
+assert.match(nowPlaying,/pathname:'\/my-profile',params:\{openRotation:'1'\}/,
+  'Spotify users should find the same manual In Rotation editor');
 assert.match(rotation,/const displayed:[\s\S]*?= chosen;/,
   'In Rotation only presents member-pinned tracks, not inferred streaming');
 assert.match(rotation,/<SongPreviewButton song=\{track\.song\} artist=\{track\.artist\}/,
