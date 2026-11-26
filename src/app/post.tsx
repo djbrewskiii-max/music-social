@@ -612,6 +612,7 @@ export default function PostDetailScreen() {
     </KeyboardAvoidingView>
     {post?.collection && <CollectionMotion visible={motionOpen} onClose={() => setMotionOpen(false)}
       title={post.collection.title} items={itemsFromPost(post)} photos={photos}
+      photoFocus={post.collection.photoFocus} photoAspects={post.collection.photoAspects}
       styleKey={post.collection.motionStyle || 'film'} />}
     <Modal visible={collectionViewer !== null} onRequestClose={() => setCollectionViewer(null)} animationType="fade" statusBarTranslucent>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
