@@ -628,7 +628,7 @@ export default function StudioScreen() {
         </Pressable>
         <Pressable onPress={() => setSheet('photos')} style={styles.tool}>
           <Text style={styles.toolIcon}>▣</Text>
-          <Text style={styles.toolText}>{template === 'tracklist' ? 'Photos for motion' : 'Photos'} {photos.length ? `· ${photos.length}` : ''}</Text>
+          <Text style={styles.toolText}>Photos {photos.length ? `· ${photos.length}` : ''}</Text>
         </Pressable>
         <Pressable onPress={() => setSheet('text')} style={styles.tool}>
           <Text style={styles.toolIcon}>Aa</Text>
@@ -668,9 +668,9 @@ export default function StudioScreen() {
         </View>
       )}
 
-      {photos.length > 1 && template !== 'moodboard' && <Text style={{ color: colors.secondary,
+      {photos.length > 0 && template !== 'moodboard' && <Text style={{ color: colors.secondary,
         fontSize: 11, textAlign: 'center', marginTop: 6, marginHorizontal: 22 }}>
-        Extra photos appear in motion; your static layout stays the same.
+        {template === 'tracklist' ? 'Photos appear in motion; your tracklist stays clean.' : 'Extra photos appear in motion; your static layout stays the same.'}
       </Text>}
       <View style={styles.finalRow}>
         <Pressable accessibilityRole="button" accessibilityLabel="Watch Collection in motion"
