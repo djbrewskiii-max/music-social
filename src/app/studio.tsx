@@ -230,7 +230,7 @@ export default function StudioScreen() {
   // image bytes; use that stable local preview for the slide renderer.
   // Publishing still uses the original photo records and upload pipeline.
   const previewPhotos=useMemo(() => photos.map(photo=>
-    photo.base64 ? 'data:image/jpeg;base64,'+photo.base64 : photo.uri
+    photo.base64 ? `data:${photo.mimeType || 'image/jpeg'};base64,${photo.base64}` : photo.uri
   ),[photos]);
 
   const editingSlides = useMemo(
@@ -489,7 +489,7 @@ export default function StudioScreen() {
                 key={t.key}
                 onPress={() => {
                   setTemplate(t.key);
-                  setPhotos((prev) => prev.slice(0, t.key === 'moodboard' ? 5 : 1));
+                  // Keep photos while changing looks; every layout can use them in motion.
                   setPicking(false);
                 }}
                 style={({ pressed }) => [styles.templateCard, pressed && { opacity: 0.8 }]}
@@ -537,7 +537,7 @@ export default function StudioScreen() {
               key={t.key}
               onPress={() => {
                 setTemplate(t.key);
-                setPhotos((prev) => prev.slice(0, t.key === 'moodboard' ? 5 : 1));
+                // Keep photos while changing looks; every layout can use them in motion.
                 setPage(0);
                 pager.current?.scrollToOffset({ offset: 0, animated: false });
               }}
