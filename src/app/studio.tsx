@@ -39,7 +39,7 @@ const SCREEN_H = Dimensions.get('window').height;
 // The live canvas: as big as fits while leaving room for the toolbar.
 const CANVAS_W = Math.min(SCREEN_W - 56, Math.floor(((SCREEN_H - 330) * 9) / 16));
 
-type Sheet = null | 'songs' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
+type Sheet = null | 'songs' | 'photos' | 'text' | 'color' | 'cover' | 'arrange' | { note: number };
 
 export default function StudioScreen() {
   const { scheme, colors } = useAppearance();
@@ -302,6 +302,25 @@ export default function StudioScreen() {
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+
+  const removePhoto = (slot: number) => {
+    setPhotos(previous => previous.filter((_, i) => i !== slot));
+    setPhotoFocus(previous => previous.filter((_, i) => i !== slot));
+  };
+  const movePhoto = (slot: number, delta: number) => {
+    const target = slot + delta;
+    if (target < 0 || target >= photos.length) return;
+    setPhotos(previous => {
+      const next = [...previous];
+      [next[slot], next[target]] = [next[target], next[slot]];
+      return next;
+    });
+    setPhotoFocus(previous => {
+      const next = Array.from({ length: photos.length }, (_, i) => previous[i] || { x: 50, y: 50, zoom: 1 });
+      [next[slot], next[target]] = [next[target], next[slot]];
+      return next;
+    });
+  };
 
   const pickPhoto = async (slot: number) => {
     // Liner Notes cover: your photo, or any album cover in the collection.
@@ -607,7 +626,7 @@ export default function StudioScreen() {
           <Text style={styles.toolIcon}>♪</Text>
           <Text style={styles.toolText}>Songs {items.length ? `· ${items.length}` : ''}</Text>
         </Pressable>
-        <Pressable onPress={() => pickPhoto(photos.length < maxPhotos ? photos.length : 0)} style={styles.tool}>
+        <Pressable onPress={() => setSheet('photos')} style={styles.tool}>
           <Text style={styles.toolIcon}>▣</Text>
           <Text style={styles.toolText}>{template === 'tracklist' ? 'Photos for motion' : 'Photos'} {photos.length ? `· ${photos.length}` : ''}</Text>
         </Pressable>
@@ -731,6 +750,69 @@ export default function StudioScreen() {
                   style={{ padding: 12, opacity: i === items.length - 1 ? 0.2 : 1 }}><Text style={{ color: accent, fontSize: 24 }}>↓</Text></Pressable>
               </View>
             ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Arrange every montage photo, including those not used by the still layout. */}
+      <Modal visible={sheet === 'photos'} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSheet(null)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Photos</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close photo manager"
+              onPress={() => setSheet(null)}><Text style={styles.done}>Done</Text></Pressable>
+          </View>
+          <Text style={{ color: colors.secondary, fontSize: 13, lineHeight: 19, marginHorizontal: 20, marginBottom: 12 }}>
+            {template === 'moodboard'
+              ? 'Arrange the photos in your moodboard and motion.'
+              : 'The first photo shapes your static look. All selected photos play in motion.'}
+          </Text>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 45 }}>
+            {photos.map((photo, i) => <View key={i}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 9,
+                borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Image source={{ uri: previewPhotos[i] }} resizeMode="cover"
+                style={{ width: 58, height: 75, backgroundColor: colors.raised, borderRadius: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontWeight: '800', fontSize: 13 }}>Photo {i + 1}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Replace photo ${i + 1}`}
+                  onPress={() => void choosePhotos(i, 1)} style={{ paddingVertical: 6 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 12 }}>Replace</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Reframe photo ${i + 1}`}
+                  onPress={() => { setSheet(null); setReframingSlot(i); }} style={{ paddingVertical: 3 }}>
+                  <Text style={{ color: colors.secondary, fontSize: 12 }}>Reframe</Text>
+                </Pressable>
+              </View>
+              <View style={{ alignItems: 'center', gap: 4 }}>
+                <View style={{ flexDirection: 'row' }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Move photo ${i + 1} earlier`}
+                    disabled={i === 0} onPress={() => movePhoto(i, -1)}
+                    style={{ padding: 10, opacity: i === 0 ? 0.3 : 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 19 }}>↑</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Move photo ${i + 1} later`}
+                    disabled={i === photos.length - 1} onPress={() => movePhoto(i, 1)}
+                    style={{ padding: 10, opacity: i === photos.length - 1 ? 0.3 : 1 }}>
+                    <Text style={{ color: colors.text, fontSize: 19 }}>↓</Text>
+                  </Pressable>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Remove photo ${i + 1}`}
+                  onPress={() => removePhoto(i)} style={{ padding: 8 }}>
+                  <Text style={{ color: '#B65C5C', fontSize: 12, fontWeight: '800' }}>REMOVE</Text>
+                </Pressable>
+              </View>
+            </View>)}
+            {photos.length < maxPhotos && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Add photos to Collection"
+                disabled={items.length + photos.length >= 10}
+                onPress={() => void choosePhotos(photos.length, maxPhotos - photos.length)}
+                style={{ backgroundColor: colors.raised, borderWidth: 1, borderColor: colors.border,
+                  borderRadius: 14, alignItems: 'center', padding: 15, marginTop: 18,
+                  opacity: items.length + photos.length >= 10 ? 0.4 : 1 }}>
+                <Text style={{ color: colors.text, fontSize: 13, fontWeight: '900' }}>＋ ADD PHOTOS · {photos.length}/{maxPhotos}</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
