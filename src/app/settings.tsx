@@ -59,6 +59,7 @@ export default function SettingsScreen(){
       <Text style={[styles.section,{color:colors.secondary}]}>YOUR ACCOUNT</Text>
       {group([
         {icon:'person.crop.circle',label:'Edit profile',detail:'Photo, bio, your Overly and city',onPress:()=>router.push('/edit-profile'),first:true},
+        {icon:'square.and.arrow.up',label:'Share your music taste',detail:'Create a shareable Taste Card',onPress:()=>router.push('/taste-card')},
         {icon:'location.circle',label:'Nearby privacy',detail:'Control where people can discover you',onPress:()=>router.push('/edit-profile')},
       ])}
       <Text style={[styles.section,{color:colors.secondary}]}>APPEARANCE</Text>

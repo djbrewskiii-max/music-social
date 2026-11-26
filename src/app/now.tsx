@@ -33,7 +33,6 @@ import {
 
 import ActivityBell from '../components/ActivityBell';
 import CollectionPreview from '../components/CollectionPreview';
-import DailyDropCard from '../components/DailyDropCard';
 import SongPreviewButton from '../components/SongPreviewButton';
 import {shareOVRLEEPost} from '../post-sharing';
 import {applePrimaryArtist, isCombinedArtistCredit, type PrimaryArtist} from '../apple-primary-artist';
@@ -1243,13 +1242,6 @@ export default function NowScreen() {
       orbitPerson,
     ]);
 
-  // Today's Daily Drop question, if the feed has one. Daily Drop posts use
-  // post_kind 'daily_drop' after migration; 'aux_prompt' is the existing
-  // fallback kind in the feed.
-  const dailyDrop = posts.find(
-    (post) => post.post_kind === 'daily_drop' || post.post_kind === 'aux_prompt',
-  );
-
   const refresh = async () => {
     setRefreshing(true);
     await loadFeed();
@@ -1663,13 +1655,12 @@ export default function NowScreen() {
       sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
       hasOnRepeat: !!person.onRepeatSong,
     });
-    const song = tier === 'verified_live' ? person.song_title :
-      tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
-    const artist = tier === 'verified_live' ? person.artist_name :
-      tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
-    // Never render a blank/fake listening card: only real track+artist
-    // evidence with an honest verified/shared/declared status is eligible.
-    return tier !== 'here_now' && !!song?.trim() && !!artist?.trim();
+    const song = tier === 'verified_live' ? person.song_title : person.sharedSong;
+    const artist = tier === 'verified_live' ? person.artist_name : person.sharedArtist;
+    // This is a moment in time, not a weekly curated list. Show only
+    // verified live playback or a song genuinely shared in the past hour.
+    return (tier === 'verified_live' || tier === 'shared_just_now')
+      && !!song?.trim() && !!artist?.trim();
   });
 
   if (loading) {
@@ -1892,9 +1883,9 @@ export default function NowScreen() {
                       sharedAtMs: person.sharedAt ? new Date(person.sharedAt).getTime() : null,
                       hasOnRepeat: !!person.onRepeatSong,
                     });
-                    const song = tier === 'verified_live' ? person.song_title : tier === 'shared_just_now' ? person.sharedSong : person.onRepeatSong;
-                    const artist = tier === 'verified_live' ? person.artist_name : tier === 'shared_just_now' ? person.sharedArtist : person.onRepeatArtist;
-                    const artwork = tier === 'verified_live' ? person.artwork_url : tier === 'shared_just_now' ? person.sharedArtwork : person.onRepeatArtwork;
+                    const song = tier === 'verified_live' ? person.song_title : person.sharedSong;
+                    const artist = tier === 'verified_live' ? person.artist_name : person.sharedArtist;
+                    const artwork = tier === 'verified_live' ? person.artwork_url : person.sharedArtwork;
                     const hasSong = !!song?.trim() && !!artist?.trim();
 
                     return (
@@ -1998,14 +1989,6 @@ export default function NowScreen() {
             </View>
             <View style={styles.feedComposerPlus}><Text style={styles.feedComposerPlusText}>+</Text></View>
           </Pressable>
-
-          {dailyDrop && (
-            <DailyDropCard
-              postId={dailyDrop.id}
-              question={dailyDrop.body ?? ''}
-              replyCount={dailyDrop.replyCount}
-            />
-          )}
 
           {firstConversation&&posts.some(p=>p.id===firstConversation.postId)&&(
             <View style={{marginHorizontal:20,marginBottom:14,flexDirection:'row',
@@ -2855,7 +2838,7 @@ export default function NowScreen() {
                         <Text style={styles.body}>{post.body}</Text>
                       </Pressable>
                     )}
-                    {post.post_kind==='aux_prompt'&&<Pressable
+                    {(post.post_kind==='aux_prompt' || post.post_kind==='daily_drop')&&<Pressable
                       accessibilityRole="button" accessibilityLabel="Reply to the OVRLEE question with a song"
                       onPress={()=>openPost(post.id)}
                       style={{alignSelf:'flex-start',borderRadius:22,borderWidth:1,
@@ -2909,7 +2892,7 @@ export default function NowScreen() {
                         </View>
                       );
                     })()}
-                    {post.post_kind==='aux_prompt' || post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
+                    {(post.post_kind==='aux_prompt' || post.post_kind==='daily_drop') || post.collection ? null : Array.isArray(post.music_items) && post.music_items.length > 1 ? (
                       <View style={styles.collectionContainer}>
                         <Text style={styles.collectionHeading}>
                           COLLECTION · {post.music_items.length} TRACKS
@@ -2949,7 +2932,7 @@ export default function NowScreen() {
                       />
                     )}
 
-                    {!post.collection && post.post_kind!=='aux_prompt'&&<PostArtistDiscoveryLink
+                    {!post.collection && post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop'&&<PostArtistDiscoveryLink
                       credit={post.artist_name || ''}
                       primaryArtist={primaryArtists[String(post.apple_music_id||post.music_items?.[0]?.id||'')]?.name}
                       song={post.song_title}

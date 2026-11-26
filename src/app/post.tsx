@@ -22,7 +22,7 @@ import { getMusicProvider, resolveTrackLink, type MusicProvider } from '../music
 import { resolveSharedMusic } from '../shared-music';
 
 type Music = { id?: string; song: string; artist: string; artworkUrl?: string; album?: string; kind?: 'song' | 'album'; sourceUrl?: string | null };
-type Post = { id: string; user_id: string; created_at: string; body: string | null; post_kind?: 'music' | 'aux_prompt'; song_title: string; artist_name: string; album_name: string | null; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
+type Post = { id: string; user_id: string; created_at: string; body: string | null; post_kind?: 'music' | 'aux_prompt' | 'daily_drop'; song_title: string; artist_name: string; album_name: string | null; artwork_url: string | null; apple_music_id: string | null; photo_url: string | null; photo_urls: string[] | null; music_items: Music[] | null; collection: CollectionMeta | null };
 type Reply = { id: string; created_at: string; user_id: string; body: string; displayName: string; username: string; avatarUrl: string | null; song_title: string | null; song_artist: string | null; song_artwork_url: string | null; song_catalog_id: string | null; song_source_url: string | null; parent_reply_id: string | null };
 const green = '#39E75F';
 const width = Dimensions.get('window').width;
@@ -380,7 +380,7 @@ export default function PostDetailScreen() {
             </ScrollView>
             {photos.length > 1 && <Text style={styles.photoCounter}>{galleryIndex + 1}/{photos.length}</Text>}
           </View>}
-          {post.post_kind!=='aux_prompt' && (music.length === 1 ? (
+          {post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop' && (music.length === 1 ? (
             <PostMusicTrackCard
               track={singleTrack!}
               albumName={!post.collection ? post.album_name : null}
@@ -419,7 +419,7 @@ export default function PostDetailScreen() {
   
             </View>
           ))}
-          {post?.post_kind==='aux_prompt' ? null : post?.collection
+          {(post?.post_kind==='aux_prompt' || post?.post_kind==='daily_drop') ? null : post?.collection
             ? <CollectionArtistDiscoveryLinks items={itemsFromPost(post)} sourcePostId={post.id}/>
             : post && <PostArtistDiscoveryLink
                 credit={post.artist_name || ''}

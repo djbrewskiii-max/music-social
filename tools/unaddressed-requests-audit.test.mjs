@@ -19,8 +19,10 @@ assert.match(musicSettings,/provider==='spotify'&&<Text/,
 
 assert.match(feed,/const activeMusicPeople\s*=\s*listeningPeople\.filter/,
  'Home should derive the genuine listening cohort, not show every online member');
-assert.match(feed,/return tier !== 'here_now' && !!song\?\.trim\(\) && !!artist\?\.trim\(\)/,
- 'Do not display an unverified or empty music presence card');
+assert.match(feed,/tier === 'verified_live' \|\| tier === 'shared_just_now'/,
+ 'In the moment only includes verified live or recently shared tracks, not weekly lists');
+assert.match(feed,/!!song\?\.trim\(\) && !!artist\?\.trim\(\)/,
+ 'Never display a missing-track listening card');
 assert.match(feed,/activeMusicPeople\.length\s*>\s*0\s*&&\s*\(/,
  'Do not show a sparse Who\'s Here section when no music is actually playing');
 assert.match(feed,/activeMusicPeople.map/,
@@ -59,10 +61,10 @@ assert.match(thread,/post\.post_kind!=='aux_prompt'/,
  'Opening an Aux question must not show a fake/empty music card');
 assert.match(myProfile,/post\.post_kind!=='aux_prompt'/,
  'Own profile must not show empty music art on Aux prompts');
-assert.match(memberProfile,/post\.post_kind==='aux_prompt' \? null/,
- 'Viewed member profile must not show empty music art on Aux prompts');
-assert.match(activity,/post_kind==='aux_prompt'\?\(item\.post\.body\|\|'Music question'\)/,
- 'Private saves and public Likes show the actual question, not an invented category label');
+assert.match(memberProfile,/post\.post_kind==='aux_prompt' \|\| post\.post_kind==='daily_drop'/,
+ 'Viewed member profile must suppress the fake music card for both question post kinds');
+assert.match(activity,/post_kind==='aux_prompt' \|\| item\.post\.post_kind==='daily_drop'/,
+ 'Saved and liked question posts should show the actual question, not a fake song');
 
 assert.match(feed,/REPLY WITH A SONG/,
  'Official questions must lead to existing Song Reply conversations');

@@ -46,6 +46,7 @@ jobs:
       - run: node --check scripts/import-geonames-cities.mjs
       - run: node tools/launch-account-group-appearance.test.mjs
       - run: node tools/unaddressed-requests-audit.test.mjs
+      - run: node tools/music-first-beta-simplification.test.mjs
       - run: node tools/group-push-mute-contract.test.mjs
       - run: node tools/preview-deployment-gate.test.mjs
       - run: node tools/beta-release-config.test.mjs

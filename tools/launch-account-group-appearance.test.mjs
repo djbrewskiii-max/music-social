@@ -43,7 +43,8 @@ assert.match(feed,/styles.liveDot/,'Status dot is intentional, not a decorative 
 
 assert.match(collection,/CollectionArtistDiscoveryLinks items=\{items\}/);
 assert.match(post,/CollectionArtistDiscoveryLinks items=\{itemsFromPost\(post\)\}/);
-assert.match(feed,/!post.collection && post.post_kind!=='aux_prompt'&&<PostArtistDiscoveryLink/,'Collection and Aux posts must not receive a single-artist discovery chip');
+assert.match(feed,/!post.collection && post.post_kind!=='aux_prompt' && post.post_kind!=='daily_drop'&&<PostArtistDiscoveryLink/,
+ 'Collections and official music questions must not receive fabricated artist discovery chips');
 assert.match(collectionArtists,/seen\.has\(key\)/,'Artist chips are unique');
 assert.match(collectionArtists,/PostArtistDiscoveryLink/,'Shared music discovery behavior');
 
