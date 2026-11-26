@@ -14,6 +14,7 @@ The five member-facing starting points in Studio (Soundtrack to my life, A very 
 - Locally rendered 9:16 image/song-card scenes: slow pans, zooms, fades, title, track credit, note and progress
 - Four motion presets: 35mm, Editorial, Archive, Cinema
 - Every layout can now retain up to five personal photos for the motion viewer, even when its static composition uses only one or none. Combined songs and photos still stop at ten items.
+- The Studio photo manager lets members replace, remove, reframe and reorder any of those photos; changing static layouts does not silently delete photos.
 - Each personal photo pairs with a music item by order; album art fills gaps. If there are more photos than tracks, the last track remains credited
 - Motion preset stored in the existing `posts.collection` JSON and `collection_drafts.data` JSON (no migration required). Older posts default to 35mm
 - Ordinary official questions **and member Collections** gain `Make yours`, which opens Studio without creating a new destination. The resulting Collection retains a link to the source post. The original question is visible as editorial context, not copied into the creator's caption.
