@@ -31,7 +31,6 @@ import {
 } from '../first-listen';
 import DayOnePanel from '../components/DayOnePanel';
 import ListeningPartyPanel from '../components/ListeningPartyPanel';
-import FirstListenLivePanel from '../components/FirstListenLivePanel';
 import { supabase } from '../supabase';
 import { getMusicProvider, type MusicProvider } from '../music-provider';
 import { useListeningParty } from '../use-listening-party';
@@ -504,8 +503,6 @@ export default function FirstListenRoom() {
             here={here}
           />
         )}
-
-        <FirstListenLivePanel room={room} provider={musicProvider} />
 
         {editions.length > 1 && (
           <View style={styles.editionWrap}>
