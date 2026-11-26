@@ -55,7 +55,7 @@ export default function StudioScreen() {
   const [motionOpen, setMotionOpen] = useState(false);
   const [promptSourcePostId, setPromptSourcePostId] = useState<string | null>(null);
   const [inspirationText, setInspirationText] = useState('');
-  const seededFromPrompt = useRef(false);
+  const seededFromPrompt = useRef<string | null>(null);
   const [coverArtId, setCoverArtId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -89,8 +89,10 @@ export default function StudioScreen() {
 
   // A question in the feed can become a member's own Collection, not a new post type.
   useEffect(() => {
-    if (seededFromPrompt.current || typeof prompt !== 'string' || !prompt.trim()) return;
-    seededFromPrompt.current = true;
+    if (typeof prompt !== 'string' || !prompt.trim()) return;
+    const promptKey = `${typeof sourcePostId === 'string' ? sourcePostId : ''}:${prompt}`;
+    if (seededFromPrompt.current === promptKey) return;
+    seededFromPrompt.current = promptKey;
     setTitle('my answer in songs');
     setCaption(''); // never post somebody else's question as the member's own words
     setInspirationText(prompt.trim().slice(0, 300));
