@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../supabase';
+import SongPreviewButton from './SongPreviewButton';
 
 type Track = {
   id?: string;
@@ -908,8 +909,11 @@ export default function UnifiedRotation({
             }
             style={styles.track}
           >
+            <View style={{flexDirection:'row',alignItems:'center',gap:10}}>
             <Pressable
-              style={styles.trackMain}
+              style={[styles.trackMain,{flex:1,minWidth:0}]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${track.song} by ${track.artist} in your music app`}
               onPress={() => void openTrack(track)}
             >
               {track.artworkUrl ? (
@@ -943,6 +947,9 @@ export default function UnifiedRotation({
 
               <Text style={styles.arrow}>↗</Text>
             </Pressable>
+            <SongPreviewButton song={track.song} artist={track.artist}
+              id={track.id} size="compact" />
+            </View>
 
             {owner && pin && (
               <View style={styles.pinActions}>
