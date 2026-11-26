@@ -351,6 +351,12 @@ export default function PostDetailScreen() {
               <View style={{ marginBottom: 20 }}>
                 <Text style={styles.collectionTitle}>{post.collection.title}</Text>
                 {!!post.body && <Text style={styles.caption}>{post.body}</Text>}
+                {!!post.collection.promptSourcePostId && <Pressable accessibilityRole="button"
+                  accessibilityLabel="Open the question that inspired this Collection"
+                  onPress={() => router.push({ pathname: '/post', params: { postId: post.collection?.promptSourcePostId || '' } })}
+                  style={{ marginVertical: 8, alignSelf: 'flex-start' }}>
+                  <Text style={{ color: colors.secondary, fontSize: 12, textDecorationLine: 'underline' }}>Inspired by a music question · See original</Text>
+                </Pressable>}
                 <Pressable accessibilityRole="button" accessibilityLabel="Watch this Collection in motion"
                   onPress={() => setMotionOpen(true)}
                   style={{ borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface,
