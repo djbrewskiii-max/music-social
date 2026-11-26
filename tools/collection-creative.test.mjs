@@ -38,7 +38,7 @@ assert.match(studio, /COLLECTION_IDEAS\.map/);
 assert.match(studio, /CollectionMotion visible=\{motionOpen\}/);
 assert.match(studio, /saveDraft\(draftId, \{ template, theme, titleFont, motionStyle/);
 assert.match(studio, /setCaption\(''\); \/\/ never post somebody else's question/,
-  'Remixing a question should not publish the question as the user's own caption');
+  "Remixing a question should not publish the question as the creator\'s own caption");
 assert.doesNotMatch(studio, /setPhotos\(\(prev\) => prev\.slice\(0, t\.key ===/,
   'Switching a layout should never discard pictures already selected for motion');
 assert.match(studio, /setSheet\('photos'\)/,
