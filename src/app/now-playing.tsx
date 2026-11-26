@@ -140,8 +140,10 @@ export default function NowPlayingScreen() {
                 </Pressable>
               </>
             )}
-            <Pressable style={styles.secondary} onPress={() => router.push('/on-repeat')}>
-              <Text style={styles.secondaryText}>Or set your On Repeat for the week →</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Edit your In Rotation songs"
+              style={styles.secondary}
+              onPress={() => router.push({pathname:'/my-profile',params:{openRotation:'1'}})}>
+              <Text style={styles.secondaryText}>Choose songs for In Rotation →</Text>
             </Pressable>
           </>
         )}
